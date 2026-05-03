@@ -138,12 +138,48 @@ _COUNTER_PATTERNS: dict[str, re.Pattern[str]] = {
     ),
 }
 
-# Per-position acceptance rate pattern (vLLM specific)
-_PER_POSITION_PATTERN = re.compile(
+# Per-position acceptance rate gauge (if the server exposes it directly)
+_PER_POSITION_RATE_PATTERN = re.compile(
     r"^(?:vllm[:_])?spec_decode_per_position_acceptance_rate"
     rf'\{{[^}}]*position="(\d+)"[^}}]*\}}\s+{_NUM}',
     re.MULTILINE,
 )
+
+# Per-position accepted tokens counter (vLLM v1 actual metric)
+# vllm:spec_decode_num_accepted_tokens_per_pos_total{position="0"} 12345
+_PER_POSITION_COUNTER_PATTERN = re.compile(
+    r"^(?:vllm[:_])?spec_decode_num_accepted_tokens_per_pos(?:_total)?"
+    rf'\{{[^}}]*position="(\d+)"[^}}]*\}}\s+{_NUM}',
+    re.MULTILINE,
+)
+
+# Speculative decoding method — detected from HELP/TYPE lines, metric labels,
+# or raw text keywords in the /metrics response.  Order matters: most specific
+# first ("dflash" before generic "draft").
+_SPEC_METHOD_HINTS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"dflash", re.IGNORECASE), "dflash"),
+    (re.compile(r"eagle3", re.IGNORECASE), "eagle3"),
+    (re.compile(r"eagle", re.IGNORECASE), "eagle"),
+    (re.compile(r"\bmtp\b|multi[_-]?token", re.IGNORECASE), "mtp"),
+    (re.compile(r"\bngram\b|prompt_lookup", re.IGNORECASE), "ngram"),
+]
+
+
+def _detect_spec_method(text: str) -> str:
+    """Infer the speculative decoding method from raw Prometheus text.
+
+    Scans HELP/TYPE/label strings and raw text for keywords that indicate
+    the speculative decoding method being used.  Returns one of:
+    dflash, eagle3, eagle, mtp, ngram, draft_model, or unknown.
+    """
+    for pattern, method in _SPEC_METHOD_HINTS:
+        if pattern.search(text):
+            return method
+    # If spec decode counters exist but no specific method keyword was found,
+    # it's likely a traditional draft model setup.
+    if "spec_decode" in text:
+        return "draft_model"
+    return "unknown"
 
 
 @dataclass
@@ -170,8 +206,14 @@ class MetricsSnapshot:
     prompt_tokens_total: float = 0.0
     generation_tokens_total: float = 0.0
 
-    # Per-position acceptance rates (position → rate)
+    # Per-position acceptance rates (position → rate 0.0–1.0)
     per_position_rates: dict[int, float] = field(default_factory=dict)
+
+    # Per-position accepted token counters (position → cumulative count)
+    per_position_counters: dict[int, float] = field(default_factory=dict)
+
+    # Detected speculative decoding method (dflash, mtp, eagle, etc.)
+    spec_method: str = "unknown"
 
     # -- llama.cpp metrics --
     llamacpp_prompt_tokens_total: float = 0.0
@@ -242,6 +284,12 @@ class SpecLiveDelta:
     total_drafted: int = 0
     total_drafts: int = 0
 
+    # Detected speculative decoding method
+    spec_method: str = "unknown"
+
+    # Inferred num_speculative_tokens (from cumulative draft window)
+    num_spec_tokens: int | None = None
+
 
 def _parse_snapshot(text: str) -> MetricsSnapshot:
     """Parse Prometheus text into a MetricsSnapshot."""
@@ -252,11 +300,27 @@ def _parse_snapshot(text: str) -> MetricsSnapshot:
         if m:
             setattr(snap, name, float(m.group(1)))
 
-    # Per-position acceptance rates
-    for m in _PER_POSITION_PATTERN.finditer(text):
+    # Per-position acceptance rates (gauge — if the server exposes them)
+    for m in _PER_POSITION_RATE_PATTERN.finditer(text):
         pos = int(m.group(1))
         rate = float(m.group(2))
         snap.per_position_rates[pos] = rate
+
+    # Per-position accepted token counters (the actual vLLM v1 metric)
+    # vllm:spec_decode_num_accepted_tokens_per_pos_total{position="N"}
+    for m in _PER_POSITION_COUNTER_PATTERN.finditer(text):
+        pos = int(m.group(1))
+        count = float(m.group(2))
+        snap.per_position_counters[pos] = count
+
+    # If we have per-position counters but no rate gauges, compute rates
+    # from counters: rate[pos] = counter[pos] / num_drafts
+    if not snap.per_position_rates and snap.per_position_counters and snap.num_drafts > 0:
+        for pos, count in snap.per_position_counters.items():
+            snap.per_position_rates[pos] = count / snap.num_drafts
+
+    # Detect speculative decoding method from raw text
+    snap.spec_method = _detect_spec_method(text)
 
     return snap
 
@@ -348,6 +412,8 @@ def compute_delta(prev: MetricsSnapshot, curr: MetricsSnapshot) -> SpecLiveDelta
         total_accepted=int(curr.accepted_tokens),
         total_drafted=int(curr.draft_tokens),
         total_drafts=int(curr.num_drafts),
+        # Spec decode method
+        spec_method=curr.spec_method,
     )
 
     # --- Cumulative rates (always computed from totals) ---
@@ -356,6 +422,9 @@ def compute_delta(prev: MetricsSnapshot, curr: MetricsSnapshot) -> SpecLiveDelta
     if curr.num_drafts > 0:
         delta.cumulative_acceptance_length = curr.accepted_tokens / curr.num_drafts
         delta.cumulative_draft_window = curr.draft_tokens / curr.num_drafts
+        # Infer num_speculative_tokens from the draft window — this equals
+        # the server's configured value when drafts are uniform.
+        delta.num_spec_tokens = round(curr.draft_tokens / curr.num_drafts)
 
     # --- Interval rates (only when counters actually changed) ---
     if d_drafted > 0:

@@ -4,46 +4,77 @@ All notable changes to `tool-eval-bench` are documented here.
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-05-03
+
 ### Added
 
-- **llama.cpp speculative decoding support** — `--spec-bench` now extracts draft
-  acceptance stats from llama.cpp servers via per-request `timings` JSON
-  (`draft_n` / `draft_n_accepted`), since llama.cpp doesn't expose spec decode
-  counters in its Prometheus `/metrics` endpoint.  Detection automatically
-  identifies llama.cpp backends by the `llamacpp:` metric prefix and falls back
-  to per-request timings when Prometheus counters are absent.  vLLM support is
-  unchanged.  Use `--spec-method=mtp` to explicitly enable spec decode measurement
-  on llama.cpp servers.
-- **llama.cpp metrics in `--spec-live` dashboard** — the live dashboard now parses
-  `llamacpp:` prefixed Prometheus counters (`prompt_tokens_total`,
-  `tokens_predicted_total`, `predicted_tokens_seconds`, `requests_processing`,
-  `requests_deferred`, `kv_cache_usage_ratio`) to display throughput, engine
-  status, and KV cache usage for llama.cpp servers.  Spec decode sparklines are
-  unavailable (upstream limitation) but all engine gauges work.
-- **21 new llama.cpp regression tests** — covering `llamacpp:` metric parsing,
-  `SpecDecodeInfo.has_per_request_timings`, `ThroughputSample.draft_n` fields,
-  `SpecDecodeSample` population from per-request timings, `compute_delta`
-  fallback to llama.cpp gauges, and Prometheus-takes-precedence-over-timings.
+- **Alternate screen buffer for `--spec-live`** — the dashboard now enters the
+  terminal's alternate screen buffer (like htop, vim, less) for a clean,
+  full-terminal canvas.  Previous terminal output is completely hidden while the
+  dashboard is active and restored on exit (Ctrl+C).  This eliminates visual
+  clutter from prior command output or log lines.
+- **Session-relative metrics** — all cumulative values (acceptance rate, τ,
+  per-position rates, session counters) now start from zero when the dashboard
+  opens.  A baseline snapshot is captured on first scrape and all metrics are
+  computed as deltas from that baseline.  This lets you observe how different
+  workloads actually perform during each monitoring session.
+- **Per-position acceptance from vLLM counters** — fixed parsing of per-position
+  acceptance data.  vLLM v1 exposes `spec_decode_num_accepted_tokens_per_pos_total`
+  (a counter per position), not the rate gauge we were looking for.  The parser
+  now reads both counter and gauge formats: counters are converted to rates via
+  `counter[pos] / num_drafts`, and gauge rates (if present) take priority.
+- **Full-width horizontal per-position display** — moved per-position acceptance
+  from a cramped left-column vertical panel to a full-width horizontal row at the
+  bottom of the dashboard.  Each position shows an inline bar with percentage
+  (`p0 ████ 83%  p1 ███ 64% ...`), making the data readable at any terminal width.
+- **Method badge always visible** — the speculative decoding method badge
+  (`⟨ Draft Flash ⟩`, `⟨ MTP ⟩`, `⟨ EAGLE ⟩`, etc.) now always appears in the
+  dashboard header when spec decode is active.  Previously, servers that didn't
+  include method keywords in their Prometheus output got no badge.  Unknown
+  methods now show `⟨ Speculative Decoding ⟩`.
+- **Rolling Averages shown immediately** — the Rolling Averages panel is now
+  visible from the first poll with 0.0 values, rather than waiting for 5+
+  samples to appear.
+- **Session α always visible** — Session acceptance rate row in Engine & Session
+  starts at 0.0% immediately, rather than appearing only after the first draft.
+- **7 new per-position counter tests** — covering counter parsing, rate
+  computation from counters/num_drafts, monotonic decay, gauge-takes-priority,
+  zero-drafts safety, and underscore prefix variants.
+  Total test count: **1,393**.
 
 ### Fixed
 
-- **Context pressure targets max_model_len instead of KV cache capacity** — when
-  auto-detecting context size, `--context-pressure` used `max_model_len` from
-  `/v1/models` (e.g. 262K for Qwen3.6-35B) even though the server's actual KV
-  cache might be much smaller (e.g. 117K tokens based on available GPU memory).
-  This caused `--context-pressure 0.9` to generate filler that exceeded KV cache
-  capacity, leading to failed requests or ineffective pressure.  Now scrapes
-  `vllm:cache_config_info` from `/metrics` to determine the real KV capacity
-  (`num_gpu_blocks × block_size`) and uses `min(max_model_len, kv_capacity)` as
-  the effective context size.  The cap only applies when context size is
-  auto-detected; explicit `--context-size` overrides are trusted as-is.
-  Non-vLLM servers gracefully fall back to `max_model_len`.
-- **Context pressure sweep times out on large context windows** — the sweep
-  called `run_all_scenarios` with the hardcoded 60-second default timeout,
-  ignoring both `--timeout` and the fact that large fills (100K+ tokens) need
-  30-60+ seconds just for prefill.  Now auto-scales the timeout to
-  `max(--timeout, 60 + 30s per 50K fill tokens)`, so a 123K fill gets ~134s
-  instead of 60s.  Also passes `--timeout` through to the sweep path.
+- **KV Cache truncation at narrow terminals** — the KV cache fill bar and
+  percentage text overflowed at half terminal width.  Reduced label from
+  "KV Cache Fill" to "KV Cache", made bar width dynamic (`max(6, min(10,
+  col_w - 20))`), reduced padding from 2 to 1, and switched to `.0f` format.
+- **Per-position labels truncated to `...`** — in the old vertical layout, the
+  `p0`, `p1` position labels were being truncated to `...` because the column
+  was too narrow.  The new horizontal layout eliminates this entirely.
+- **Pre-populated values from server history** — per-position rates and
+  acceptance rate showed all-time server values on dashboard start instead of
+  session-relative data.  Now properly cleared until new session data arrives.
+
+### Changed
+
+- **Speculative decoding config in `--spec-live` dashboard** — the live monitor
+  now detects and displays the active speculative decoding method (dflash,
+  MTP, EAGLE, EAGLE-3, N-Gram, or draft model) as a color-coded badge in the
+  dashboard header.  The inferred `num_speculative_tokens` (k) is shown in the
+  acceptance rate annotation and the metrics panel.  Method detection scans
+  Prometheus `/metrics` text for keyword hints (HELP lines, labels, method
+  names) and falls back to "Speculative Decoding" when spec decode counters are
+  present but no specific method is identified.
+- **Per-position acceptance decay analysis** — when the server exposes
+  per-position acceptance rates (vLLM), the Per-Position Acceptance panel now
+  includes: effective positions count (positions with >20% acceptance),
+  50% drop point, and geometric decay rate (γ/pos).  Provides at-a-glance
+  insight into how quickly draft quality degrades across positions.
+- **Method-specific efficiency insights** — the efficiency insight line now
+  accounts for the detected spec decode method: MTP models get contextual
+  guidance ("acceptance at N% is typical for MTP"), dflash models with high
+  draft tokens and low utilization get targeted reduction suggestions with the
+  current `num_speculative_tokens` value displayed.
 
 ## [1.4.3.1] — 2026-04-26
 

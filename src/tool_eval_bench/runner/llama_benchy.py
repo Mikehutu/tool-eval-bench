@@ -92,6 +92,7 @@ def _build_command(
     latency_mode: str = "generation",
     no_cache: bool = True,
     skip_coherence: bool = False,
+    skip_warmup: bool = False,
     output_file: str | None = None,
     extra_args: list[str] | None = None,
 ) -> list[str]:
@@ -141,6 +142,8 @@ def _build_command(
         cmd.append("--no-cache")
     if skip_coherence:
         cmd.append("--skip-coherence")
+    if skip_warmup:
+        cmd.append("--no-warmup")
 
     # JSON output
     cmd.extend(["--format", "json"])
@@ -252,6 +255,7 @@ async def run_llama_benchy(
     latency_mode: str = "generation",
     no_cache: bool = True,
     skip_coherence: bool = False,
+    skip_warmup: bool = False,
     extra_args: list[str] | None = None,
     on_output: Any | None = None,
 ) -> LlamaBenchyResult:
@@ -292,6 +296,7 @@ async def run_llama_benchy(
             latency_mode=latency_mode,
             no_cache=no_cache,
             skip_coherence=skip_coherence,
+            skip_warmup=skip_warmup,
             output_file=output_file,
             extra_args=extra_args,
         )

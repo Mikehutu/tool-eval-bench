@@ -457,14 +457,15 @@ class TestDashboardHelpers:
         from tool_eval_bench.cli.spec_live_display import _position_bars
 
         table = _position_bars({})
-        # Should render without error and contain the MTP fallback text
+        # Should render without error — empty table (panel hidden when no data)
         from rich.console import Console
         from io import StringIO
 
         out = StringIO()
         Console(file=out, width=60, no_color=True).print(table)
-        text = out.getvalue()
-        assert "not exposed" in text
+        text = out.getvalue().strip()
+        # Empty table should produce no content rows
+        assert text == ""
 
     def test_position_bars_with_data(self):
         from tool_eval_bench.cli.spec_live_display import _position_bars
@@ -569,8 +570,8 @@ class TestBuildDashboard:
         text = self._render(panel)
         assert "Rolling Averages" in text
 
-    def test_renders_without_rolling_averages(self):
-        """Rolling averages panel hidden with < 5 data points."""
+    def test_renders_rolling_averages_early(self):
+        """Rolling averages panel visible immediately with zero values."""
         from tool_eval_bench.cli.spec_live_display import _build_dashboard
 
         delta = self._make_delta()
@@ -578,7 +579,7 @@ class TestBuildDashboard:
         panel = _build_dashboard(delta, history, time.time() - 3,
                                  "TestModel", "http://localhost:8000/metrics", 3)
         text = self._render(panel)
-        assert "Rolling Averages" not in text
+        assert "Rolling Averages" in text
 
     def test_renders_high_acceptance(self):
         """Dashboard with excellent acceptance rate."""
@@ -802,3 +803,437 @@ class TestComputeDeltaLlamaCpp:
         delta = compute_delta(prev, curr)
         assert delta.generation_tps == pytest.approx(55.0)
         assert delta.running_reqs == 2
+
+
+# ---------------------------------------------------------------------------
+# Spec method detection
+# ---------------------------------------------------------------------------
+
+
+class TestSpecMethodDetection:
+    """Test _detect_spec_method inference from Prometheus text."""
+
+    def test_dflash_detection(self):
+        from tool_eval_bench.runner.spec_live import _detect_spec_method
+        text = """\
+# HELP vllm:spec_decode_num_draft_tokens_total Total draft tokens.
+# TYPE vllm:spec_decode_num_draft_tokens_total counter
+vllm:spec_decode_num_draft_tokens_total{engine="0",model_name="Qwen3.6-35B",spec_method="dflash"} 5000.0
+"""
+        assert _detect_spec_method(text) == "dflash"
+
+    def test_mtp_detection(self):
+        from tool_eval_bench.runner.spec_live import _detect_spec_method
+        text = """\
+# HELP vllm:spec_decode_num_draft_tokens_total MTP draft tokens.
+# TYPE vllm:spec_decode_num_draft_tokens_total counter
+vllm:spec_decode_num_draft_tokens_total{engine="0",spec_method="mtp"} 3000.0
+"""
+        assert _detect_spec_method(text) == "mtp"
+
+    def test_multi_token_detection(self):
+        from tool_eval_bench.runner.spec_live import _detect_spec_method
+        text = "# Multi-token prediction spec decode counters\nspec_decode_num_draft_tokens 100\n"
+        assert _detect_spec_method(text) == "mtp"
+
+    def test_eagle3_detection(self):
+        from tool_eval_bench.runner.spec_live import _detect_spec_method
+        text = "spec_decode_num_draft_tokens{spec_method=\"eagle3\"} 100\n"
+        assert _detect_spec_method(text) == "eagle3"
+
+    def test_eagle_detection(self):
+        from tool_eval_bench.runner.spec_live import _detect_spec_method
+        text = "spec_decode_num_draft_tokens{spec_method=\"eagle\"} 100\n"
+        assert _detect_spec_method(text) == "eagle"
+
+    def test_ngram_detection(self):
+        from tool_eval_bench.runner.spec_live import _detect_spec_method
+        text = "# Using ngram speculative decoding\nspec_decode_num_draft_tokens 100\n"
+        assert _detect_spec_method(text) == "ngram"
+
+    def test_prompt_lookup_detection(self):
+        from tool_eval_bench.runner.spec_live import _detect_spec_method
+        text = "# prompt_lookup spec method\nspec_decode_num_draft_tokens 100\n"
+        assert _detect_spec_method(text) == "ngram"
+
+    def test_generic_draft_model_detection(self):
+        from tool_eval_bench.runner.spec_live import _detect_spec_method
+        # spec_decode counters present but no specific method keyword
+        text = "spec_decode_num_draft_tokens 100\n"
+        assert _detect_spec_method(text) == "draft_model"
+
+    def test_unknown_when_no_spec_decode(self):
+        from tool_eval_bench.runner.spec_live import _detect_spec_method
+        text = "vllm:num_requests_running 0\n"
+        assert _detect_spec_method(text) == "unknown"
+
+    def test_dflash_takes_precedence_over_draft(self):
+        """dflash should be detected before generic draft_model."""
+        from tool_eval_bench.runner.spec_live import _detect_spec_method
+        text = "spec_decode_num_draft_tokens{method=\"dflash\"} 100\n"
+        assert _detect_spec_method(text) == "dflash"
+
+    def test_eagle3_before_eagle(self):
+        """eagle3 is more specific than eagle and should match first."""
+        from tool_eval_bench.runner.spec_live import _detect_spec_method
+        text = "spec_decode_num_draft_tokens{method=\"eagle3\"} 100\n"
+        assert _detect_spec_method(text) == "eagle3"
+
+    def test_method_in_parse_snapshot(self):
+        """spec_method is populated by _parse_snapshot."""
+        text = """\
+vllm:spec_decode_num_accepted_tokens_total{engine="0",spec_method="dflash"} 1500.0
+vllm:spec_decode_num_draft_tokens_total{engine="0",spec_method="dflash"} 5000.0
+"""
+        snap = _parse_snapshot(text)
+        assert snap.spec_method == "dflash"
+
+    def test_method_forwarded_to_delta(self):
+        """spec_method propagates from snapshot to delta."""
+        prev = MetricsSnapshot(timestamp=100.0)
+        curr = MetricsSnapshot(
+            timestamp=110.0,
+            accepted_tokens=100, draft_tokens=500, num_drafts=50,
+            spec_method="mtp",
+        )
+        delta = compute_delta(prev, curr)
+        assert delta.spec_method == "mtp"
+
+
+# ---------------------------------------------------------------------------
+# num_spec_tokens inference
+# ---------------------------------------------------------------------------
+
+
+class TestNumSpecTokens:
+    """Test inference of num_speculative_tokens from draft window."""
+
+    def test_inferred_from_draft_window(self):
+        """num_spec_tokens = round(draft_tokens / num_drafts)."""
+        prev = MetricsSnapshot(timestamp=100.0)
+        curr = MetricsSnapshot(
+            timestamp=110.0,
+            accepted_tokens=150, draft_tokens=500, num_drafts=100,
+        )
+        delta = compute_delta(prev, curr)
+        # 500 / 100 = 5.0 → 5
+        assert delta.num_spec_tokens == 5
+
+    def test_rounded_correctly(self):
+        """Rounding for non-integer draft windows."""
+        prev = MetricsSnapshot(timestamp=100.0)
+        curr = MetricsSnapshot(
+            timestamp=110.0,
+            accepted_tokens=150, draft_tokens=330, num_drafts=100,
+        )
+        delta = compute_delta(prev, curr)
+        # 330 / 100 = 3.3 → 3
+        assert delta.num_spec_tokens == 3
+
+    def test_none_when_no_drafts(self):
+        """num_spec_tokens is None when there are no drafts."""
+        prev = MetricsSnapshot(timestamp=100.0)
+        curr = MetricsSnapshot(timestamp=110.0)
+        delta = compute_delta(prev, curr)
+        assert delta.num_spec_tokens is None
+
+    def test_single_spec_token_mtp(self):
+        """MTP with num_speculative_tokens=1."""
+        prev = MetricsSnapshot(timestamp=100.0)
+        curr = MetricsSnapshot(
+            timestamp=110.0,
+            accepted_tokens=450, draft_tokens=500, num_drafts=500,
+            spec_method="mtp",
+        )
+        delta = compute_delta(prev, curr)
+        # 500 / 500 = 1.0 → 1
+        assert delta.num_spec_tokens == 1
+        assert delta.spec_method == "mtp"
+
+
+# ---------------------------------------------------------------------------
+# Per-position counter → rate computation
+# ---------------------------------------------------------------------------
+
+
+class TestPerPositionCounters:
+    """Test per-position acceptance rate from counter metrics (vLLM v1)."""
+
+    COUNTER_METRICS = """\
+vllm:spec_decode_num_accepted_tokens_total{engine="0"} 1500.0
+vllm:spec_decode_num_draft_tokens_total{engine="0"} 3000.0
+vllm:spec_decode_num_drafts_total{engine="0"} 500.0
+vllm:spec_decode_num_accepted_tokens_per_pos_total{engine="0",position="0"} 454.0
+vllm:spec_decode_num_accepted_tokens_per_pos_total{engine="0",position="1"} 383.0
+vllm:spec_decode_num_accepted_tokens_per_pos_total{engine="0",position="2"} 280.0
+vllm:spec_decode_num_accepted_tokens_per_pos_total{engine="0",position="3"} 220.0
+vllm:spec_decode_num_accepted_tokens_per_pos_total{engine="0",position="4"} 163.0
+"""
+
+    def test_counters_parsed(self):
+        """Per-position counters are captured in per_position_counters."""
+        snap = _parse_snapshot(self.COUNTER_METRICS)
+        assert len(snap.per_position_counters) == 5
+        assert snap.per_position_counters[0] == 454.0
+        assert snap.per_position_counters[4] == 163.0
+
+    def test_rates_computed_from_counters(self):
+        """Rates are derived as counter[pos] / num_drafts."""
+        snap = _parse_snapshot(self.COUNTER_METRICS)
+        assert len(snap.per_position_rates) == 5
+        assert snap.per_position_rates[0] == pytest.approx(454.0 / 500.0)
+        assert snap.per_position_rates[4] == pytest.approx(163.0 / 500.0)
+
+    def test_rates_decrease_monotonically(self):
+        """Rates should decrease across positions (natural decay)."""
+        snap = _parse_snapshot(self.COUNTER_METRICS)
+        rates = [snap.per_position_rates[i] for i in sorted(snap.per_position_rates)]
+        for i in range(len(rates) - 1):
+            assert rates[i] >= rates[i + 1]
+
+    def test_gauge_rates_take_priority(self):
+        """If gauge rates are present, counters don't override them."""
+        text = self.COUNTER_METRICS + (
+            'vllm:spec_decode_per_position_acceptance_rate{position="0"} 0.99\n'
+            'vllm:spec_decode_per_position_acceptance_rate{position="1"} 0.88\n'
+        )
+        snap = _parse_snapshot(text)
+        # Gauge rates present → they take priority
+        assert snap.per_position_rates[0] == pytest.approx(0.99)
+        assert snap.per_position_rates[1] == pytest.approx(0.88)
+        # Counters are still parsed independently
+        assert len(snap.per_position_counters) == 5
+
+    def test_no_rates_when_zero_drafts(self):
+        """With zero num_drafts, counters can't produce rates."""
+        text = """\
+vllm:spec_decode_num_accepted_tokens_per_pos_total{position="0"} 0.0
+vllm:spec_decode_num_drafts_total 0.0
+"""
+        snap = _parse_snapshot(text)
+        assert snap.per_position_counters == {0: 0.0}
+        assert snap.per_position_rates == {}  # can't divide by zero
+
+    def test_underscore_prefix_variant(self):
+        """Also match vllm_ prefix (underscore instead of colon)."""
+        text = """\
+vllm_spec_decode_num_accepted_tokens_per_pos_total{position="0"} 100.0
+vllm_spec_decode_num_accepted_tokens_per_pos_total{position="1"} 80.0
+vllm_spec_decode_num_drafts_total 200.0
+"""
+        snap = _parse_snapshot(text)
+        assert len(snap.per_position_rates) == 2
+        assert snap.per_position_rates[0] == pytest.approx(0.5)
+        assert snap.per_position_rates[1] == pytest.approx(0.4)
+
+
+# ---------------------------------------------------------------------------
+# Per-position decay summary
+# ---------------------------------------------------------------------------
+
+
+class TestPerPositionDecaySummary:
+    """Test _per_position_decay_summary analysis."""
+
+    def test_no_rates_returns_none(self):
+        from tool_eval_bench.cli.spec_live_display import _per_position_decay_summary
+        assert _per_position_decay_summary({}) is None
+
+    def test_single_position_returns_none(self):
+        from tool_eval_bench.cli.spec_live_display import _per_position_decay_summary
+        assert _per_position_decay_summary({0: 0.8}) is None
+
+    def test_effective_positions_count(self):
+        from tool_eval_bench.cli.spec_live_display import _per_position_decay_summary
+        rates = {0: 0.80, 1: 0.60, 2: 0.40, 3: 0.15, 4: 0.05}
+        result = _per_position_decay_summary(rates)
+        text = str(result)
+        # 3 positions above 20%: p0=80%, p1=60%, p2=40%
+        assert "3/5" in text
+        assert "effective" in text
+
+    def test_half_point_reported(self):
+        from tool_eval_bench.cli.spec_live_display import _per_position_decay_summary
+        rates = {0: 0.80, 1: 0.60, 2: 0.35, 3: 0.15}
+        result = _per_position_decay_summary(rates)
+        text = str(result)
+        # 50% of 0.80 = 0.40 → p2 (0.35) is first below
+        assert "p2" in text
+
+    def test_no_half_point_when_all_high(self):
+        from tool_eval_bench.cli.spec_live_display import _per_position_decay_summary
+        rates = {0: 0.90, 1: 0.85, 2: 0.80}
+        result = _per_position_decay_summary(rates)
+        text = str(result)
+        assert "3/3" in text
+        # No 50% drop
+        assert "50% drop" not in text
+
+    def test_decay_rate_gamma(self):
+        from tool_eval_bench.cli.spec_live_display import _per_position_decay_summary
+        rates = {0: 0.80, 1: 0.60, 2: 0.40, 3: 0.25}
+        result = _per_position_decay_summary(rates)
+        text = str(result)
+        # γ should be present
+        assert "γ=" in text
+
+
+# ---------------------------------------------------------------------------
+# Spec method label and dashboard badge
+# ---------------------------------------------------------------------------
+
+
+class TestSpecMethodLabel:
+    """Test _spec_method_label formatting."""
+
+    def test_dflash_label(self):
+        from tool_eval_bench.cli.spec_live_display import _spec_method_label
+        label, style = _spec_method_label("dflash")
+        assert label == "Draft Flash"
+        assert "cyan" in style
+
+    def test_mtp_label(self):
+        from tool_eval_bench.cli.spec_live_display import _spec_method_label
+        label, style = _spec_method_label("mtp")
+        assert label == "Multi-Token Prediction"
+        assert "yellow" in style
+
+    def test_eagle_label(self):
+        from tool_eval_bench.cli.spec_live_display import _spec_method_label
+        label, _ = _spec_method_label("eagle")
+        assert label == "EAGLE"
+
+    def test_eagle3_label(self):
+        from tool_eval_bench.cli.spec_live_display import _spec_method_label
+        label, _ = _spec_method_label("eagle3")
+        assert label == "EAGLE-3"
+
+    def test_ngram_label(self):
+        from tool_eval_bench.cli.spec_live_display import _spec_method_label
+        label, _ = _spec_method_label("ngram")
+        assert label == "N-Gram"
+
+    def test_unknown_label(self):
+        from tool_eval_bench.cli.spec_live_display import _spec_method_label
+        label, style = _spec_method_label("unknown")
+        assert label == "Speculative Decoding"
+        assert style == "bold dim"
+
+
+class TestDashboardSpecBadge:
+    """Test dashboard renders spec method badge and num_spec_tokens."""
+
+    def _make_delta(self, **kwargs) -> SpecLiveDelta:
+        defaults = dict(
+            elapsed_s=1.0,
+            had_activity=True,
+            cumulative_acceptance_rate=0.30,
+            cumulative_acceptance_length=2.5,
+            cumulative_draft_window=5.0,
+            acceptance_rate=0.30,
+            accepted_tps=8.0,
+            drafted_tps=14.0,
+            prompt_tps=2500.0,
+            generation_tps=10.5,
+            gpu_cache_pct=3.4,
+            running_reqs=1,
+            waiting_reqs=0,
+            prefix_cache_hit_pct=0.0,
+            per_position_rates={},
+            total_accepted=1500,
+            total_drafted=5000,
+            total_drafts=1000,
+            spec_method="dflash",
+            num_spec_tokens=5,
+        )
+        defaults.update(kwargs)
+        return SpecLiveDelta(**defaults)
+
+    def _render(self, panel) -> str:
+        from rich.console import Console
+        from io import StringIO
+        out = StringIO()
+        Console(file=out, width=120, no_color=True).print(panel)
+        return out.getvalue()
+
+    def test_dflash_badge_in_header(self):
+        from tool_eval_bench.cli.spec_live_display import _build_dashboard
+        delta = self._make_delta(spec_method="dflash")
+        history = deque([delta] * 10, maxlen=60)
+        panel = _build_dashboard(delta, history, time.time() - 30,
+                                 "TestModel", "http://localhost:8000/metrics", 30)
+        text = self._render(panel)
+        assert "Draft Flash" in text
+
+    def test_mtp_badge_in_header(self):
+        from tool_eval_bench.cli.spec_live_display import _build_dashboard
+        delta = self._make_delta(spec_method="mtp")
+        history = deque([delta] * 10, maxlen=60)
+        panel = _build_dashboard(delta, history, time.time() - 30,
+                                 "TestModel", "http://localhost:8000/metrics", 30)
+        text = self._render(panel)
+        assert "Multi-Token Prediction" in text
+
+    def test_unknown_method_no_badge(self):
+        from tool_eval_bench.cli.spec_live_display import _build_dashboard
+        delta = self._make_delta(spec_method="unknown")
+        history = deque([delta] * 10, maxlen=60)
+        panel = _build_dashboard(delta, history, time.time() - 30,
+                                 "TestModel", "http://localhost:8000/metrics", 30)
+        text = self._render(panel)
+        assert "Draft Flash" not in text
+        assert "Multi-Token" not in text
+
+    def test_num_spec_tokens_shown(self):
+        from tool_eval_bench.cli.spec_live_display import _build_dashboard
+        delta = self._make_delta(num_spec_tokens=5)
+        history = deque([delta] * 10, maxlen=60)
+        panel = _build_dashboard(delta, history, time.time() - 30,
+                                 "TestModel", "http://localhost:8000/metrics", 30)
+        text = self._render(panel)
+        assert "k=5" in text
+        assert "Spec Tokens" in text
+
+    def test_per_position_rendered_in_dashboard(self):
+        from tool_eval_bench.cli.spec_live_display import _build_dashboard
+        delta = self._make_delta(
+            per_position_rates={0: 0.80, 1: 0.60, 2: 0.30, 3: 0.08, 4: 0.02},
+        )
+        history = deque([delta] * 10, maxlen=60)
+        panel = _build_dashboard(delta, history, time.time() - 30,
+                                 "TestModel", "http://localhost:8000/metrics", 30)
+        text = self._render(panel)
+        # Per-position panel should be rendered with position labels
+        assert "p0" in text
+        assert "p1" in text
+        assert "Per-Position" in text
+        # Should show percentage values
+        assert "80%" in text
+        assert "60%" in text
+
+    def test_dflash_efficiency_insight_with_nst(self):
+        """Dflash with high draft tokens and low utilization shows hint."""
+        from tool_eval_bench.cli.spec_live_display import _efficiency_insight
+        delta = self._make_delta(
+            spec_method="dflash",
+            cumulative_acceptance_rate=0.20,
+            cumulative_acceptance_length=1.5,
+            cumulative_draft_window=8.0,
+            num_spec_tokens=8,
+        )
+        text = str(_efficiency_insight(delta))
+        assert "num_speculative_tokens" in text
+        assert "current: 8" in text
+
+    def test_mtp_efficiency_insight_guidance(self):
+        """MTP with good utilization shows MTP-specific guidance."""
+        from tool_eval_bench.cli.spec_live_display import _efficiency_insight
+        delta = self._make_delta(
+            spec_method="mtp",
+            cumulative_acceptance_rate=0.65,
+            cumulative_acceptance_length=0.65,
+            cumulative_draft_window=1.0,
+            num_spec_tokens=1,
+        )
+        text = str(_efficiency_insight(delta))
+        assert "MTP" in text

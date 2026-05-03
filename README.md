@@ -280,6 +280,8 @@ tool-eval-bench --perf --spec-bench --seed 42
 
 Keep a **real-time terminal dashboard** open while working — `--spec-live` continuously polls the server's Prometheus `/metrics` endpoint and renders a Rich Live display with acceptance rate gauges, per-position acceptance waterfall, throughput sparklines, draft efficiency analysis, and engine status.
 
+The dashboard runs in the terminal's **alternate screen buffer** (like htop or vim), giving a clean full-terminal canvas without disturbing previous output. On exit, your original terminal content is restored.
+
 ```bash
 # Start the live monitor (runs until Ctrl+C)
 tool-eval-bench --spec-live
@@ -294,11 +296,14 @@ tool-eval-bench --spec-live --metrics-url http://vllm:8080/metrics
 The dashboard shows:
 - **Acceptance rate gauge** — color-coded 0–100% bar with efficiency rating
 - **Draft efficiency gauge** — τ/window utilization with auto-tuning hints
-- **Per-position acceptance bars** — waterfall chart showing acceptance rate decay across draft positions
+- **Method detection badge** — auto-detects dflash, MTP, EAGLE, N-Gram, or generic draft model from Prometheus metrics
+- **Per-position acceptance bars** — full-width horizontal chart showing per-position acceptance rate decay (`p0 ████ 83%  p1 ███ 64% ...`) with decay analysis
 - **Throughput sparklines** — rolling 60-second history of accept rate, gen t/s, accepted t/s, and waste ratio with min/max annotations
-- **Rolling averages** — session-level mean α, gen t/s, and accepted t/s (after 5+ samples)
+- **Rolling averages** — session-level mean α, gen t/s, and accepted t/s (visible immediately with 0.0 initial values)
 - **Engine status** — GPU KV cache, prefix cache hit rate, running/waiting requests, prompt t/s
 - **Session totals** — cumulative accepted/drafted tokens and session-wide acceptance rate
+
+All metrics are **session-relative** — they start from zero when the dashboard opens and show only what happened during the current monitoring session, letting you observe how different workloads actually perform.
 
 On exit (Ctrl+C), a session summary panel shows aggregate statistics.
 
@@ -308,7 +313,7 @@ On exit (Ctrl+C), a session summary panel shows aggregate statistics.
 | `--spec-live-interval` | `1.0` | Seconds between metric scrapes |
 | `--metrics-url` | auto | Direct URL to Prometheus `/metrics` endpoint |
 
-> **Implementation note.** vLLM updates its Prometheus gauge metrics (gen t/s, prompt t/s, KV cache) on a ~10-second internal interval. `--spec-live` handles this by using cumulative rates for the acceptance gauge (always accurate) and retaining the last non-zero reading for throughput gauges so the dashboard doesn't flicker to zero between updates. Per-position acceptance rates are only available for draft-model speculative decoding — MTP (multi-token prediction) servers typically don't expose them.
+> **Implementation note.** vLLM updates its Prometheus gauge metrics (gen t/s, prompt t/s, KV cache) on a ~10-second internal interval. `--spec-live` handles this by retaining the last non-zero reading for throughput gauges so the dashboard doesn't flicker to zero between updates. Per-position acceptance rates are parsed from `spec_decode_num_accepted_tokens_per_pos_total` counters (vLLM v1) and converted to rates; gauge-format rates are also supported as a fallback.
 >
 > **llama.cpp note.** The dashboard auto-detects `llamacpp:` prefixed Prometheus counters and displays throughput (gen t/s, prompt t/s), engine status (running/waiting requests), and KV cache usage. Speculative decoding sparklines (acceptance rate, waste ratio) are **not** available on the `--spec-live` dashboard for llama.cpp because the server doesn't expose draft acceptance counters via Prometheus — use `--spec-bench --spec-method mtp` instead, which extracts per-request stats from the SSE response timings.
 

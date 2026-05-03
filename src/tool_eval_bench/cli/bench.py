@@ -245,13 +245,27 @@ async def _plain_on_result(
 # ---------------------------------------------------------------------------
 
 def _do_warmup(console: Console, base_url: str, model: str, api_key: str | None) -> None:
-    """Send a trivial request to prime the server before benchmarking."""
+    """Send a trivial request to prime the server before benchmarking.
+
+    With speculative decoding (dflash, EAGLE, etc.), the first request triggers
+    JIT compilation and CUDA graph capture which can take 30-60+ seconds.
+    This is a one-time server-side cost — subsequent requests are fast.
+    """
     from tool_eval_bench.runner.throughput import warmup
 
-    with console.status("[dim]  Warming up server…[/]", spinner="dots"):
+    with console.status(
+        "[dim]  Warming up server… (first request may be slow with speculative decoding)[/]",
+        spinner="dots",
+    ):
         try:
-            ms = asyncio.run(warmup(base_url, model, api_key, timeout=60.0))
-            console.print(f"  [bold green]✓[/] Warm-up complete [dim]({ms:.0f} ms)[/]")
+            ms = asyncio.run(warmup(base_url, model, api_key, timeout=120.0))
+            if ms > 10_000:  # >10s indicates JIT/CUDA graph compilation
+                console.print(
+                    f"  [bold green]✓[/] Warm-up complete [dim]({ms:.0f} ms — "
+                    f"JIT/CUDA graph compilation on first request)[/]"
+                )
+            else:
+                console.print(f"  [bold green]✓[/] Warm-up complete [dim]({ms:.0f} ms)[/]")
         except Exception as exc:
             # httpx timeout exceptions can have empty str(), so fall back
             # to the exception class name for a useful diagnostic.
@@ -401,6 +415,7 @@ def _run_llama_benchy(
     runs: int = 3,
     latency_mode: str = "generation",
     skip_coherence: bool = False,
+    skip_warmup: bool = False,
     extra_args: list[str] | None = None,
 ) -> list:
     """Run llama-benchy externally and display results.
@@ -504,6 +519,7 @@ def _run_llama_benchy(
                 runs=runs,
                 latency_mode=latency_mode,
                 skip_coherence=skip_coherence,
+                skip_warmup=skip_warmup,
                 extra_args=extra_args,
                 on_output=on_output,
             )
@@ -1225,6 +1241,9 @@ def main() -> None:
             latency_mode=args.benchy_latency_mode,
             skip_coherence=args.skip_coherence,
             extra_args=benchy_extra,
+            # When we've already done our own warmup, tell llama-benchy to
+            # skip its redundant warmup phase (saves 2 extra requests).
+            skip_warmup=not args.no_warmup,
         )
 
         if args.perf_only:
