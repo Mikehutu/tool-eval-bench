@@ -309,3 +309,113 @@ class TestEmitJsonOutput:
         out_file = str(tmp_path / "nested" / "deep" / "result.json")
         _emit_json_output({"scores": {}}, json_file=out_file)
         assert Path(out_file).exists()
+
+
+# ---------------------------------------------------------------------------
+# Headless model detection (P0 agent-friendliness)
+# ---------------------------------------------------------------------------
+
+class TestHeadlessModelDetection:
+    """Test that --json mode auto-selects models without interactive prompts."""
+
+    def test_headless_auto_selects_first_model(self, capsys):
+        """When headless=True and multiple models are available, pick the first."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        from tool_eval_bench.cli.bench import _detect_model
+
+        # Mock httpx response with 2 models
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [
+                {"id": "model-a", "root": "org/model-a"},
+                {"id": "model-b", "root": "org/model-b"},
+            ]
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        console = Console(file=StringIO(), width=200, no_color=True)
+
+        with patch("tool_eval_bench.cli.bench.asyncio") as mock_asyncio:
+            mock_asyncio.run.return_value = (mock_response, False)
+            api_id, display = _detect_model(
+                "http://localhost:8000", None, console,
+                headless=True,
+            )
+
+        assert api_id == "model-a"
+        assert display == "org/model-a"
+
+        # Should emit JSONL event on stderr
+        captured = capsys.readouterr()
+        event = json.loads(captured.err.strip())
+        assert event["event"] == "model_auto_selected"
+        assert event["model"] == "model-a"
+        assert event["total_available"] == 2
+        assert "model-b" in event["available_models"]
+
+    def test_headless_single_model_no_event(self, capsys):
+        """Single model should auto-select without emitting model_auto_selected."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        from tool_eval_bench.cli.bench import _detect_model
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [{"id": "only-model"}]
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        console = Console(file=StringIO(), width=200, no_color=True)
+
+        with patch("tool_eval_bench.cli.bench.asyncio") as mock_asyncio:
+            mock_asyncio.run.return_value = (mock_response, False)
+            api_id, display = _detect_model(
+                "http://localhost:8000", None, console,
+                headless=True,
+            )
+
+        assert api_id == "only-model"
+        # No model_auto_selected event for single model
+        captured = capsys.readouterr()
+        assert captured.err.strip() == ""
+
+
+class TestHeadlessError:
+    """Test structured error output for headless mode."""
+
+    def test_emits_jsonl_and_exits(self, capsys):
+        from tool_eval_bench.cli.bench import _headless_error
+
+        with pytest.raises(SystemExit) as exc_info:
+            _headless_error("connection_failed", "Server is down", exit_code=2)
+
+        assert exc_info.value.code == 2
+
+        captured = capsys.readouterr()
+        event = json.loads(captured.err.strip())
+        assert event["event"] == "error"
+        assert event["error"] == "connection_failed"
+        assert event["message"] == "Server is down"
+
+    def test_exit_code_3_for_no_models(self, capsys):
+        from tool_eval_bench.cli.bench import _headless_error
+
+        with pytest.raises(SystemExit) as exc_info:
+            _headless_error("no_models", "Empty model list", exit_code=3)
+
+        assert exc_info.value.code == 3
+
+    def test_default_exit_code_is_1(self, capsys):
+        from tool_eval_bench.cli.bench import _headless_error
+
+        with pytest.raises(SystemExit) as exc_info:
+            _headless_error("unknown", "Something broke")
+
+        assert exc_info.value.code == 1

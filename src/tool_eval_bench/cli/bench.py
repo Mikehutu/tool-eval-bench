@@ -93,13 +93,18 @@ def _redact_url(url: str) -> str:
 
 def _detect_model(
     base_url: str, api_key: str | None, console: Console,
-    *, display_url: str | None = None,
+    *, display_url: str | None = None, headless: bool = False,
 ) -> tuple[str, str]:
     """Query /v1/models and auto-select or let the user pick.
 
     Returns (api_id, display_name).
       - api_id:       what to send in API requests (e.g. "gemma4")
       - display_name: the real model path if available (e.g. "Intel/gemma-4-31B-it-int4-AutoRound")
+
+    When *headless* is True (e.g. ``--json`` mode), the interactive picker is
+    skipped: the first available model is auto-selected and a JSONL event is
+    emitted on stderr.  Connection errors produce structured JSON on stderr
+    and use differentiated exit codes (2 = connection, 3 = no models).
     """
     import httpx
 
@@ -117,7 +122,8 @@ def _detect_model(
     show_endpoint = f"{show_url.rstrip('/')}/v1/models"
     if show_url.rstrip("/").endswith("/v1"):
         show_endpoint = f"{show_url.rstrip('/')}/models"
-    console.print(f"[dim]  Querying {show_endpoint} …[/]", end=" ")
+    if not headless:
+        console.print(f"[dim]  Querying {show_endpoint} …[/]", end=" ")
 
     used_fallback = False
 
@@ -135,25 +141,40 @@ def _detect_model(
         resp, used_fallback = asyncio.run(_fetch())
         resp.raise_for_status()
     except httpx.ConnectError:
+        if headless:
+            _headless_error("connection_failed",
+                            f"Could not connect to {show_url}. Is the server running?",
+                            exit_code=2)
         console.print("[bold red]✗ cannot connect[/]")
         console.print(f"\n[red]Could not connect to {show_url}. Is the server running?[/]")
         sys.exit(1)
     except httpx.HTTPStatusError as exc:
+        if headless:
+            _headless_error("http_error",
+                            f"Server returned {exc.response.status_code}. Check the URL and API key.",
+                            exit_code=2)
         console.print(f"[bold red]✗ HTTP {exc.response.status_code}[/]")
         console.print(f"\n[red]Server returned {exc.response.status_code}. Check the URL and API key.[/]")
         sys.exit(1)
     except Exception as exc:
+        if headless:
+            _headless_error("detection_failed", str(exc), exit_code=2)
         console.print(f"[bold red]✗ {exc}[/]")
         sys.exit(1)
 
     if used_fallback:
-        console.print("\n  [yellow]⚠ /v1/models returned 404, used /models fallback. "
-                       "Check your server configuration.[/]")
+        if not headless:
+            console.print("\n  [yellow]⚠ /v1/models returned 404, used /models fallback. "
+                           "Check your server configuration.[/]")
 
     try:
         data = resp.json()
         model_list = data.get("data", [])
     except Exception:
+        if headless:
+            _headless_error("invalid_response",
+                            "Server returned invalid JSON from /v1/models.",
+                            exit_code=2)
         console.print("[bold red]✗ invalid response[/]")
         console.print("[red]Server returned invalid JSON from /v1/models.[/]")
         sys.exit(1)
@@ -172,19 +193,37 @@ def _detect_model(
         models.append((api_id, display))
 
     if not models:
+        if headless:
+            _headless_error("no_models", "The server returned an empty model list.",
+                            exit_code=3)
         console.print("[bold red]✗ no models found[/]")
         console.print("[red]The server returned an empty model list.[/]")
         sys.exit(1)
 
     if len(models) == 1:
         api_id, display = models[0]
-        if display != api_id:
-            console.print(f"[bold green]✓[/] [bold]{display}[/] [dim](alias: {api_id})[/]")
-        else:
-            console.print(f"[bold green]✓[/] [bold]{api_id}[/]")
+        if not headless:
+            if display != api_id:
+                console.print(f"[bold green]✓[/] [bold]{display}[/] [dim](alias: {api_id})[/]")
+            else:
+                console.print(f"[bold green]✓[/] [bold]{api_id}[/]")
         return api_id, display
 
-    # Multiple models — let the user choose
+    # Multiple models — in headless mode, auto-select the first one
+    if headless:
+        api_id, display = models[0]
+        msg = {
+            "event": "model_auto_selected",
+            "model": api_id,
+            "display_name": display,
+            "total_available": len(models),
+            "available_models": [m[0] for m in models],
+        }
+        sys.stderr.write(json.dumps(msg) + "\n")
+        sys.stderr.flush()
+        return api_id, display
+
+    # Multiple models — interactive: let the user choose
     console.print(f"[bold cyan]found {len(models)} models[/]")
     console.print()
     console.print("[bold]Available models:[/]")
@@ -209,6 +248,18 @@ def _detect_model(
         except KeyboardInterrupt:
             console.print("\n[bold red]Cancelled.[/]")
             sys.exit(1)
+
+
+def _headless_error(error_code: str, message: str, *, exit_code: int = 1) -> None:
+    """Emit a structured JSONL error event on stderr and exit.
+
+    Used in headless (--json) mode so agents can parse failure reasons
+    instead of getting Rich-formatted console markup.
+    """
+    msg = {"event": "error", "error": error_code, "message": message}
+    sys.stderr.write(json.dumps(msg) + "\n")
+    sys.stderr.flush()
+    sys.exit(exit_code)
 
 
 # ---------------------------------------------------------------------------
@@ -1092,10 +1143,16 @@ def main() -> None:
     # Auto-detect model if not provided
     display_name: str | None = None
     if not model:
-        console.print("\n[bold]🔧 Tool-Call Benchmark[/]")
-        console.print(f"[dim]  Server: {display_url}[/]")
-        model, display_name = _detect_model(base_url, api_key, console, display_url=display_url)
-        console.print()
+        if not args.json:
+            console.print("\n[bold]🔧 Tool-Call Benchmark[/]")
+            console.print(f"[dim]  Server: {display_url}[/]")
+        model, display_name = _detect_model(
+            base_url, api_key, console,
+            display_url=display_url,
+            headless=args.json,
+        )
+        if not args.json:
+            console.print()
 
     # display_name is the human-readable model (e.g. "Intel/gemma-4-31B-it-int4-AutoRound")
     # model is the API alias (e.g. "gemma4") — used in all API calls
