@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from tool_eval_bench.domain.models import RunContext
-from tool_eval_bench.domain.scenarios import ModelScoreSummary, ScenarioStatus
+from tool_eval_bench.domain.scenarios import Category, ModelScoreSummary, ScenarioStatus
 
 
 def _default_reports_root() -> str:
@@ -78,11 +78,13 @@ class MarkdownReporter:
         md = [line for line in md if line is not None and line != ""] + [""]
 
         # Tool definition token overhead estimate (PERF-03)
-        # Use the scenario IDs to determine which toolset was used
+        # Check if any category-L (Toolset Scale) scenarios were included —
+        # those use the large toolset instead of UNIVERSAL_TOOLS.
+        from tool_eval_bench.evals.scenarios import ALL_SCENARIOS
+        _scenario_cat = {s.id: s.category for s in ALL_SCENARIOS}
         has_large_toolset = any(
-            r.scenario_id.startswith("TC-3") or r.scenario_id.startswith("TC-4")
+            _scenario_cat.get(r.scenario_id) == Category.L
             for r in summary.scenario_results
-            if int(r.scenario_id.split("-")[1]) >= 37
         )
         if has_large_toolset:
             import json as _json

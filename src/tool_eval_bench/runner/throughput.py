@@ -31,18 +31,17 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _FILLER_PARAGRAPH = (
-    "In my younger and more vulnerable years my father gave me some advice "
-    "that I have been turning over in my mind ever since. Whenever you feel "
-    "like criticizing anyone, he told me, just remember that all the people "
-    "in this world have not had the advantages that you have had. He did not "
-    "say any more, but we have always been unusually communicative in a "
-    "reserved way, and I understood that he meant a great deal more than that. "
-    "In consequence I am inclined to reserve all judgements, a habit that has "
-    "opened up many curious natures to me and also made me the victim of not "
-    "a few veteran bores. The abnormal mind is quick to detect and attach "
-    "itself to this quality when it appears in a normal person, and so it "
-    "came about that in college I was unjustly accused of being a politician, "
-    "because I was privy to the secret griefs of wild, unknown men. "
+    "The server processed each request methodically, allocating memory for the "
+    "key-value cache before any token generation could begin. During the prefill "
+    "phase, every input token was evaluated in parallel, building the internal "
+    "representation that would guide subsequent predictions. The attention "
+    "mechanism compared each position against all previous positions, computing "
+    "weighted scores that determined which context was most relevant for the "
+    "next output. As the sequence grew longer, the computational cost scaled "
+    "quadratically with the number of tokens, making efficient batching and "
+    "memory management essential for maintaining acceptable throughput under "
+    "production workloads. The scheduling algorithm balanced latency-sensitive "
+    "interactive requests against throughput-optimized batch completions. "
 )
 
 # Default fallback — gets overridden by calibration
@@ -65,6 +64,9 @@ class TokenizerConfig:
     #   "probe"     — ratio estimated from a real request
     #   "heuristic" — 4 chars/token fallback (may be off by 20-40% for non-English text)
     calibration_confidence: str = "heuristic"
+    # Per-run flag: ensures MTP detection is logged once per calibration
+    # context instead of using module-level mutable state.
+    mtp_warned: bool = False
 
     def get_filler_pool(self, min_chars: int) -> str:
         """Return a cached filler text pool of at least min_chars length."""
@@ -114,7 +116,7 @@ async def _tokenize_text(
             count = data.get("count") or len(data.get("tokens", []))
             return count if count > 0 else None
     except Exception:
-        pass
+        pass  # /tokenize unavailable — expected for non-vLLM backends
     return None
 
 
@@ -374,7 +376,7 @@ async def estimate_latency(
             resp = await client.get(url, headers=hdrs)
             resp.raise_for_status()
         except Exception:
-            continue
+            continue  # latency probe failure — skip this round
         times.append((time.perf_counter() - t0) * 1000)
 
     if not times:
@@ -430,8 +432,6 @@ async def warmup(
 # MTP-aware token counting helpers
 # ---------------------------------------------------------------------------
 
-_mtp_warned = False
-
 
 def _count_chunk_tokens(
     choices: list[dict[str, Any]],
@@ -465,6 +465,7 @@ async def _stream_one(
     messages: list[dict[str, Any]],
     tg: int,
     api_key: str | None,
+    tok_cfg: TokenizerConfig | None = None,
 ) -> ThroughputSample:
     """Execute a single streaming request and collect timing data.
 
@@ -490,8 +491,6 @@ async def _stream_one(
     falls back to ``end_of_stream - first_byte`` minus TTFT, ensuring a
     non-zero measurement even when the server flushes everything in one burst.
     """
-    global _mtp_warned
-
     payload = {
         "model": model,
         "messages": messages,
@@ -597,9 +596,9 @@ async def _stream_one(
 
     total_ms = (time.perf_counter() - t0) * 1000
 
-    # Log MTP detection once
-    if mtp_detected and not _mtp_warned:
-        _mtp_warned = True
+    # Log MTP detection once per run (via tok_cfg to avoid module-level state)
+    if mtp_detected and tok_cfg is not None and not tok_cfg.mtp_warned:
+        tok_cfg.mtp_warned = True
         logger.info(
             "Multi-token prediction (MTP) detected: SSE chunks contain "
             "multiple token_ids. Token counts and timing are MTP-aware."
@@ -701,7 +700,7 @@ async def measure_single(
     """Measure throughput for a single configuration point."""
     tok_cfg = tok_cfg or TokenizerConfig()
     messages = await _build_messages(client, base_url, model, pp, depth, api_key, tok_cfg)
-    sample = await _stream_one(client, base_url, model, messages, tg, api_key)
+    sample = await _stream_one(client, base_url, model, messages, tg, api_key, tok_cfg)
     sample.depth = depth
     sample.concurrency = 1
     sample.requested_pp = pp
@@ -735,7 +734,7 @@ async def measure_concurrent(
     # Launch N requests in parallel
     t0 = time.perf_counter()
     tasks = [
-        _stream_one(client, base_url, model, messages, tg, api_key)
+        _stream_one(client, base_url, model, messages, tg, api_key, tok_cfg)
         for _ in range(concurrency)
     ]
     results = await asyncio.gather(*tasks)
@@ -837,8 +836,8 @@ async def run_throughput_matrix(
                     "run with --spec-bench --spec-method=mtp to measure acceptance rate "
                     "and effective t/s via per-request timings.",
                 )
-        except Exception:
-            pass  # Detection is best-effort; never fail a throughput run
+        except Exception as exc:
+            logger.debug("Spec decode detection during throughput: %s", exc)
 
         # Estimate latency
         latency_ms = await estimate_latency(client, base_url, api_key)

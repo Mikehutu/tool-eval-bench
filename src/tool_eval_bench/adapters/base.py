@@ -7,9 +7,12 @@ and result types in the OpenAI wire format.
 from __future__ import annotations
 
 import json
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -25,6 +28,7 @@ class ProviderToolCall:
             parsed = json.loads(self.arguments_str)
             return parsed if isinstance(parsed, dict) else {}
         except Exception:
+            logger.debug("Failed to parse tool call arguments: %.80s", self.arguments_str)
             return {}
 
 

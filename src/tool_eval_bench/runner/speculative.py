@@ -208,8 +208,8 @@ async def detect_spec_decoding(
                     "via per-request timings (draft_n/draft_n_accepted)"
                 )
                 # Don't set active=True yet — we'll confirm per-request
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Spec decode detection probe failed: %s", exc)
 
     # Accept user hint
     if backend_hint not in ("auto", ""):
@@ -442,7 +442,7 @@ async def measure_spec_single(
         counters_before = await scrape_spec_metrics(client, base_url, api_key, metrics_url=metrics_url)
 
     # Run the generation
-    sample = await _stream_one(client, base_url, model, messages, tg, api_key)
+    sample = await _stream_one(client, base_url, model, messages, tg, api_key, tok_cfg)
     sample.depth = depth
     sample.concurrency = 1
     sample.requested_pp = pp

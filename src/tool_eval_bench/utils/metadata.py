@@ -35,6 +35,7 @@ def _git_sha() -> str | None:
         out = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL)
         return out.decode().strip()
     except Exception:
+        logger.debug("git rev-parse failed (not in a git repo?)")
         return None
 
 

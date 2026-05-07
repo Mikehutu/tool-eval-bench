@@ -2149,7 +2149,7 @@ def _run_pressure_sweep(
             try:
                 asyncio.run(adapter.aclose())
             except Exception:
-                pass
+                pass  # Best-effort cleanup — nothing to do if aclose fails
 
     if not level_results:
         console.print("\n[bold red]No results collected.[/]")
