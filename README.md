@@ -196,13 +196,21 @@ tool-eval-bench --model gemma4 --backend vllm --base-url http://localhost:8080
 --parallel N           Run N scenarios concurrently (default: 1). Values >1 may cause server-load timeouts recorded as FAIL — use --parallel 1 for reliable quality scores
 --json                 Output raw JSON
 --json-file PATH       Write JSON to PATH instead of stdout (implies --json)
+--dry-run              List scenarios that would run, then exit (no server needed)
 --no-live              Disable live progress footer
 --no-warmup            Skip server warm-up request
+--no-probe-engine      Skip engine probing (/version, /health HTTP calls)
+--skip-tool-eval       Skip tool-call scenarios (use with --perf or --spec-bench)
+--skip-coherence       Skip throughput coherence check (for air-gapped hosts)
 --redact-url           Mask the server URL in display output (useful for screenshots/recordings)
 --output-dir DIR       Directory for report files (default: ./runs/)
 --diff RUN_ID          Compare results against a previous run (use 'latest')
 --compare A B          Diff two stored runs by ID
 --history              List recent benchmark runs
+--leaderboard          Show ranked model leaderboard
+--export FORMAT        Export all results as csv or json
+--export-output FILE   Output file for --export (default: stdout)
+-i, --interactive      Launch interactive TUI (requires: pip install tool-eval-bench[tui])
 --spec-live            Start live speculative decoding monitor (Ctrl+C to stop)
 --spec-live-interval S Poll interval for --spec-live in seconds (default: 1.0)
 ```
@@ -451,7 +459,7 @@ The returned dict includes a versioned envelope with top-level Spark Arena field
 | Field | Type | Description |
 |---|---|---|
 | `schema_version` | str | Output schema version (currently `"1"`) |
-| `tool_eval_bench_version` | str | Package version (e.g. `"1.5.1"`) |
+| `tool_eval_bench_version` | str | Package version (e.g. `"1.6.0"`) |
 | `final_score` | int | 0–100 composite score |
 | `rating` | str | Star rating string |
 | `safety_warnings` | list | Safety-critical failures (empty when clean) |

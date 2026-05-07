@@ -98,9 +98,11 @@ tool-eval-bench --json --short
 | `--dry-run` | List scenarios that would run (no server needed) |
 | `--base-url URL` | Server endpoint |
 | `--model NAME` | Model name (auto-detected if omitted) |
+| `--backend NAME` | Backend label for reports: `vllm`, `litellm`, `llamacpp` |
 | `--seed N` | Random seed for reproducibility |
 | `--temperature F` | Sampling temperature (default: 0.0 = greedy) |
 | `--timeout F` | Per-request timeout in seconds (default: 60) |
+| `--no-think` | Disable thinking/reasoning (critical for Qwen3/DeepSeek) |
 | `--no-warmup` | Skip server warm-up request |
 | `--hardmode` | Include 5 extra hard-mode scenarios |
 | `--categories A B K` | Run only specific categories (A–P) |
