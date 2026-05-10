@@ -505,6 +505,14 @@ def compute_fill_budget(
     """Calculate how many tokens of filler to inject.
 
     Reserves space for output generation and the actual scenario content.
+
+    The budget is quantised to multiples of `_TOKENS_PER_FILLER_CHUNK` so
+    that adjacent sweep levels whose raw token targets would straddle a
+    chunk boundary produce the **same** number of filler message pairs.
+    Without this, a sweep like 30% → 35% → 41% could alternate between N
+    and N+1 filler chunks, creating a deterministic even/odd structural
+    pattern in the prompt that manifests as alternating pass/fail results —
+    regardless of the model or server (see NVIDIA Forum Issue, May 2026).
     """
     available = context_size - _RESERVED_FOR_OUTPUT - _RESERVED_FOR_SCENARIO
     if available <= 0:
@@ -515,6 +523,11 @@ def compute_fill_budget(
         )
         return 0
     fill = int(available * max(0.0, min(1.0, ratio)))
+    # Quantise to chunk boundaries so adjacent sweep levels cannot
+    # straddle a chunk edge and produce different prompt structures.
+    chunk_with_overhead = _TOKENS_PER_FILLER_CHUNK + 20  # chunk + ack
+    if chunk_with_overhead > 0 and fill >= chunk_with_overhead:
+        fill = (fill // chunk_with_overhead) * chunk_with_overhead
     return max(0, fill)
 
 
@@ -594,6 +607,7 @@ def build_pressure_messages(
     config: ContextPressureConfig,
     *,
     on_chunk: Callable[[int], None] | None = None,
+    seed: int | None = None,
 ) -> list[dict[str, Any]]:
     """Build alternating user/assistant filler messages.
 
@@ -615,6 +629,11 @@ def build_pressure_messages(
         config: Pressure configuration with fill_tokens set.
         on_chunk: Optional callback called after each chunk pair with the
             cumulative tokens used so far. Used for progress display.
+        seed: Optional RNG seed for deterministic filler generation.
+            When provided (e.g. from ``--seed``), the filler paragraph
+            order and noise injection are fully reproducible per
+            ``(seed, fill_tokens)`` combination.  When ``None``, uses
+            ``time.time_ns()`` for a unique-per-call sequence.
     """
     import time
 
@@ -622,14 +641,23 @@ def build_pressure_messages(
     if fill_tokens <= 0:
         return []
 
-    # Shuffle paragraph order per run to defeat cross-run prefix caching
+    # Shuffle paragraph order per run to defeat cross-run prefix caching.
+    # When a seed is provided, derive a deterministic sub-seed that also
+    # incorporates fill_tokens so each sweep level is unique yet stable.
     pool_size = len(_FILLER_PARAGRAPHS)
     paragraph_order = list(range(pool_size))
-    rng = random.Random(time.time_ns())
+    if seed is not None:
+        rng = random.Random(seed ^ hash(fill_tokens))
+    else:
+        rng = random.Random(time.time_ns())
     rng.shuffle(paragraph_order)
 
-    # Unique session nonce — ensures no two runs share token prefixes
-    session_nonce = f"{time.time_ns():x}"
+    # Unique session nonce — ensures no two runs share token prefixes.
+    # When seeded, derive from the seed so it's reproducible.
+    if seed is not None:
+        session_nonce = f"{seed:x}-{fill_tokens:x}"
+    else:
+        session_nonce = f"{time.time_ns():x}"
 
     messages: list[dict[str, Any]] = []
     tokens_used = 0
@@ -687,6 +715,8 @@ async def calibrate_pressure_messages(
     base_url: str,
     model: str,
     api_key: str | None = None,
+    *,
+    seed: int | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """Calibrate filler messages to hit the exact token target.
 
@@ -732,13 +762,15 @@ async def calibrate_pressure_messages(
                 total_chars = sum(len(m.get("content", "")) for m in messages)
                 measured_cpt = total_chars / actual if actual > 0 else _CHARS_PER_TOKEN_ESTIMATE
                 chars_to_remove = int(delta * measured_cpt * 1.05)  # slight over-trim
-                if chars_to_remove < len(content):
+                if chars_to_remove < len(content) - 100:
+                    # Trim the content but keep the message — never remove
+                    # an entire message pair, as that changes the prompt
+                    # structure and can re-introduce alternating pass/fail.
                     messages[i]["content"] = content[:-chars_to_remove]
                 else:
-                    # Remove this message pair entirely
-                    messages.pop(i)
-                    if i < len(messages) and messages[i]["role"] == "assistant":
-                        messages.pop(i)
+                    # Need to remove nearly all content — trim to minimum
+                    # viable length rather than removing the pair.
+                    messages[i]["content"] = content[:100]
                 break
 
         # Re-measure after trim
@@ -754,9 +786,12 @@ async def calibrate_pressure_messages(
     # Under target — extend the last user message with more filler
     shortfall = -delta
     import time
-    rng = random.Random(time.time_ns())
+    if seed is not None:
+        cal_rng = random.Random(seed ^ hash(target_tokens) ^ 0xCA1)
+    else:
+        cal_rng = random.Random(time.time_ns())
     extra_text = _build_filler_text(
-        shortfall, chunk_idx=999, rng=rng,
+        shortfall, chunk_idx=999, rng=cal_rng,
     )
     # Find last user message and append
     for i in range(len(messages) - 1, -1, -1):

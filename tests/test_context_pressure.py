@@ -41,10 +41,13 @@ from tool_eval_bench.runner.context_pressure import (
 
 class TestComputeFillBudget:
     def test_standard_ratio(self) -> None:
-        """75% pressure on a 32K context should fill most of the available space."""
+        """75% pressure on a 32K context should fill most of the available space,
+        quantised to chunk boundaries."""
         fill = compute_fill_budget(32768, 0.75)
         available = 32768 - _RESERVED_FOR_OUTPUT - _RESERVED_FOR_SCENARIO
-        expected = int(available * 0.75)
+        raw = int(available * 0.75)
+        chunk = 2048 + 20  # _TOKENS_PER_FILLER_CHUNK + ack overhead
+        expected = (raw // chunk) * chunk
         assert fill == expected
 
     def test_zero_ratio(self) -> None:
@@ -53,10 +56,12 @@ class TestComputeFillBudget:
         assert fill == 0
 
     def test_full_ratio(self) -> None:
-        """100% pressure fills all available space."""
+        """100% pressure fills all available space (quantised to chunk boundary)."""
         fill = compute_fill_budget(32768, 1.0)
         available = 32768 - _RESERVED_FOR_OUTPUT - _RESERVED_FOR_SCENARIO
-        assert fill == available
+        chunk = 2048 + 20
+        expected = (available // chunk) * chunk
+        assert fill == expected
 
     def test_tiny_context_returns_zero(self) -> None:
         """Context too small for any fill (smaller than reserved overhead)."""
@@ -67,7 +72,9 @@ class TestComputeFillBudget:
         """Ratio > 1.0 is clamped to 1.0."""
         fill = compute_fill_budget(32768, 1.5)
         available = 32768 - _RESERVED_FOR_OUTPUT - _RESERVED_FOR_SCENARIO
-        assert fill == available
+        chunk = 2048 + 20
+        expected = (available // chunk) * chunk
+        assert fill == expected
 
     def test_ratio_clamped_below_zero(self) -> None:
         """Negative ratio is clamped to 0.0."""
@@ -78,6 +85,35 @@ class TestComputeFillBudget:
         """128K context should produce a large fill."""
         fill = compute_fill_budget(131072, 0.75)
         assert fill > 80000  # Sanity: should be substantial
+
+    def test_adjacent_levels_same_chunk_count(self) -> None:
+        """Adjacent sweep levels should not straddle a chunk boundary.
+
+        This is the root cause fix for the alternating pass/fail bug.
+        For a 260K context swept 0.30→0.35, both levels should produce
+        a fill budget that generates the same number of message pairs.
+        """
+        ctx = 260000
+        fill_30 = compute_fill_budget(ctx, 0.30)
+        fill_35 = compute_fill_budget(ctx, 0.3538)
+        chunk = 2048 + 20
+        # Both fills should be exact multiples of chunk size
+        assert fill_30 % chunk == 0
+        assert fill_35 % chunk == 0
+        # The pair counts should differ monotonically (no alternation)
+        assert fill_35 >= fill_30
+
+    def test_quantisation_is_monotonic(self) -> None:
+        """Fill budget must be monotonically non-decreasing as ratio grows."""
+        ctx = 260000
+        prev = 0
+        for i in range(100):
+            ratio = i / 100
+            fill = compute_fill_budget(ctx, ratio)
+            assert fill >= prev, (
+                f"Non-monotonic: ratio={ratio} fill={fill} < prev={prev}"
+            )
+            prev = fill
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +216,35 @@ class TestBuildPressureMessages:
         noise_patterns = ["ref #", "ticket SRE-", "[v", "node ", "batch ", "[id:"]
         found = any(p in all_content for p in noise_patterns)
         assert found, "Filler text should contain injected noise tokens"
+
+    def test_seeded_builds_are_identical(self) -> None:
+        """Two builds with the same seed and fill_tokens produce identical content."""
+        cfg = ContextPressureConfig(ratio=0.5, fill_tokens=5000, detected_context=32768)
+        msgs_a = build_pressure_messages(cfg, seed=42)
+        msgs_b = build_pressure_messages(cfg, seed=42)
+        assert len(msgs_a) == len(msgs_b)
+        for a, b in zip(msgs_a, msgs_b):
+            assert a["content"] == b["content"]
+
+    def test_different_seeds_produce_different_content(self) -> None:
+        """Different seeds should produce different filler."""
+        cfg = ContextPressureConfig(ratio=0.5, fill_tokens=5000, detected_context=32768)
+        msgs_a = build_pressure_messages(cfg, seed=42)
+        msgs_b = build_pressure_messages(cfg, seed=99)
+        user_a = [m["content"] for m in msgs_a if m["role"] == "user"]
+        user_b = [m["content"] for m in msgs_b if m["role"] == "user"]
+        differences = sum(1 for a, b in zip(user_a, user_b) if a != b)
+        assert differences > 0, "Different seeds should produce different content"
+
+    def test_same_seed_different_fill_produces_different_content(self) -> None:
+        """Same seed but different fill_tokens should produce unique content
+        (the seed incorporates fill_tokens via XOR)."""
+        cfg_a = ContextPressureConfig(ratio=0.5, fill_tokens=5000, detected_context=32768)
+        cfg_b = ContextPressureConfig(ratio=0.5, fill_tokens=8000, detected_context=32768)
+        msgs_a = build_pressure_messages(cfg_a, seed=42)
+        msgs_b = build_pressure_messages(cfg_b, seed=42)
+        # Nonce prefix should differ
+        assert msgs_a[0]["content"][:40] != msgs_b[0]["content"][:40]
 
 # ---------------------------------------------------------------------------
 # ContextPressureConfig.summary
@@ -649,6 +714,186 @@ class TestOrchestratorIntegration:
 
 
 # ---------------------------------------------------------------------------
+# calibrate_pressure_messages
+# ---------------------------------------------------------------------------
+
+
+class TestCalibratePressureMessages:
+    """Tests for the calibration step that trims/extends filler to hit
+    exact token targets.  Covers all code paths including the fix for
+    the alternating pass/fail bug (no message pair removal)."""
+
+    def _make_messages(self, n_pairs: int = 3, content_len: int = 2000) -> list[dict]:
+        """Build synthetic filler messages for testing."""
+        msgs = []
+        for i in range(n_pairs):
+            msgs.append({"role": "user", "content": "x" * content_len})
+            msgs.append({"role": "assistant", "content": "Understood."})
+        return msgs
+
+    @pytest.mark.asyncio
+    async def test_empty_messages_returns_zero(self) -> None:
+        """Empty message list should return immediately."""
+        from tool_eval_bench.runner.context_pressure import calibrate_pressure_messages
+        msgs, actual = await calibrate_pressure_messages(
+            [], 1000, "http://localhost", "model",
+        )
+        assert msgs == []
+        assert actual == 0
+
+    @pytest.mark.asyncio
+    async def test_zero_target_returns_zero(self) -> None:
+        """Target of 0 should return immediately."""
+        from tool_eval_bench.runner.context_pressure import calibrate_pressure_messages
+        msgs = self._make_messages(1)
+        result, actual = await calibrate_pressure_messages(
+            msgs, 0, "http://localhost", "model",
+        )
+        assert actual == 0
+
+    @pytest.mark.asyncio
+    async def test_tokenizer_unavailable_returns_estimate(self) -> None:
+        """When count_messages_tokens returns None, use char-based estimate."""
+        from tool_eval_bench.runner.context_pressure import calibrate_pressure_messages
+
+        with patch(
+            "tool_eval_bench.runner.context_pressure.count_messages_tokens",
+            return_value=None,
+        ):
+            msgs = self._make_messages(2, content_len=1000)
+            result, actual = await calibrate_pressure_messages(
+                msgs, 5000, "http://localhost", "model",
+            )
+            assert len(result) == 4  # unchanged
+            assert actual > 0  # char-based estimate
+
+    @pytest.mark.asyncio
+    async def test_within_tolerance_no_change(self) -> None:
+        """When actual tokens are within 2% of target, no modification."""
+        from tool_eval_bench.runner.context_pressure import calibrate_pressure_messages
+
+        target = 5000
+        # Within 2%: 5000 * 0.02 = 100, so 5050 is within tolerance
+        with patch(
+            "tool_eval_bench.runner.context_pressure.count_messages_tokens",
+            return_value=5050,
+        ):
+            msgs = self._make_messages(2, content_len=1000)
+            original_content = msgs[2]["content"]  # last user msg
+            result, actual = await calibrate_pressure_messages(
+                msgs, target, "http://localhost", "model",
+            )
+            assert actual == 5050
+            assert result[2]["content"] == original_content  # unchanged
+
+    @pytest.mark.asyncio
+    async def test_over_target_trims_content(self) -> None:
+        """When over target, the last user message should be trimmed."""
+        from tool_eval_bench.runner.context_pressure import calibrate_pressure_messages
+
+        target = 5000
+        with patch(
+            "tool_eval_bench.runner.context_pressure.count_messages_tokens",
+            side_effect=[6000, 5100],  # first: over, second: after trim
+        ):
+            msgs = self._make_messages(3, content_len=2000)
+            original_len = len(msgs[-2]["content"])  # last user msg
+            result, actual = await calibrate_pressure_messages(
+                msgs, target, "http://localhost", "model",
+            )
+            assert len(result) == 6  # same number of messages
+            assert len(result[-2]["content"]) < original_len  # trimmed
+
+    @pytest.mark.asyncio
+    async def test_over_target_never_removes_message_pair(self) -> None:
+        """Even when nearly all content must be removed, the message pair
+        must be preserved — removing pairs re-introduces the alternating
+        pass/fail bug."""
+        from tool_eval_bench.runner.context_pressure import calibrate_pressure_messages
+
+        target = 100
+        # Massively over target — would previously remove the pair
+        with patch(
+            "tool_eval_bench.runner.context_pressure.count_messages_tokens",
+            side_effect=[5000, 200],  # first: way over, second: after trim
+        ):
+            msgs = self._make_messages(2, content_len=2000)
+            n_before = len(msgs)
+            result, actual = await calibrate_pressure_messages(
+                msgs, target, "http://localhost", "model",
+            )
+            # Message count must NOT change
+            assert len(result) == n_before
+            # Last user message should be trimmed to minimum, not removed
+            last_user = next(
+                m for m in reversed(result) if m["role"] == "user"
+            )
+            assert len(last_user["content"]) == 100  # min viable
+
+    @pytest.mark.asyncio
+    async def test_under_target_extends_content(self) -> None:
+        """When under target, the last user message should be extended."""
+        from tool_eval_bench.runner.context_pressure import calibrate_pressure_messages
+
+        target = 8000
+        with patch(
+            "tool_eval_bench.runner.context_pressure.count_messages_tokens",
+            side_effect=[5000, 7900],  # first: under, second: after extend
+        ):
+            msgs = self._make_messages(2, content_len=1000)
+            original_len = len(msgs[2]["content"])  # last user msg
+            result, actual = await calibrate_pressure_messages(
+                msgs, target, "http://localhost", "model",
+            )
+            assert len(result) == 4  # same number of messages
+            assert len(result[2]["content"]) > original_len  # extended
+
+    @pytest.mark.asyncio
+    async def test_seeded_extend_is_deterministic(self) -> None:
+        """When seed is provided, extending with the same seed should
+        produce identical content."""
+        from tool_eval_bench.runner.context_pressure import calibrate_pressure_messages
+
+        target = 8000
+        with patch(
+            "tool_eval_bench.runner.context_pressure.count_messages_tokens",
+            side_effect=[5000, 7900, 5000, 7900],  # two runs
+        ):
+            msgs_a = self._make_messages(2, content_len=1000)
+            msgs_b = self._make_messages(2, content_len=1000)
+            result_a, _ = await calibrate_pressure_messages(
+                msgs_a, target, "http://localhost", "model", seed=42,
+            )
+            result_b, _ = await calibrate_pressure_messages(
+                msgs_b, target, "http://localhost", "model", seed=42,
+            )
+            # Extended content should be identical
+            assert result_a[2]["content"] == result_b[2]["content"]
+
+    @pytest.mark.asyncio
+    async def test_unseeded_extend_is_nondeterministic(self) -> None:
+        """Without seed, two extends should produce different content
+        (due to time.time_ns() RNG)."""
+        from tool_eval_bench.runner.context_pressure import calibrate_pressure_messages
+
+        target = 8000
+        with patch(
+            "tool_eval_bench.runner.context_pressure.count_messages_tokens",
+            side_effect=[5000, 7900, 5000, 7900],
+        ):
+            msgs_a = self._make_messages(2, content_len=1000)
+            msgs_b = self._make_messages(2, content_len=1000)
+            result_a, _ = await calibrate_pressure_messages(
+                msgs_a, target, "http://localhost", "model",
+            )
+            result_b, _ = await calibrate_pressure_messages(
+                msgs_b, target, "http://localhost", "model",
+            )
+            # Extended content should differ (different time.time_ns() seeds)
+            assert result_a[2]["content"] != result_b[2]["content"]
+
+
+# ---------------------------------------------------------------------------
 # Integration: run_scenario with pressure messages
 # ---------------------------------------------------------------------------
 
@@ -729,11 +974,13 @@ class TestReservationConstant:
         assert _RESERVED_FOR_SCENARIO >= 12000
 
     def test_ratio_1_leaves_enough_headroom(self) -> None:
-        """At ratio=1.0, the fill budget should consume all 'available' space,
-        but the reserved 12K should still cover worst-case scenarios."""
+        """At ratio=1.0, the fill budget should consume most available space
+        (quantised to chunk boundary), with reserved 12K for worst-case."""
         fill = compute_fill_budget(32768, 1.0)
         available = 32768 - _RESERVED_FOR_OUTPUT - _RESERVED_FOR_SCENARIO
-        assert fill == available
+        # Fill should be close to available but quantised down
+        assert fill <= available
+        assert fill > available * 0.9  # should use most of available
         # Reserved space should be enough for LARGE_TOOLSET (~6K) + margin
         assert _RESERVED_FOR_SCENARIO >= 12000
 
@@ -832,6 +1079,7 @@ class TestPressureSweepIntegration:
             categories=None,
             context_size=context_size,
             redact_url=False,
+            seed=None,
         )
 
     def _make_summary(self, statuses: list[str]) -> Any:
@@ -895,8 +1143,8 @@ class TestPressureSweepIntegration:
             "http://localhost:8080", None, args,
         )
 
-        # 3 levels (steps=3 → 0.5, 0.75, 1.0) + 1 aclose
-        assert mock_asyncio.run.call_count == 4
+        # 3 levels (steps=3 → 0.5, 0.75, 1.0) — one asyncio.run per level
+        assert mock_asyncio.run.call_count == 3
 
     @patch("tool_eval_bench.cli.bench._resolve_scenarios")
     @patch("tool_eval_bench.cli.bench.asyncio")
@@ -935,8 +1183,8 @@ class TestPressureSweepIntegration:
             "http://localhost:8080", None, args,
         )
 
-        # Should stop at 3 calls (pass, fail, fail) + 1 aclose, not 5+1
-        assert mock_asyncio.run.call_count == 4
+        # Should stop at 3 calls (pass, fail, fail), not run all 4 levels
+        assert mock_asyncio.run.call_count == 3
 
     def test_sweep_uses_display_url_for_redaction(self) -> None:
         """When --redact-url is used, the sweep header should show the

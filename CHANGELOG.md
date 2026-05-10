@@ -25,7 +25,24 @@ All notable changes to `tool-eval-bench` are documented here.
 - **13 new tests** — covering `ServerSpecInfo`, `probe_server_spec_info` with
   mocked `/v1/models` responses, dashboard rendering with `ServerSpecInfo` (draft
   model priority, reset flash, Ctrl+R hint), and high-k position scaling (20 and
-  32 positions).  Total test count: **1,410**.
+  32 positions).  Total test count: **1,424**.
+
+### Fixed
+
+- **Context pressure sweep alternating pass/fail** — when using
+  `--context-pressure-sweep`, adjacent pressure levels produced a perfectly
+  deterministic ✅/❌/✅/❌ alternating pattern regardless of model or server.
+  Root cause: the sweep shared a single `OpenAICompatibleAdapter` across
+  multiple `asyncio.run()` calls.  `httpx.AsyncClient` is bound to the event
+  loop it was created in; when `asyncio.run()` closes that loop, the client
+  becomes unusable but reports `is_closed=False`.  The next level reuses the
+  stale client → instant `RuntimeError: Event loop is closed` → scenario FAIL.
+  The failure causes the client to be GC'd, so the *next* level gets a fresh
+  one and PASSes — producing perfect alternation.
+  Fix: create a fresh adapter per sweep level.  Additionally, fill budgets are
+  now quantised to chunk boundaries (`_TOKENS_PER_FILLER_CHUNK + 20`) and
+  `build_pressure_messages()` / `calibrate_pressure_messages()` accept a `seed`
+  parameter for fully deterministic, reproducible sweeps when `--seed` is set.
 
 ## [1.6.0] — 2026-05-07
 

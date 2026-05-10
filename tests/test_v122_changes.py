@@ -125,7 +125,9 @@ class TestReservedForScenario:
         ctx = 32768
         fill = compute_fill_budget(ctx, 1.0)
         available = ctx - _RESERVED_FOR_OUTPUT - _RESERVED_FOR_SCENARIO
-        assert fill == available
+        # Quantised to chunk boundaries — fill <= available
+        assert fill <= available
+        assert fill > available * 0.9  # should use most of available
         assert fill < ctx - 12000  # Must leave substantial room
 
 

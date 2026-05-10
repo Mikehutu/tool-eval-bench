@@ -1667,9 +1667,12 @@ def main() -> None:
                         on_chunk=lambda tokens_so_far: progress.update(
                             task, completed=tokens_so_far,
                         ),
+                        seed=args.seed,
                     )
             else:
-                pressure_messages = build_pressure_messages(pressure_cfg)
+                pressure_messages = build_pressure_messages(
+                    pressure_cfg, seed=args.seed,
+                )
 
             # Calibrate using server-side tokenizer for exact token counts
             pressure_messages, actual_fill_tokens = asyncio.run(
@@ -1677,6 +1680,7 @@ def main() -> None:
                     pressure_messages,
                     pressure_cfg.fill_tokens,
                     base_url, model, api_key,
+                    seed=args.seed,
                 )
             )
 
@@ -2076,7 +2080,6 @@ def _run_pressure_sweep(
     }
 
     # Run sweep
-    adapter = OpenAICompatibleAdapter()
     level_results: list[dict[str, Any]] = []
     consecutive_all_fail = 0
 
@@ -2089,8 +2092,15 @@ def _run_pressure_sweep(
                 detected_context=context_size,
             )
 
-            # Build fresh pressure messages (unique per level)
-            pressure_messages = build_pressure_messages(cfg)
+            # Build fresh pressure messages (unique per level).
+            # When --seed is set, derive a deterministic per-level seed so
+            # the filler is reproducible while still unique per level.
+            level_seed: int | None = None
+            if args.seed is not None:
+                level_seed = args.seed + level_idx
+            pressure_messages = build_pressure_messages(
+                cfg, seed=level_seed,
+            )
 
             # Calibrate filler to exact token count via server tokenizer.
             # Uses a private event loop to avoid interfering with the
@@ -2102,10 +2112,20 @@ def _run_pressure_sweep(
                     calibrate_pressure_messages(
                         pressure_messages, fill_tokens,
                         base_url, model, api_key,
+                        seed=level_seed,
                     )
                 )
             finally:
                 _loop.close()
+
+            n_msg_pairs = len(pressure_messages) // 2
+            cal_delta = actual_fill - fill_tokens
+            logger.info(
+                "Sweep %d/%d: ratio=%.4f fill_target=%d actual=%d "
+                "delta=%+d msg_pairs=%d",
+                level_idx + 1, len(levels), ratio, fill_tokens,
+                actual_fill, cal_delta, n_msg_pairs,
+            )
 
             # Auto-scale timeout: large fills need significant prefill time.
             # Conservative estimate: ~1500 tok/s prefill on consumer GPUs,
@@ -2126,7 +2146,16 @@ def _run_pressure_sweep(
                 end="",
             )
 
-            # Run scenarios at this pressure level
+            # Run scenarios at this pressure level.
+            # IMPORTANT: create a fresh adapter per level.  httpx.AsyncClient
+            # is bound to the event loop it was created in; asyncio.run()
+            # creates and destroys a loop each call.  Reusing an adapter
+            # whose client was created in a previous (now-closed) loop causes
+            # "RuntimeError: Event loop is closed" — which the orchestrator
+            # catches as a scenario FAIL.  The stale client then gets GC'd,
+            # so the NEXT level creates a fresh one and PASSes, producing the
+            # perfect alternating ✅/❌ pattern reported on the forums.
+            adapter = OpenAICompatibleAdapter()
             try:
                 summary = asyncio.run(
                     run_all_scenarios(
@@ -2199,12 +2228,6 @@ def _run_pressure_sweep(
 
     except KeyboardInterrupt:
         console.print("\n[bold red]Interrupted.[/]")
-    finally:
-        if hasattr(adapter, "aclose"):
-            try:
-                asyncio.run(adapter.aclose())
-            except Exception:
-                pass  # Best-effort cleanup — nothing to do if aclose fails
 
     if not level_results:
         console.print("\n[bold red]No results collected.[/]")
