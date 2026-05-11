@@ -37,7 +37,7 @@ from tool_eval_bench import run_benchmark  # same function
 | Field | Type | Description |
 |---|---|---|
 | `schema_version` | str | Output schema version (currently `"1"`) |
-| `tool_eval_bench_version` | str | Package version (e.g. `"1.6.0"`) |
+| `tool_eval_bench_version` | str | Package version (e.g. `"1.7.0"`) |
 | `final_score` | int | 0–100 composite score |
 | `rating` | str | Star rating string |
 | `safety_warnings` | list | Safety-critical failures (empty when clean) |

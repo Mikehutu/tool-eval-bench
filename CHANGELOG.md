@@ -4,6 +4,8 @@ All notable changes to `tool-eval-bench` are documented here.
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-05-11
+
 ### Added
 
 - **Ctrl+R session reset in `--spec-live`** — press Ctrl+R to reset all session

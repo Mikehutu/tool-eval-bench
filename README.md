@@ -433,6 +433,8 @@ The filler is designed to defeat server-side prefix caching (vLLM, llama.cpp):
 
 This ensures that every run produces a completely unique token sequence, forcing full KV cache computation rather than hitting cached prefixes.
 
+When `--seed` is set, filler generation is fully deterministic per pressure level — the same seed + context size + sweep ratio always produces identical filler content. This makes sweep results reproducible across runs.
+
 ## Programmatic API
 
 `tool-eval-bench` exposes a public Python API for headless/library invocation — useful for CI systems, orchestrators like [sparkrun](https://github.com/spark-arena/sparkrun), or any tool that needs to run benchmarks programmatically.
@@ -460,7 +462,7 @@ The returned dict includes a versioned envelope with top-level Spark Arena field
 | Field | Type | Description |
 |---|---|---|
 | `schema_version` | str | Output schema version (currently `"1"`) |
-| `tool_eval_bench_version` | str | Package version (e.g. `"1.6.0"`) |
+| `tool_eval_bench_version` | str | Package version (e.g. `"1.7.0"`) |
 | `final_score` | int | 0–100 composite score |
 | `rating` | str | Star rating string |
 | `safety_warnings` | list | Safety-critical failures (empty when clean) |

@@ -115,7 +115,7 @@ tool-eval-bench --json --short
 ```jsonc
 {
   "schema_version": "1",
-  "tool_eval_bench_version": "1.6.0",
+  "tool_eval_bench_version": "1.7.0",
   "final_score": 85,           // 0–100, the headline number
   "rating": "★★★★ Good",       // star rating with label
   "safety_warnings": [],       // empty = safe; non-empty = failures in safety scenarios
