@@ -1071,6 +1071,816 @@ def _parse_int_list(value: str) -> list[int]:
     return [int(x) for x in value.replace(",", " ").split() if x.strip()]
 
 
+# ---------------------------------------------------------------------------
+# GSM8K benchmark (--gsm8k / --gsm8k-only)
+# ---------------------------------------------------------------------------
+
+def _run_gsm8k_benchmark(
+    console: Console,
+    model: str,
+    display_name: str,
+    base_url: str,
+    api_key: str | None,
+    args: argparse.Namespace,
+    *,
+    extra_params: dict[str, Any] | None = None,
+    output_dir: str | None = None,
+    run_context: Any | None = None,
+) -> None:
+    """Run the GSM8K grade-school math benchmark and display results."""
+    from rich.panel import Panel
+
+    from tool_eval_bench.adapters.openai_compat import OpenAICompatibleAdapter
+    from tool_eval_bench.plugins.gsm8k.plugin import GSM8KPlugin
+
+    n_shots = args.gsm8k_shots
+    limit = args.gsm8k_limit
+    shuffle = args.gsm8k_shuffle
+    seed = getattr(args, "seed", None)
+    limit_label = "all 1319" if limit == 0 else f"{limit}"
+
+    console.print()
+    console.print(
+        Panel(
+            f"[bold]{display_name}[/]\n"
+            f"[dim]{n_shots}-shot CoT · {limit_label} questions"
+            f"{' · shuffled' if shuffle else ''}[/]",
+            title="[bold]📐 GSM8K — Grade School Math[/]",
+            border_style="bright_magenta",
+        )
+    )
+
+    plugin = GSM8KPlugin()
+    adapter = OpenAICompatibleAdapter()
+    result_holder: list = []
+
+    # -- Phase 1: Load dataset (with visible progress) --
+    from tool_eval_bench.plugins.gsm8k.dataset import _find_cache_file, load_dataset
+
+    cache_path = _find_cache_file()
+    if cache_path.exists():
+        console.print("  [dim]Loading GSM8K from cache…[/]", end=" ")
+        dataset_items = load_dataset()
+        console.print(f"[bold green]✓[/] [dim]{len(dataset_items)} questions[/]")
+    else:
+        # First use — download with visible progress
+        console.print()
+        with console.status(
+            "[bold]Downloading GSM8K dataset from HuggingFace…[/]",
+            spinner="dots",
+        ) as status:
+
+            def on_download(downloaded: int, total: int) -> None:
+                status.update(
+                    f"[bold]Downloading GSM8K dataset…[/] "
+                    f"[dim]{downloaded}/{total} questions[/]"
+                )
+
+            dataset_items = load_dataset(on_progress=on_download)
+
+        console.print(
+            f"  [bold green]✓[/] Downloaded [bold]{len(dataset_items)}[/] questions "
+            f"[dim](cached to data/gsm8k/test.jsonl)[/]"
+        )
+
+    # -- Phase 2: Evaluate with model --
+    async def run() -> None:
+        from rich.progress import (
+            BarColumn,
+            MofNCompleteColumn,
+            Progress,
+            SpinnerColumn,
+            TextColumn,
+            TimeElapsedColumn,
+            TimeRemainingColumn,
+        )
+        from rich.live import Live
+
+        eval_total = limit if limit > 0 else len(dataset_items)
+
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold]{task.description}"),
+            BarColumn(bar_width=40),
+            TextColumn("[bold]{task.percentage:>3.0f}%[/]"),
+            MofNCompleteColumn(),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            TextColumn("[dim]eta[/]"),
+            TimeRemainingColumn(),
+            console=console,
+        )
+
+        stats_text = TextColumn("")
+        stats_progress = Progress(stats_text, console=console)
+        last_q_text = TextColumn("")
+        last_q_progress = Progress(last_q_text, console=console)
+
+        from rich.console import Group
+        group = Group(progress, stats_progress, last_q_progress)
+
+        correct_so_far = 0
+        wrong_so_far = 0
+        t_start = time.monotonic()
+        stats_progress.add_task("", total=None)
+        last_q_progress.add_task("", total=None)
+
+        with Live(group, console=console, refresh_per_second=4):
+            task = progress.add_task("Evaluating…", total=eval_total)
+
+            async def on_progress(current: int, total: int, item_info: dict) -> None:
+                nonlocal correct_so_far, wrong_so_far
+                if item_info.get("correct"):
+                    correct_so_far += 1
+                else:
+                    wrong_so_far += 1
+
+                pct = (correct_so_far / current * 100) if current > 0 else 0
+                elapsed = time.monotonic() - t_start
+                speed = current / elapsed * 60 if elapsed > 0 else 0  # questions/min
+
+                # Build a compact status line
+                status_parts = [
+                    f"  [bold green]✓ {correct_so_far}[/]",
+                    f"[bold red]✗ {wrong_so_far}[/]",
+                    "[dim]│[/]",
+                    f"[bold magenta]{pct:.1f}%[/] accuracy",
+                    "[dim]│[/]",
+                    f"[dim]{speed:.1f} q/min[/]",
+                ]
+                stats_text.text_format = "  ".join(status_parts)
+
+                progress.update(task, completed=current, total=total)
+
+                # Show last completed question
+                got = item_info.get("extracted_answer", "?")
+                expected = item_info.get("ground_truth", "?")
+                is_correct = item_info.get("correct", False)
+                icon = "[green]✓[/]" if is_correct else "[red]✗[/]"
+                question = (item_info.get("question") or "").replace("\n", " ").strip()
+                if len(question) > 90:
+                    question = question[:87] + "…"
+                last_q_text.text_format = (
+                    f"  {icon} [bold]{got}[/]/{expected} "
+                    f"[dim italic]{question}[/]"
+                )
+
+            result = await plugin.run(
+                adapter,
+                model=model,
+                base_url=base_url,
+                api_key=api_key,
+                temperature=args.temperature,
+                timeout_seconds=args.timeout,
+                seed=seed,
+                extra_params=extra_params,
+                on_progress=on_progress,
+                n_shots=n_shots,
+                limit=limit,
+                shuffle=shuffle,
+                _preloaded_items=dataset_items,
+            )
+            result_holder.append(result)
+
+            # Final state
+            progress.update(task, completed=result.details["total"],
+                          description="[green]✓ Complete")
+            final_speed = result.details["total"] / result.duration_seconds * 60 if result.duration_seconds > 0 else 0
+            stats_text.text_format = (
+                f"  [bold green]✓ {result.details['correct']}[/]  "
+                f"[bold red]✗ {result.details['total'] - result.details['correct']}[/]  "
+                f"[dim]│[/]  "
+                f"[bold magenta]{result.score:.1f}%[/] accuracy  "
+                f"[dim]│[/]  "
+                f"[dim]{final_speed:.1f} q/min[/]"
+            )
+            last_q_text.text_format = ""
+
+    try:
+        asyncio.run(run())
+    except KeyboardInterrupt:
+        console.print("\n[bold red]Interrupted.[/]")
+        sys.exit(1)
+    except Exception as exc:
+        console.print(f"\n[bold red]GSM8K error:[/] {exc}")
+        sys.exit(1)
+    finally:
+        if hasattr(adapter, "aclose"):
+            asyncio.run(adapter.aclose())
+
+    if not result_holder:
+        console.print("[bold red]No GSM8K results.[/]")
+        return
+
+    result = result_holder[0]
+    details = result.details
+
+    # Display summary
+    console.print()
+    console.print(
+        f"  [bold]GSM8K Accuracy:[/] [bold magenta]{result.score:.1f}%[/] "
+        f"({details['correct']}/{details['total']})"
+    )
+    console.print(f"  [bold]Rating:[/] {result.rating}")
+    console.print(f"  [dim]Duration: {result.duration_seconds:.1f}s · "
+                  f"Tokens: {result.total_tokens:,}[/]")
+
+    # Write report
+    if output_dir or True:  # Always write reports
+        from tool_eval_bench.storage.reports import MarkdownReporter
+        from tool_eval_bench.utils.ids import build_run_id
+
+        run_config = {
+            "model": model, "base_url": base_url,
+            "mode": "gsm8k", "n_shots": n_shots, "limit": limit,
+        }
+        run_id = build_run_id(run_config)
+        reporter = MarkdownReporter(root=output_dir)
+        report_lines = plugin.render_report_section(result)
+        _write_gsm8k_report(reporter, run_id, display_name, result,
+                           report_lines, run_context=run_context)
+        console.print("\n  [dim]Report saved to runs/[/]\n")
+
+
+def _write_gsm8k_report(
+    reporter: Any,
+    run_id: str,
+    model: str,
+    result: Any,
+    report_lines: list[str],
+    *,
+    run_context: Any | None = None,
+) -> None:
+    """Write a standalone GSM8K Markdown report."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    folder = reporter.root / f"{now.year:04d}" / f"{now.month:02d}"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{run_id}.md"
+
+    md = [
+        f"# GSM8K Benchmark — {model}",
+        "",
+        f"- **Run ID**: `{run_id}`",
+        f"- **Date**: `{now.isoformat()}`",
+        "- **Mode**: gsm8k",
+        f"- **Accuracy**: **{result.score:.1f}%**",
+        f"- **Rating**: {result.rating}",
+        "",
+    ]
+
+    md.extend(report_lines)
+
+    path.write_text("\n".join(md), encoding="utf-8")
+
+
+
+# ---------------------------------------------------------------------------
+# MMLU benchmark (--mmlu / --mmlu-only)
+# ---------------------------------------------------------------------------
+
+def _run_mmlu_benchmark(
+    console: Console,
+    model: str,
+    display_name: str,
+    base_url: str,
+    api_key: str | None,
+    args: argparse.Namespace,
+    *,
+    extra_params: dict[str, Any] | None = None,
+    output_dir: str | None = None,
+    run_context: Any | None = None,
+) -> None:
+    """Run the MMLU benchmark and display results."""
+    from rich.panel import Panel
+
+    from tool_eval_bench.adapters.openai_compat import OpenAICompatibleAdapter
+    from tool_eval_bench.plugins.mmlu.plugin import MMLUPlugin
+
+    n_shots = args.mmlu_shots
+    limit = args.mmlu_limit
+    subjects_str = args.mmlu_subjects
+    seed = getattr(args, "seed", None)
+    limit_label = "all 14042" if limit == 0 else f"{limit}"
+    subjects_list = [s.strip() for s in subjects_str.split(",")] if subjects_str else None
+    subjects_label = f" · subjects: {subjects_str}" if subjects_str else ""
+
+    console.print()
+    console.print(
+        Panel(
+            f"[bold]{display_name}[/]\n"
+            f"[dim]{n_shots}-shot · {limit_label} questions{subjects_label}[/]",
+            title="[bold]🧠 MMLU — Massive Multitask Language Understanding[/]",
+            border_style="bright_blue",
+        )
+    )
+
+    plugin = MMLUPlugin()
+    adapter = OpenAICompatibleAdapter()
+    result_holder: list = []
+
+    # -- Phase 1: Load dataset (with visible progress) --
+    from tool_eval_bench.plugins.mmlu.dataset import _find_cache_file, load_dataset
+
+    cache_path = _find_cache_file("test")
+    if cache_path.exists():
+        console.print("  [dim]Loading MMLU from cache…[/]", end=" ")
+        test_items = load_dataset("test")
+        console.print(f"[bold green]✓[/] [dim]{len(test_items)} questions[/]")
+    else:
+        from pathlib import Path as _Path
+        partial_path = _Path("data") / "mmlu" / "test.partial.jsonl"
+        resuming = partial_path.exists()
+        label = "Resuming MMLU download" if resuming else "Downloading MMLU dataset"
+        console.print()
+        with console.status(
+            f"[bold]{label} from HuggingFace…[/]",
+            spinner="dots",
+        ) as status:
+            def on_download(downloaded: int, total: int) -> None:
+                pct = downloaded / total * 100 if total else 0
+                status.update(
+                    f"[bold]{label}…[/] "
+                    f"[dim]{downloaded:,}/{total:,} questions ({pct:.0f}%)[/]"
+                )
+            try:
+                test_items = load_dataset("test", on_progress=on_download)
+            except Exception as exc:
+                console.print(
+                    f"\n  [bold red]✗[/] Failed to download MMLU dataset: {exc}\n"
+                    "  [dim]This is usually caused by HuggingFace rate limiting.\n"
+                    "  Progress is saved — re-run to resume from where it stopped.[/]"
+                )
+                return
+        console.print(
+            f"  [bold green]✓[/] Downloaded [bold]{len(test_items)}[/] questions "
+            f"[dim](cached to data/mmlu/test.jsonl)[/]"
+        )
+
+    # Load dev split for few-shot
+    dev_items = []
+    if n_shots > 0:
+        dev_cache = _find_cache_file("dev")
+        if dev_cache.exists():
+            dev_items = load_dataset("dev")
+        else:
+            with console.status("[dim]Downloading MMLU dev split…[/]", spinner="dots"):
+                dev_items = load_dataset("dev")
+            console.print(f"  [dim]Loaded {len(dev_items)} dev examples for few-shot[/]")
+
+    preloaded = {"test": test_items, "dev": dev_items}
+
+    # -- Phase 2: Evaluate with model --
+    async def run() -> None:
+        from rich.progress import (
+            BarColumn,
+            MofNCompleteColumn,
+            Progress,
+            SpinnerColumn,
+            TextColumn,
+            TimeElapsedColumn,
+            TimeRemainingColumn,
+        )
+        from rich.live import Live
+        from rich.console import Group
+
+        eval_total = limit if limit > 0 else len(test_items)
+        if subjects_list:
+            # Adjust for filtering
+            from tool_eval_bench.plugins.mmlu.dataset import CATEGORIES, SUBJECT_CATEGORIES
+            expanded: set[str] = set()
+            for s in subjects_list:
+                if s in CATEGORIES:
+                    expanded.update(
+                        subj for subj, cat in SUBJECT_CATEGORIES.items()
+                        if cat == s
+                    )
+                else:
+                    expanded.add(s)
+            filtered = [it for it in test_items if it.subject in expanded]
+            eval_total = min(eval_total, len(filtered)) if limit > 0 else len(filtered)
+
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold]{task.description}"),
+            BarColumn(bar_width=40),
+            TextColumn("[bold]{task.percentage:>3.0f}%[/]"),
+            MofNCompleteColumn(),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            TextColumn("[dim]eta[/]"),
+            TimeRemainingColumn(),
+            console=console,
+        )
+
+        stats_text = TextColumn("")
+        stats_progress = Progress(stats_text, console=console)
+        last_q_text = TextColumn("")
+        last_q_progress = Progress(last_q_text, console=console)
+        group = Group(progress, stats_progress, last_q_progress)
+
+        correct_so_far = 0
+        wrong_so_far = 0
+        t_start = time.monotonic()
+        stats_progress.add_task("", total=None)
+        last_q_progress.add_task("", total=None)
+
+        with Live(group, console=console, refresh_per_second=4):
+            task = progress.add_task("Evaluating…", total=eval_total)
+
+            async def on_progress(current: int, total: int, item_info: dict) -> None:
+                nonlocal correct_so_far, wrong_so_far
+                if item_info.get("correct"):
+                    correct_so_far += 1
+                else:
+                    wrong_so_far += 1
+
+                pct = (correct_so_far / current * 100) if current > 0 else 0
+                elapsed = time.monotonic() - t_start
+                speed = current / elapsed * 60 if elapsed > 0 else 0
+
+                status_parts = [
+                    f"  [bold green]✓ {correct_so_far}[/]",
+                    f"[bold red]✗ {wrong_so_far}[/]",
+                    "[dim]│[/]",
+                    f"[bold blue]{pct:.1f}%[/] accuracy",
+                    "[dim]│[/]",
+                    f"[dim]{speed:.1f} q/min[/]",
+                ]
+                stats_text.text_format = "  ".join(status_parts)
+                progress.update(task, completed=current, total=total)
+
+                # Show last completed question details
+                subj = item_info.get("subject", "?")
+                got = item_info.get("extracted_answer", "?")
+                expected = item_info.get("ground_truth", "?")
+                is_correct = item_info.get("correct", False)
+                icon = "[green]✓[/]" if is_correct else "[red]✗[/]"
+                question = (item_info.get("question") or "").replace("\n", " ").strip()
+                if len(question) > 90:
+                    question = question[:87] + "…"
+                last_q_text.text_format = (
+                    f"  {icon} [bold]{got}[/]/{expected} "
+                    f"[dim]{subj}[/]  "
+                    f"[dim italic]{question}[/]"
+                )
+
+            result = await plugin.run(
+                adapter,
+                model=model,
+                base_url=base_url,
+                api_key=api_key,
+                temperature=args.temperature,
+                timeout_seconds=args.timeout,
+                seed=seed,
+                extra_params=extra_params,
+                on_progress=on_progress,
+                n_shots=n_shots,
+                limit=limit,
+                subjects=subjects_list,
+                _preloaded_items=preloaded,
+            )
+            result_holder.append(result)
+
+            progress.update(task, completed=result.details["total"],
+                          description="[green]✓ Complete")
+            final_speed = result.details["total"] / result.duration_seconds * 60 if result.duration_seconds > 0 else 0
+            stats_text.text_format = (
+                f"  [bold green]✓ {result.details['correct']}[/]  "
+                f"[bold red]✗ {result.details['total'] - result.details['correct']}[/]  "
+                f"[dim]│[/]  "
+                f"[bold blue]{result.score:.1f}%[/] accuracy  "
+                f"[dim]│[/]  "
+                f"[dim]{final_speed:.1f} q/min[/]"
+            )
+            last_q_text.text_format = ""
+
+    try:
+        asyncio.run(run())
+    except KeyboardInterrupt:
+        console.print("\n[bold red]Interrupted.[/]")
+        sys.exit(1)
+    except Exception as exc:
+        console.print(f"\n[bold red]MMLU error:[/] {exc}")
+        sys.exit(1)
+    finally:
+        if hasattr(adapter, "aclose"):
+            asyncio.run(adapter.aclose())
+
+    if not result_holder:
+        console.print("[bold red]No MMLU results.[/]")
+        return
+
+    result = result_holder[0]
+    details = result.details
+
+    console.print()
+    console.print(
+        f"  [bold]MMLU Accuracy:[/] [bold blue]{result.score:.1f}%[/] "
+        f"({details['correct']}/{details['total']})"
+    )
+    console.print(f"  [bold]Rating:[/] {result.rating}")
+    # Show category breakdown
+    cats = details.get("categories", {})
+    if cats:
+        parts = [f"{cat}: {c['accuracy']:.1f}%" for cat, c in sorted(cats.items())]
+        console.print(f"  [dim]{' · '.join(parts)}[/]")
+    console.print(f"  [dim]Duration: {result.duration_seconds:.1f}s · "
+                  f"Tokens: {result.total_tokens:,}[/]")
+
+    # Write report
+    from tool_eval_bench.storage.reports import MarkdownReporter
+    from tool_eval_bench.utils.ids import build_run_id
+    from datetime import datetime, timezone
+
+    run_config = {
+        "model": model, "base_url": base_url,
+        "mode": "mmlu", "n_shots": n_shots, "limit": limit,
+    }
+    run_id = build_run_id(run_config)
+    reporter = MarkdownReporter(root=output_dir)
+    report_lines = plugin.render_report_section(result)
+
+    now = datetime.now(timezone.utc)
+    folder = reporter.root / f"{now.year:04d}" / f"{now.month:02d}"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{run_id}.md"
+    md = [
+        f"# MMLU Benchmark — {display_name}",
+        "",
+        f"- **Run ID**: `{run_id}`",
+        f"- **Date**: `{now.isoformat()}`",
+        "- **Mode**: mmlu",
+        f"- **Accuracy**: **{result.score:.1f}%**",
+        f"- **Rating**: {result.rating}",
+        "",
+    ]
+    md.extend(report_lines)
+    path.write_text("\n".join(md), encoding="utf-8")
+    console.print("\n  [dim]Report saved to runs/[/]\n")
+
+
+# ---------------------------------------------------------------------------
+# IFEval benchmark (--ifeval / --ifeval-only)
+# ---------------------------------------------------------------------------
+
+def _run_ifeval_benchmark(
+    console: Console,
+    model: str,
+    display_name: str,
+    base_url: str,
+    api_key: str | None,
+    args: argparse.Namespace,
+    *,
+    extra_params: dict[str, Any] | None = None,
+    output_dir: str | None = None,
+    run_context: Any | None = None,
+) -> None:
+    """Run the IFEval instruction-following benchmark and display results."""
+    from rich.panel import Panel
+
+    from tool_eval_bench.adapters.openai_compat import OpenAICompatibleAdapter
+    from tool_eval_bench.plugins.ifeval.plugin import IFEvalPlugin
+
+    limit = args.ifeval_limit
+    seed = getattr(args, "seed", None)
+    limit_label = "all 541" if limit == 0 else f"{limit}"
+
+    console.print()
+    console.print(
+        Panel(
+            f"[bold]{display_name}[/]\n"
+            f"[dim]{limit_label} prompts · 25 constraint types[/]",
+            title="[bold]📋 IFEval — Instruction Following Evaluation[/]",
+            border_style="bright_green",
+        )
+    )
+
+    plugin = IFEvalPlugin()
+    adapter = OpenAICompatibleAdapter()
+    result_holder: list = []
+
+    # -- Phase 1: Load dataset --
+    from tool_eval_bench.plugins.ifeval.dataset import _find_cache_file, load_dataset
+
+    cache_path = _find_cache_file()
+    if cache_path.exists():
+        console.print("  [dim]Loading IFEval from cache…[/]", end=" ")
+        dataset_items = load_dataset()
+        console.print(f"[bold green]✓[/] [dim]{len(dataset_items)} prompts[/]")
+    else:
+        from pathlib import Path as _Path
+        partial_path = _Path("data") / "ifeval" / "prompts.partial.jsonl"
+        resuming = partial_path.exists()
+        label = "Resuming IFEval download" if resuming else "Downloading IFEval dataset"
+        console.print()
+        with console.status(
+            f"[bold]{label} from HuggingFace…[/]",
+            spinner="dots",
+        ) as status:
+            def on_download(downloaded: int, total: int) -> None:
+                pct = downloaded / total * 100 if total else 0
+                status.update(
+                    f"[bold]{label}…[/] "
+                    f"[dim]{downloaded:,}/{total:,} prompts ({pct:.0f}%)[/]"
+                )
+            try:
+                dataset_items = load_dataset(on_progress=on_download)
+            except Exception as exc:
+                console.print(
+                    f"\n  [bold red]✗[/] Failed to download IFEval dataset: {exc}\n"
+                    "  [dim]This is usually caused by HuggingFace rate limiting.\n"
+                    "  Progress is saved — re-run to resume from where it stopped.[/]"
+                )
+                return
+        console.print(
+            f"  [bold green]✓[/] Downloaded [bold]{len(dataset_items)}[/] prompts "
+            f"[dim](cached to data/ifeval/prompts.jsonl)[/]"
+        )
+
+    # -- Phase 2: Evaluate with model --
+    async def run() -> None:
+        from rich.progress import (
+            BarColumn,
+            MofNCompleteColumn,
+            Progress,
+            SpinnerColumn,
+            TextColumn,
+            TimeElapsedColumn,
+            TimeRemainingColumn,
+        )
+        from rich.live import Live
+        from rich.console import Group
+
+        eval_total = limit if limit > 0 else len(dataset_items)
+
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold]{task.description}"),
+            BarColumn(bar_width=40),
+            TextColumn("[bold]{task.percentage:>3.0f}%[/]"),
+            MofNCompleteColumn(),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            TextColumn("[dim]eta[/]"),
+            TimeRemainingColumn(),
+            console=console,
+        )
+
+        stats_text = TextColumn("")
+        stats_progress = Progress(stats_text, console=console)
+        last_q_text = TextColumn("")
+        last_q_progress = Progress(last_q_text, console=console)
+        group = Group(progress, stats_progress, last_q_progress)
+
+        prompts_passed = 0
+        prompts_failed = 0
+        instructions_passed = 0
+        instructions_total = 0
+        t_start = time.monotonic()
+        stats_progress.add_task("", total=None)
+        last_q_progress.add_task("", total=None)
+
+        with Live(group, console=console, refresh_per_second=4):
+            task = progress.add_task("Evaluating…", total=eval_total)
+
+            async def on_progress(current: int, total: int, item_info: dict) -> None:
+                nonlocal prompts_passed, prompts_failed
+                nonlocal instructions_passed, instructions_total
+                if item_info.get("prompt_pass"):
+                    prompts_passed += 1
+                else:
+                    prompts_failed += 1
+                instructions_passed += item_info.get("instructions_passed", 0)
+                instructions_total += item_info.get("instructions_total", 0)
+
+                prompt_pct = (prompts_passed / current * 100) if current > 0 else 0
+                inst_pct = (instructions_passed / instructions_total * 100) if instructions_total > 0 else 0
+                elapsed = time.monotonic() - t_start
+                speed = current / elapsed * 60 if elapsed > 0 else 0
+
+                status_parts = [
+                    f"  [bold green]✓ {prompts_passed}[/]",
+                    f"[bold red]✗ {prompts_failed}[/]",
+                    "[dim]│[/]",
+                    f"[bold green]{prompt_pct:.1f}%[/] prompt",
+                    f"[bold cyan]{inst_pct:.1f}%[/] instr",
+                    "[dim]│[/]",
+                    f"[dim]{speed:.1f} p/min[/]",
+                ]
+                stats_text.text_format = "  ".join(status_parts)
+                progress.update(task, completed=current, total=total)
+
+                # Show last completed prompt
+                is_pass = item_info.get("prompt_pass", False)
+                icon = "[green]✓[/]" if is_pass else "[red]✗[/]"
+                ip = item_info.get("instructions_passed", 0)
+                it = item_info.get("instructions_total", 0)
+                prompt = (item_info.get("prompt") or "").replace("\n", " ").strip()
+                if len(prompt) > 90:
+                    prompt = prompt[:87] + "…"
+                last_q_text.text_format = (
+                    f"  {icon} [bold]{ip}[/]/{it} constraints  "
+                    f"[dim italic]{prompt}[/]"
+                )
+
+            result = await plugin.run(
+                adapter,
+                model=model,
+                base_url=base_url,
+                api_key=api_key,
+                temperature=args.temperature,
+                timeout_seconds=args.timeout,
+                seed=seed,
+                extra_params=extra_params,
+                on_progress=on_progress,
+                limit=limit,
+                _preloaded_items=dataset_items,
+            )
+            result_holder.append(result)
+
+            progress.update(task, completed=result.details["total"],
+                          description="[green]✓ Complete")
+            d = result.details
+            final_speed = d["total"] / result.duration_seconds * 60 if result.duration_seconds > 0 else 0
+            stats_text.text_format = (
+                f"  [bold green]✓ {d['prompts_passed']}[/]  "
+                f"[bold red]✗ {d['total'] - d['prompts_passed']}[/]  "
+                f"[dim]│[/]  "
+                f"[bold green]{d['prompt_accuracy']:.1f}%[/] prompt  "
+                f"[bold cyan]{d.get('instruction_accuracy', 0):.1f}%[/] instr  "
+                f"[dim]│[/]  "
+                f"[dim]{final_speed:.1f} p/min[/]"
+            )
+            last_q_text.text_format = ""
+
+    try:
+        asyncio.run(run())
+    except KeyboardInterrupt:
+        console.print("\n[bold red]Interrupted.[/]")
+        sys.exit(1)
+    except Exception as exc:
+        console.print(f"\n[bold red]IFEval error:[/] {exc}")
+        sys.exit(1)
+    finally:
+        if hasattr(adapter, "aclose"):
+            asyncio.run(adapter.aclose())
+
+    if not result_holder:
+        console.print("[bold red]No IFEval results.[/]")
+        return
+
+    result = result_holder[0]
+    details = result.details
+
+    console.print()
+    console.print(
+        f"  [bold]IFEval Prompt Accuracy:[/] [bold green]{details.get('prompt_accuracy', 0):.1f}%[/] "
+        f"({details['prompts_passed']}/{details['total']})"
+    )
+    console.print(
+        f"  [bold]IFEval Instruction Accuracy:[/] [bold cyan]"
+        f"{details.get('instruction_accuracy', 0):.1f}%[/] "
+        f"({details.get('instructions_passed', 0)}/{details.get('instructions_total', 0)})"
+    )
+    console.print(f"  [bold]Rating:[/] {result.rating}")
+    console.print(f"  [dim]Duration: {result.duration_seconds:.1f}s · "
+                  f"Tokens: {result.total_tokens:,}[/]")
+
+    # Write report
+    from tool_eval_bench.storage.reports import MarkdownReporter
+    from tool_eval_bench.utils.ids import build_run_id
+    from datetime import datetime, timezone
+
+    run_config = {
+        "model": model, "base_url": base_url,
+        "mode": "ifeval", "limit": limit,
+    }
+    run_id = build_run_id(run_config)
+    reporter = MarkdownReporter(root=output_dir)
+    report_lines = plugin.render_report_section(result)
+
+    now = datetime.now(timezone.utc)
+    folder = reporter.root / f"{now.year:04d}" / f"{now.month:02d}"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{run_id}.md"
+    md = [
+        f"# IFEval Benchmark — {display_name}",
+        "",
+        f"- **Run ID**: `{run_id}`",
+        f"- **Date**: `{now.isoformat()}`",
+        "- **Mode**: ifeval",
+        f"- **Prompt Accuracy**: **{details.get('prompt_accuracy', 0):.1f}%**",
+        f"- **Instruction Accuracy**: **{details.get('instruction_accuracy', 0):.1f}%**",
+        f"- **Rating**: {result.rating}",
+        "",
+    ]
+    md.extend(report_lines)
+    path.write_text("\n".join(md), encoding="utf-8")
+    console.print("\n  [dim]Report saved to runs/[/]\n")
+
+
 def _make_parser() -> argparse.ArgumentParser:
     """Build and return the CLI argument parser.
 
@@ -1198,6 +2008,42 @@ def _make_parser() -> argparse.ArgumentParser:
                           help="Pass-through args for llama-benchy (quoted string)")
     perf_grp.add_argument("--skip-coherence", action="store_true",
                           help="Skip coherence check (for air-gapped hosts)")
+
+    # -- GSM8K benchmark ----------------------------------------------------
+    gsm8k_grp = parser.add_argument_group("GSM8K benchmark")
+    gsm8k_grp.add_argument("--gsm8k", action="store_true",
+                           help="Run GSM8K (Grade School Math) benchmark after tool-call scenarios")
+    gsm8k_grp.add_argument("--gsm8k-only", action="store_true",
+                           help="Run ONLY the GSM8K benchmark (skip tool-call scenarios)")
+    gsm8k_grp.add_argument("--gsm8k-shots", type=int, default=8, metavar="N",
+                           help="Number of few-shot CoT examples (0–8, default: 8)")
+    gsm8k_grp.add_argument("--gsm8k-limit", type=int, default=200, metavar="N",
+                           help="Max questions to evaluate (default: 200, 0 = all 1319)")
+    gsm8k_grp.add_argument("--gsm8k-shuffle", action="store_true",
+                           help="Shuffle question order (uses --seed for reproducibility)")
+
+    # -- MMLU benchmark -----------------------------------------------------
+    mmlu_grp = parser.add_argument_group("MMLU benchmark")
+    mmlu_grp.add_argument("--mmlu", action="store_true",
+                          help="Run MMLU (Massive Multitask Language Understanding) benchmark")
+    mmlu_grp.add_argument("--mmlu-only", action="store_true",
+                          help="Run ONLY the MMLU benchmark (skip tool-call scenarios)")
+    mmlu_grp.add_argument("--mmlu-shots", type=int, default=5, metavar="N",
+                          help="Number of few-shot examples per subject (0–5, default: 5)")
+    mmlu_grp.add_argument("--mmlu-limit", type=int, default=500, metavar="N",
+                          help="Max questions to evaluate (default: 500, 0 = all 14042)")
+    mmlu_grp.add_argument("--mmlu-subjects", type=str, default=None, metavar="LIST",
+                          help="Comma-separated subjects or categories "
+                               "(e.g. 'STEM,abstract_algebra')")
+
+    # -- IFEval benchmark ---------------------------------------------------
+    ifeval_grp = parser.add_argument_group("IFEval benchmark")
+    ifeval_grp.add_argument("--ifeval", action="store_true",
+                            help="Run IFEval (Instruction Following) benchmark")
+    ifeval_grp.add_argument("--ifeval-only", action="store_true",
+                            help="Run ONLY the IFEval benchmark (skip tool-call scenarios)")
+    ifeval_grp.add_argument("--ifeval-limit", type=int, default=0, metavar="N",
+                            help="Max prompts to evaluate (default: 0 = all 541)")
 
     # -- Speculative decoding benchmark ------------------------------------
     spec_grp = parser.add_argument_group("speculative decoding benchmark")
@@ -1615,7 +2461,10 @@ def main() -> None:
             output_dir=args.output_dir,
         )
         # If --spec-bench is the only mode, or user explicitly skipped tool-eval
-        if args.skip_tool_eval or (not args.perf and not args.perf_only):
+        if args.skip_tool_eval or (not args.perf and not args.perf_only
+                                   and not args.gsm8k and not args.gsm8k_only
+                                   and not args.mmlu and not args.mmlu_only
+                                   and not args.ifeval and not args.ifeval_only):
             return
 
     # -- Context pressure sweep --
@@ -1743,12 +2592,49 @@ def main() -> None:
             console.print(f"\n[bold red]Error:[/] {exc}")
             sys.exit(1)
 
+    # -- GSM8K benchmark --
+    if args.gsm8k or args.gsm8k_only:
+        _run_gsm8k_benchmark(
+            console, model, display_name, base_url, api_key, args,
+            extra_params=extra_params or None,
+            output_dir=args.output_dir,
+            run_context=run_context,
+        )
+        if args.gsm8k_only:
+            return
+
+    # -- MMLU benchmark --
+    if args.mmlu or args.mmlu_only:
+        _run_mmlu_benchmark(
+            console, model, display_name, base_url, api_key, args,
+            extra_params=extra_params or None,
+            output_dir=args.output_dir,
+            run_context=run_context,
+        )
+        if args.mmlu_only:
+            return
+
+    # -- IFEval benchmark --
+    if args.ifeval or args.ifeval_only:
+        _run_ifeval_benchmark(
+            console, model, display_name, base_url, api_key, args,
+            extra_params=extra_params or None,
+            output_dir=args.output_dir,
+            run_context=run_context,
+        )
+        if args.ifeval_only:
+            return
+
     # -- Skip tool-call scenarios if requested --
     if args.skip_tool_eval:
-        if not args.perf and not args.perf_only and not args.spec_bench and not args.spec_live:
+        any_benchmark = (args.perf or args.perf_only or args.spec_bench
+                        or args.spec_live or args.gsm8k or args.gsm8k_only
+                        or args.mmlu or args.mmlu_only
+                        or args.ifeval or args.ifeval_only)
+        if not any_benchmark:
             console.print(
                 "\n  [yellow]⚠ --skip-tool-eval has no effect without "
-                "--perf, --perf-only, or --spec-bench.[/]\n"
+                "--perf, --perf-only, --spec-bench, --gsm8k, --mmlu, or --ifeval.[/]\n"
             )
         return
 

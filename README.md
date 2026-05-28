@@ -1,6 +1,6 @@
 # tool-eval-bench
 
-A **tool-calling quality benchmark** for evaluating LLM tool-use in agentic workflows across open-weight model serving stacks (**vLLM**, **LiteLLM**, **llama.cpp**).
+A **tool-calling quality benchmark** for evaluating LLM tool-use in agentic workflows across open-weight model serving stacks (**vLLM**, **LiteLLM**, **llama.cpp**). Also includes pluggable accuracy benchmarks (**GSM8K**, **MMLU**, **IFEval**) via the same OpenAI-compatible endpoints.
 
 Inspired by [ToolCall-15](https://github.com/stevibe/ToolCall-15), this tool runs **69 deterministic scenarios** (+ 5 opt-in Hard Mode) through OpenAI-compatible `/chat/completions` endpoints, scores each result as **pass**, **partial**, or **fail**, and produces detailed trace reports. Mock tool responses include realistic payload noise (extra metadata, timestamps, nested objects) to test whether models can extract relevant fields from noisy API responses. It also includes an integrated **throughput benchmark** (llama-bench style) for measuring prefill and token generation speed.
 
@@ -34,6 +34,16 @@ Inspired by [ToolCall-15](https://github.com/stevibe/ToolCall-15), this tool run
 ### Throughput Performance (optional)
 
 llama-bench style prefill (pp) and token generation (tg) measurement via streaming, with configurable context depth and concurrency sweeps.
+
+### Pluggable Accuracy Benchmarks
+
+External benchmarks run through the same `BenchmarkPlugin` interface and share the backend adapter, progress display, and reporting infrastructure. No `tools` support required — only `/v1/chat/completions`.
+
+| Benchmark | Flag | Questions | What It Measures |
+|---|---|---|---|
+| **GSM8K** | `--gsm8k` | 1,319 | Grade school math reasoning (8-shot chain-of-thought) |
+| **MMLU** | `--mmlu` | 14,042 | Massive Multitask Language Understanding — 57 subjects across STEM, Humanities, Social Sciences, Other (5-shot) |
+| **IFEval** | `--ifeval` | 541 | Instruction Following Evaluation — 25 constraint types, deterministic programmatic checking (no LLM-as-judge) |
 
 ### Scoring
 
@@ -214,6 +224,42 @@ tool-eval-bench --model gemma4 --backend vllm --base-url http://localhost:8080
 --spec-live            Start live speculative decoding monitor (Ctrl+R to reset, Ctrl+C to stop)
 --spec-live-interval S Poll interval for --spec-live in seconds (default: 1.0)
 ```
+
+### Accuracy benchmarks (GSM8K, MMLU, IFEval)
+
+Pluggable accuracy benchmarks evaluate model knowledge and instruction-following capabilities. Datasets are downloaded automatically from HuggingFace on first use and cached locally under `data/`. Downloads are resumable — if a download is interrupted (e.g. by rate limiting), re-running the command picks up where it left off.
+
+```bash
+# GSM8K — math reasoning
+tool-eval-bench --gsm8k-only                        # 200 questions, 8-shot
+tool-eval-bench --gsm8k-only --gsm8k-limit 50        # quick test
+
+# MMLU — multitask knowledge
+tool-eval-bench --mmlu-only                          # 500 questions, 5-shot
+tool-eval-bench --mmlu-only --mmlu-limit 50           # quick test
+tool-eval-bench --mmlu-only --mmlu-subjects STEM      # only STEM subjects
+tool-eval-bench --mmlu-only --mmlu-shots 0            # zero-shot
+
+# IFEval — instruction following
+tool-eval-bench --ifeval-only                        # all 541 prompts
+tool-eval-bench --ifeval-only --ifeval-limit 20       # quick test
+
+# Combined with tool-eval
+tool-eval-bench --mmlu --ifeval --gsm8k              # all three after tool-eval
+```
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--gsm8k` / `--gsm8k-only` | off | Run GSM8K benchmark |
+| `--gsm8k-shots` | 8 | Few-shot examples (0–8) |
+| `--gsm8k-limit` | 200 | Max questions (0 = all 1,319) |
+| `--gsm8k-shuffle` | off | Shuffle question order |
+| `--mmlu` / `--mmlu-only` | off | Run MMLU benchmark |
+| `--mmlu-shots` | 5 | Few-shot examples per subject (0–5) |
+| `--mmlu-limit` | 500 | Max questions (0 = all 14,042) |
+| `--mmlu-subjects` | all | Comma-separated subjects or categories (e.g. `STEM,philosophy`) |
+| `--ifeval` / `--ifeval-only` | off | Run IFEval benchmark |
+| `--ifeval-limit` | 0 (all) | Max prompts (0 = all 541) |
 
 ### Throughput benchmark
 
@@ -528,6 +574,7 @@ src/tool_eval_bench/
     spec_live_display.py  # Live speculative decoding dashboard (Rich Live)
   domain/
     models.py         # BenchmarkConfig
+    plugin.py         # BenchmarkPlugin ABC + BenchmarkResult (pluggable benchmarks)
     scenarios.py      # Scenario types, evaluation types, scoring
     tools.py          # Universal tool definitions, system prompt
   evals/
@@ -548,6 +595,12 @@ src/tool_eval_bench/
   storage/
     db.py             # SQLite persistence
     reports.py        # Markdown report writer
+  plugins/
+    hf_utils.py       # Shared HuggingFace downloader (retry, resume, throttle)
+    registry.py       # Plugin registry (get_plugin, available_plugins)
+    gsm8k/            # GSM8K benchmark plugin (1,319 math questions)
+    mmlu/             # MMLU benchmark plugin (14,042 questions, 57 subjects)
+    ifeval/           # IFEval benchmark plugin (541 prompts, 25 constraints)
   utils/
     ids.py            # Run ID generation
     metadata.py       # System/backend metadata

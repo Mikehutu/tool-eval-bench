@@ -4,25 +4,28 @@ This file defines project-local conventions for all files in this repo.
 
 ## Mission
 
-Build and evolve a local benchmark platform that evaluates **LLM tool-calling quality** for agentic multi-agent systems. The benchmark uses deterministic scenarios with mock tools, multi-turn conversation loops, and 3-tier scoring (pass/partial/fail).
+Build and evolve a local benchmark platform that evaluates **LLM quality** for agentic multi-agent systems. The core benchmark uses deterministic scenarios with mock tools, multi-turn conversation loops, and 3-tier scoring (pass/partial/fail). A pluggable architecture allows adding external benchmarks (GSM8K, MMLU, IFEval, future HumanEval, etc.) alongside the tool-call evaluation.
 
 Primary focus:
 1. **Tool-use effectiveness** — 69 scenarios across 15 categories
 2. **Multi-turn orchestration** — chained reasoning, conditional branching, error recovery
 3. **Throughput benchmarking** — llama-bench style pp/tg measurement with depth/concurrency sweeps
+4. **Pluggable benchmarks** — external accuracy benchmarks (GSM8K, MMLU, IFEval) via `BenchmarkPlugin` interface
 
 The sole interface is the `tool-eval-bench` CLI. There is no web server or TUI.
 
 ## Architectural guardrails
 
 - Keep a strict layered architecture:
-  - `domain` must not import storage adapters.
+  - `domain` must not import storage adapters. Defines core types (`ScenarioDefinition`, `BenchmarkPlugin`).
   - `evals` depends on domain types, not concrete server logic.
   - `runner` orchestrates scenarios using adapter interfaces.
-  - `cli` is the delivery layer that calls `runner.service`.
+  - `plugins` contains pluggable benchmark modules (GSM8K, MMLU, IFEval). Each plugin implements `domain.plugin.BenchmarkPlugin` and owns its own orchestration.
+  - `cli` is the delivery layer that calls `runner.service` and plugin runners.
 - Prefer composition over global state.
 - Keep adapters backend-specific and pluggable (all use OpenAI wire format).
 - Scenarios are self-contained: each has its own mock handlers and evaluators.
+- Plugins are self-contained: each owns its dataset loading, evaluation logic, and report rendering. Shared infrastructure (adapter, storage) lives outside plugins.
 
 ## Storage and reporting rules
 
@@ -35,6 +38,7 @@ The sole interface is the `tool-eval-bench` CLI. There is no web server or TUI.
 
 - vLLM + LiteLLM + llama.cpp are supported via OpenAI-compatible endpoints.
 - Any server exposing `/v1/chat/completions` with `tools` support should work.
+- Non-tool benchmarks (GSM8K, MMLU, IFEval) only require `/v1/chat/completions` — `tools` support is not needed.
 
 ## Quality bar
 

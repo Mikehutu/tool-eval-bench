@@ -8,6 +8,11 @@ user-specified LLM endpoints. It does not expose any network services itself.
 The primary security considerations are:
 
 - **API keys** stored in `.env` files (never committed to git)
+- **Dataset downloads** — benchmark plugins (GSM8K, MMLU, IFEval) download
+  datasets from the HuggingFace Datasets Server REST API on first use.
+  These are read-only HTTPS `GET` requests to `datasets-server.huggingface.co`.
+  Downloaded data is cached locally under `data/` as JSONL files.
+  No authentication tokens are sent to HuggingFace.
 - **Prompt injection scenarios** (Category K) — these are intentionally
   adversarial test cases, not vulnerabilities
 

@@ -1,0 +1,282 @@
+"""MMLU benchmark plugin — orchestrator and report rendering.
+
+Implements ``BenchmarkPlugin`` for the Massive Multitask Language
+Understanding benchmark (14,042 test questions, 57 subjects).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from collections import Counter, defaultdict
+from typing import Any
+
+from tool_eval_bench.adapters.base import BackendAdapter
+from tool_eval_bench.domain.plugin import (
+    BenchmarkPlugin,
+    BenchmarkResult,
+    OnPluginProgress,
+)
+from tool_eval_bench.plugins.mmlu.dataset import (
+    CATEGORIES,
+    SUBJECT_CATEGORIES,
+    MMLUItem,
+    load_dataset,
+)
+from tool_eval_bench.plugins.mmlu.evaluator import evaluate_answer
+from tool_eval_bench.plugins.mmlu.prompts import build_messages
+
+logger = logging.getLogger(__name__)
+
+
+def _rating_for_accuracy(accuracy: float) -> str:
+    if accuracy >= 85:
+        return "★★★★★ Excellent"
+    if accuracy >= 70:
+        return "★★★★ Good"
+    if accuracy >= 55:
+        return "★★★ Adequate"
+    if accuracy >= 40:
+        return "★★ Weak"
+    return "★ Poor"
+
+
+class MMLUPlugin(BenchmarkPlugin):
+    """MMLU benchmark — 14K multiple-choice questions across 57 subjects."""
+
+    @property
+    def name(self) -> str:
+        return "mmlu"
+
+    @property
+    def description(self) -> str:
+        return "Massive Multitask Language Understanding (14K questions, 57 subjects)"
+
+    async def run(
+        self,
+        adapter: BackendAdapter,
+        *,
+        model: str,
+        base_url: str,
+        api_key: str | None = None,
+        temperature: float = 0.0,
+        timeout_seconds: float = 60.0,
+        seed: int | None = None,
+        extra_params: dict[str, Any] | None = None,
+        on_progress: OnPluginProgress | None = None,
+        **kwargs: Any,
+    ) -> BenchmarkResult:
+        """Run MMLU evaluation."""
+        n_shots: int = kwargs.get("n_shots", 5)
+        limit: int = kwargs.get("limit", 0)
+        subjects_filter: list[str] | None = kwargs.get("subjects", None)
+        concurrency: int = kwargs.get("concurrency", 1)
+        preloaded: dict | None = kwargs.get("_preloaded_items")
+
+        # Load dataset
+        if preloaded:
+            all_items = preloaded["test"]
+            dev_items = preloaded.get("dev", [])
+        else:
+            on_download = kwargs.get("on_download_progress")
+            all_items = load_dataset("test", on_progress=on_download)
+            dev_items = load_dataset("dev") if n_shots > 0 else []
+
+        logger.info("Loaded %d MMLU test questions", len(all_items))
+
+        # Filter by subject/category if requested
+        if subjects_filter:
+            expanded: set[str] = set()
+            for s in subjects_filter:
+                # Allow category names like "STEM" to expand to all subjects
+                if s in CATEGORIES:
+                    expanded.update(
+                        subj for subj, cat in SUBJECT_CATEGORIES.items()
+                        if cat == s
+                    )
+                else:
+                    expanded.add(s)
+            all_items = [it for it in all_items if it.subject in expanded]
+            logger.info("Filtered to %d items for subjects: %s", len(all_items), expanded)
+
+        # Apply limit
+        if limit > 0:
+            all_items = all_items[:limit]
+
+        total = len(all_items)
+        if total == 0:
+            return BenchmarkResult(
+                plugin_name="mmlu",
+                score=0.0,
+                score_label="0/0",
+                rating=_rating_for_accuracy(0),
+                details={"correct": 0, "total": 0},
+            )
+
+        # Group dev items by subject for few-shot
+        dev_by_subject: dict[str, list[MMLUItem]] = defaultdict(list)
+        for item in dev_items:
+            dev_by_subject[item.subject].append(item)
+
+        # Evaluate
+        sem = asyncio.Semaphore(concurrency)
+        results: list[dict[str, Any]] = [{}] * total
+        correct_count = 0
+        total_tokens = 0
+        t_start = time.monotonic()
+
+        async def eval_one(idx: int, item: MMLUItem) -> None:
+            nonlocal correct_count, total_tokens
+            few_shots = dev_by_subject.get(item.subject, [])
+            messages = build_messages(item, few_shots, n_shots=n_shots)
+
+            try:
+                async with sem:
+                    response = await adapter.chat_completion(
+                        model=model,
+                        messages=messages,
+                        tools=None,
+                        temperature=temperature,
+                        max_tokens=256,
+                        timeout_seconds=timeout_seconds,
+                        api_key=api_key,
+                        base_url=base_url,
+                        extra_params=extra_params,
+                    )
+
+                content = response.content or ""
+                total_tokens += (response.prompt_tokens or 0) + (response.completion_tokens or 0)
+            except Exception as exc:
+                logger.warning("Error on question %d: %s", item.index, exc)
+                content = ""
+
+            result = evaluate_answer(content, item.answer)
+            if result.correct:
+                correct_count += 1
+
+            results[idx] = {
+                "index": item.index,
+                "subject": item.subject,
+                "category": item.category,
+                "question": item.question[:200],
+                "correct": result.correct,
+                "extracted_answer": result.extracted_answer,
+                "ground_truth": result.ground_truth_letter,
+                "extraction_method": result.extraction_method,
+                "model_response": content[:500],
+            }
+
+            if on_progress:
+                completed = sum(1 for r in results if r)
+                await on_progress(completed, total, results[idx])
+
+        tasks = [eval_one(i, item) for i, item in enumerate(all_items)]
+        await asyncio.gather(*tasks)
+
+        duration = time.monotonic() - t_start
+        accuracy = correct_count / total * 100
+
+        # Per-category breakdown
+        cat_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"correct": 0, "total": 0})
+        subj_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"correct": 0, "total": 0})
+        method_counts: Counter[str] = Counter()
+
+        for r in results:
+            cat = r.get("category", "Other")
+            subj = r.get("subject", "unknown")
+            cat_stats[cat]["total"] += 1
+            subj_stats[subj]["total"] += 1
+            method_counts[r.get("extraction_method", "none")] += 1
+            if r.get("correct"):
+                cat_stats[cat]["correct"] += 1
+                subj_stats[subj]["correct"] += 1
+
+        return BenchmarkResult(
+            plugin_name="mmlu",
+            score=round(accuracy, 2),
+            score_label=f"{accuracy:.1f}% ({correct_count}/{total})",
+            rating=_rating_for_accuracy(accuracy),
+            details={
+                "correct": correct_count,
+                "total": total,
+                "accuracy": round(accuracy, 2),
+                "n_shots": n_shots,
+                "dataset_size": 14042,
+                "categories": {
+                    cat: {
+                        "correct": s["correct"],
+                        "total": s["total"],
+                        "accuracy": round(s["correct"] / s["total"] * 100, 1) if s["total"] else 0,
+                    }
+                    for cat, s in sorted(cat_stats.items())
+                },
+                "extraction_methods": dict(method_counts),
+            },
+            item_results=results,
+            metadata={"dataset": "cais/mmlu", "config": "all"},
+            duration_seconds=round(duration, 2),
+            total_tokens=total_tokens,
+        )
+
+    def render_report_section(self, result: BenchmarkResult) -> list[str]:
+        """Render Markdown report section for MMLU results."""
+        d = result.details
+        lines = [
+            "## MMLU — Massive Multitask Language Understanding",
+            "",
+            f"**Accuracy:** {result.score:.1f}% ({d['correct']}/{d['total']})",
+            f"**Rating:** {result.rating}",
+            f"**Duration:** {result.duration_seconds:.1f}s",
+            f"**Tokens:** {result.total_tokens:,}",
+            f"**Prompting:** {d.get('n_shots', 5)}-shot",
+            "",
+        ]
+
+        # Category breakdown
+        cats = d.get("categories", {})
+        if cats:
+            lines.extend([
+                "### Per-Category Accuracy",
+                "",
+                "| Category | Correct | Total | Accuracy |",
+                "|---|---|---|---|",
+            ])
+            for cat in CATEGORIES:
+                if cat in cats:
+                    c = cats[cat]
+                    lines.append(
+                        f"| {cat} | {c['correct']} | {c['total']} | {c['accuracy']:.1f}% |"
+                    )
+            lines.append("")
+
+        # Extraction methods
+        methods = d.get("extraction_methods", {})
+        if methods:
+            lines.extend(["### Extraction Methods", ""])
+            for method, count in sorted(methods.items(), key=lambda x: -x[1]):
+                lines.append(f"- **{method}**: {count}")
+            lines.append("")
+
+        # Failed questions (sample)
+        failures = [r for r in result.item_results if not r.get("correct")]
+        if failures:
+            show = failures[:20]
+            header = f"{len(failures)} total"
+            if len(failures) > 20:
+                header += ", showing 20"
+            lines.extend([
+                f"### Failed Questions ({header})",
+                "",
+                "| # | Subject | Expected | Got | Method |",
+                "|---|---|---|---|---|",
+            ])
+            for f in show:
+                lines.append(
+                    f"| {f['index']} | {f['subject']} | "
+                    f"{f['ground_truth']} | {f.get('extracted_answer', '—')} | "
+                    f"{f.get('extraction_method', '—')} |"
+                )
+            lines.append("")
+
+        return lines

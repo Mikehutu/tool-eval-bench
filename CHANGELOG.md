@@ -4,6 +4,79 @@ All notable changes to `tool-eval-bench` are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Pluggable benchmark abstraction** (`domain/plugin.py`) — new `BenchmarkPlugin` ABC
+  and `BenchmarkResult` dataclass that allow adding external benchmark modules (GSM8K,
+  future MMLU, HumanEval, etc.) alongside the existing tool-call evaluation. Plugins
+  share infrastructure (adapter, storage, reporting) but own their own orchestration.
+  Plugin registry at `plugins/registry.py` provides `get_plugin()` and `available_plugins()`.
+
+- **GSM8K benchmark plugin** (`--gsm8k` / `--gsm8k-only`) — Grade School Math 8K accuracy
+  evaluation using the `openai/gsm8k` dataset (1,319 test questions). Features:
+  - **8-shot chain-of-thought** prompting by default (configurable: `--gsm8k-shots 0-8`)
+  - **Automatic dataset download** from HuggingFace Datasets Server API on first use,
+    cached locally to `data/gsm8k/test.jsonl` (no `datasets` library dependency)
+  - **Multi-strategy answer extraction**: standard `#### N` marker → "the answer is N"
+    pattern → last number fallback, with comma/currency/whitespace normalization
+  - **Rich progress display** with live accuracy percentage during evaluation
+  - **Markdown report generation** with accuracy stats, extraction method breakdown,
+    and failed-question traces
+  - `--gsm8k-limit N` to control question count (default: 200, `0` = all 1,319)
+  - `--gsm8k-shuffle` with `--seed` for reproducible random ordering
+  - Star ratings mapped from accuracy: ★★★★★ (≥90%) to ★ (< 40%)
+  - CLI flags follow existing patterns (`--gsm8k` adds to tool-eval, `--gsm8k-only` skips it)
+  - **Visible dataset download**: first run shows a Rich spinner with live row count
+    during download from HuggingFace; subsequent runs show a quick cache-hit message
+
+- **65 new tests** — 25 evaluator tests (answer extraction/comparison), 30 dataset/prompts/
+  rating/report-rendering tests, 6 plugin interface tests, 4 CLI schema entries.
+
+- **MMLU benchmark plugin** (`--mmlu` / `--mmlu-only`) — Massive Multitask Language
+  Understanding evaluation using the `cais/mmlu` dataset (14,042 test questions across
+  57 subjects in 4 categories). Features:
+  - **5-shot per-subject prompting** using dev-split exemplars (configurable: `--mmlu-shots 0-5`)
+  - **Automatic dataset download** from HuggingFace Datasets Server API, cached to
+    `data/mmlu/test.jsonl` and `data/mmlu/dev.jsonl`
+  - **Multi-strategy answer extraction**: exact single letter → "the answer is X" pattern →
+    first standalone A/B/C/D letter
+  - **Per-category breakdown** (STEM, Humanities, Social Sciences, Other) in reports
+  - **Subject and category filtering**: `--mmlu-subjects STEM,abstract_algebra`
+  - `--mmlu-limit N` to control question count (default: 500, `0` = all 14,042)
+  - Rich progress display with live accuracy during evaluation
+
+- **IFEval benchmark plugin** (`--ifeval` / `--ifeval-only`) — Instruction Following
+  Evaluation using the `google/IFEval` dataset (541 prompts, 25 constraint types).
+  Features:
+  - **25 deterministic constraint checkers**: word/sentence/paragraph count, keyword
+    existence/frequency/forbidden, JSON format, bullet lists, highlighted sections,
+    title detection, no-comma, uppercase/lowercase/title-case, end phrase, quotation,
+    repeat prompt, two responses, postscript, language detection, and more
+  - **Dual accuracy metrics**: prompt-level (all constraints must pass) and instruction-level
+    (individual constraint pass rate)
+  - **Per-constraint-type breakdown** in reports (sorted by accuracy, worst first)
+  - All evaluation is purely programmatic — no LLM-as-judge
+  - `--ifeval-limit N` to control prompt count (default: all 541)
+  - Rich progress display with live prompt/instruction accuracy
+
+- **HuggingFace `datasets` library fast path** — all three plugins (GSM8K, MMLU, IFEval)
+  now try loading datasets via `from datasets import load_dataset` first, which downloads
+  directly from the HuggingFace git repo (no datasets-server API, no 429 rate limits).
+  Falls back to the REST API with retry/resume if `datasets` is not installed.
+  Install with: `pip install tool-eval-bench[hf]`
+
+- **Resumable downloads** — REST API downloads now use incremental partial cache files
+  (`*.partial.jsonl`). On 429 failure, progress is saved automatically. Re-running the
+  command resumes from where it stopped instead of starting from scratch.
+
+- **Live question display** — all three benchmark progress bars now show the last
+  completed question/prompt with ✓/✗ verdict, answer vs expected, and a truncated
+  snippet of the question text. Gives users something interesting to watch during
+  long evaluation runs.
+
+- **90 new tests** — 34 MMLU tests (answer extraction, evaluation, subject mapping,
+  prompt building, ratings), 56 IFEval tests (all 25 constraint types, evaluator,
+  registry, edge cases). Total test count: **1,645**.
 ## [1.8.0] — 2026-05-19
 
 ### Removed

@@ -386,6 +386,87 @@ ARGS_SCHEMA: list[dict[str, Any]] = [
         "default": 5,
         "description": "Number of pressure levels to test in a sweep",
     },
+    # -- GSM8K benchmark --
+    {
+        "name": "gsm8k",
+        "type": "bool",
+        "default": False,
+        "description": "Run GSM8K (Grade School Math) benchmark after tool-call scenarios",
+    },
+    {
+        "name": "gsm8k_only",
+        "type": "bool",
+        "default": False,
+        "description": "Run ONLY the GSM8K benchmark (skip tool-call scenarios)",
+    },
+    {
+        "name": "gsm8k_shots",
+        "type": "int",
+        "default": 8,
+        "description": "Number of few-shot CoT examples for GSM8K (0–8)",
+    },
+    {
+        "name": "gsm8k_limit",
+        "type": "int",
+        "default": 200,
+        "description": "Max GSM8K questions to evaluate (0 = all 1319)",
+    },
+    {
+        "name": "gsm8k_shuffle",
+        "type": "bool",
+        "default": False,
+        "description": "Shuffle GSM8K question order",
+    },
+    # -- MMLU benchmark --
+    {
+        "name": "mmlu",
+        "type": "bool",
+        "default": False,
+        "description": "Run MMLU benchmark after tool-call scenarios",
+    },
+    {
+        "name": "mmlu_only",
+        "type": "bool",
+        "default": False,
+        "description": "Run ONLY the MMLU benchmark (skip tool-call scenarios)",
+    },
+    {
+        "name": "mmlu_shots",
+        "type": "int",
+        "default": 5,
+        "description": "Number of few-shot examples per subject for MMLU (0–5)",
+    },
+    {
+        "name": "mmlu_limit",
+        "type": "int",
+        "default": 500,
+        "description": "Max MMLU questions to evaluate (0 = all 14042)",
+    },
+    {
+        "name": "mmlu_subjects",
+        "type": "string",
+        "default": None,
+        "description": "Comma-separated subjects or categories for MMLU",
+    },
+    # -- IFEval benchmark --
+    {
+        "name": "ifeval",
+        "type": "bool",
+        "default": False,
+        "description": "Run IFEval benchmark after tool-call scenarios",
+    },
+    {
+        "name": "ifeval_only",
+        "type": "bool",
+        "default": False,
+        "description": "Run ONLY the IFEval benchmark (skip tool-call scenarios)",
+    },
+    {
+        "name": "ifeval_limit",
+        "type": "int",
+        "default": 0,
+        "description": "Max IFEval prompts to evaluate (0 = all 541)",
+    },
     # -- History & comparison --
     {
         "name": "diff",
