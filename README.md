@@ -85,7 +85,7 @@ git clone https://github.com/SeraphimSerapis/tool-eval-bench.git
 cd tool-eval-bench
 python -m venv .venv
 source .venv/bin/activate
-pip install -e '.[dev,perf]'
+pip install -e '.[dev,perf,hf]'
 ```
 
 ### Updating
@@ -99,7 +99,7 @@ pip install --upgrade git+https://github.com/SeraphimSerapis/tool-eval-bench.git
 
 # Development setup (pull + reinstall)
 git pull
-pip install -e '.[dev,perf]'
+pip install -e '.[dev,perf,hf]'
 ```
 
 ### Configuration
@@ -227,7 +227,15 @@ tool-eval-bench --model gemma4 --backend vllm --base-url http://localhost:8080
 
 ### Accuracy benchmarks (GSM8K, MMLU, IFEval)
 
-Pluggable accuracy benchmarks evaluate model knowledge and instruction-following capabilities. Datasets are downloaded automatically from HuggingFace on first use and cached locally under `data/`. Downloads are resumable — if a download is interrupted (e.g. by rate limiting), re-running the command picks up where it left off.
+Pluggable accuracy benchmarks evaluate model knowledge and instruction-following capabilities. Datasets are downloaded automatically from HuggingFace on first use and cached locally under `data/`.
+
+**Recommended:** Install the `datasets` library for fast, rate-limit-free downloads directly from the HuggingFace git repo:
+
+```bash
+pip install tool-eval-bench[hf]
+```
+
+Without it, the tool falls back to the HuggingFace REST API (which has rate limits and may fail with HTTP 429 on large datasets like MMLU). Downloads are resumable either way — if interrupted, re-running picks up where it stopped.
 
 ```bash
 # GSM8K — math reasoning

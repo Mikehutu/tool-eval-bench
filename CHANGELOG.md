@@ -74,9 +74,10 @@ All notable changes to `tool-eval-bench` are documented here.
   snippet of the question text. Gives users something interesting to watch during
   long evaluation runs.
 
-- **90 new tests** — 34 MMLU tests (answer extraction, evaluation, subject mapping,
+- **105 new tests** — 34 MMLU tests (answer extraction, evaluation, subject mapping,
   prompt building, ratings), 56 IFEval tests (all 25 constraint types, evaluator,
-  registry, edge cases). Total test count: **1,645**.
+  registry, edge cases), 15 HF utils tests (download/resume, partial cache,
+  `datasets` library integration). Total test count: **1,660**.
 ## [1.8.0] — 2026-05-19
 
 ### Removed

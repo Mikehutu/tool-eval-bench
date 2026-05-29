@@ -9,10 +9,13 @@ The primary security considerations are:
 
 - **API keys** stored in `.env` files (never committed to git)
 - **Dataset downloads** — benchmark plugins (GSM8K, MMLU, IFEval) download
-  datasets from the HuggingFace Datasets Server REST API on first use.
-  These are read-only HTTPS `GET` requests to `datasets-server.huggingface.co`.
+  datasets from HuggingFace on first use.  Two download methods are supported:
+  - **`datasets` library** (`pip install tool-eval-bench[hf]`): downloads
+    directly from the HuggingFace git repo.  Uses `trust_remote_code=False`
+    to prevent execution of untrusted code from dataset cards.
+  - **REST API fallback**: read-only HTTPS `GET` requests to
+    `datasets-server.huggingface.co`.  No authentication tokens are sent.
   Downloaded data is cached locally under `data/` as JSONL files.
-  No authentication tokens are sent to HuggingFace.
 - **Prompt injection scenarios** (Category K) — these are intentionally
   adversarial test cases, not vulnerabilities
 

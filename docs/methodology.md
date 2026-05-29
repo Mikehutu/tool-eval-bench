@@ -386,3 +386,66 @@ demonstrated that trajectory-opaque evaluation misses 44% of safety violations
 and that Pass^3 drops up to 24% under error injection while Pass@3 stays stable.
 Our safety gate (Category K multiplicative threshold) aligns with their finding
 that safety should act as a multiplicative gate rather than an additive term.
+
+---
+
+## Accuracy Benchmarks (Pluggable)
+
+In addition to the tool-calling benchmark, `tool-eval-bench` supports pluggable
+accuracy benchmarks that evaluate model knowledge and instruction-following
+capabilities.  These run through the same OpenAI-compatible adapter but require
+only `/v1/chat/completions` — no `tools` support needed.
+
+All accuracy benchmarks use the `BenchmarkPlugin` ABC defined in
+`domain/plugin.py`, which standardizes dataset loading, evaluation, progress
+reporting, and result rendering.
+
+### GSM8K — Grade School Math
+
+| Property | Value |
+|---|---|
+| Dataset | `openai/gsm8k` (1,319 test questions) |
+| Method | 8-shot chain-of-thought (configurable: 0–8 shots) |
+| Extraction | `#### N` marker → "the answer is N" → last number fallback |
+| Scoring | Exact numeric match after comma/currency/whitespace normalization |
+
+Few-shot exemplars are sampled from the test split's first 8 items.
+The model is asked to show its work and end with `#### <answer>`.
+
+### MMLU — Massive Multitask Language Understanding
+
+| Property | Value |
+|---|---|
+| Dataset | `cais/mmlu` (14,042 test questions, 57 subjects, 4 categories) |
+| Method | 5-shot per-subject prompting using dev-split exemplars |
+| Extraction | Single letter → "the answer is X" → first standalone A/B/C/D |
+| Scoring | Exact letter match (A/B/C/D) |
+| Categories | STEM, Humanities, Social Sciences, Other |
+
+The 5-shot exemplars come from the separate `dev` split, filtered to the
+same subject.  This avoids test-set contamination in few-shot examples.
+
+### IFEval — Instruction Following Evaluation
+
+| Property | Value |
+|---|---|
+| Dataset | `google/IFEval` (541 prompts, 25 constraint types) |
+| Method | Zero-shot, no few-shot examples |
+| Evaluation | Purely programmatic — no LLM-as-judge |
+| Metrics | Prompt-level accuracy (all constraints pass) + instruction-level accuracy |
+
+IFEval uses 25 deterministic constraint checkers (word count, keyword
+existence, JSON format, bullet lists, language detection, etc.).  Each prompt
+has 1–4 constraints; a prompt passes only if ALL its constraints are satisfied.
+
+### Dataset Loading
+
+Datasets are downloaded from HuggingFace on first use:
+
+1. **Primary:** `datasets` library (direct git repo download, no rate limits).
+   Install with `pip install tool-eval-bench[hf]`.
+2. **Fallback:** HuggingFace Datasets Server REST API with exponential backoff,
+   `Retry-After` support, and resumable partial cache files.
+
+Downloaded data is cached as JSONL under `data/<benchmark>/`.  Subsequent runs
+load from cache with no network access.

@@ -1124,19 +1124,33 @@ def _run_gsm8k_benchmark(
         console.print(f"[bold green]✓[/] [dim]{len(dataset_items)} questions[/]")
     else:
         # First use — download with visible progress
+        try:
+            import datasets as _ds  # noqa: F401
+            method_hint = "via datasets lib"
+        except ImportError:
+            method_hint = "via REST API"
         console.print()
         with console.status(
-            "[bold]Downloading GSM8K dataset from HuggingFace…[/]",
+            f"[bold]Downloading GSM8K dataset from HuggingFace…[/] [dim]({method_hint})[/]",
             spinner="dots",
         ) as status:
 
             def on_download(downloaded: int, total: int) -> None:
+                pct = downloaded / total * 100 if total else 0
                 status.update(
                     f"[bold]Downloading GSM8K dataset…[/] "
-                    f"[dim]{downloaded}/{total} questions[/]"
+                    f"[dim]{downloaded:,}/{total:,} questions ({pct:.0f}%)[/]"
                 )
 
-            dataset_items = load_dataset(on_progress=on_download)
+            try:
+                dataset_items = load_dataset(on_progress=on_download)
+            except Exception as exc:
+                console.print(
+                    f"\n  [bold red]✗[/] Failed to download GSM8K dataset: {exc}\n"
+                    "  [dim]This is usually caused by HuggingFace rate limiting.\n"
+                    "  Tip: pip install tool-eval-bench[hf] for rate-limit-free downloads.[/]"
+                )
+                return
 
         console.print(
             f"  [bold green]✓[/] Downloaded [bold]{len(dataset_items)}[/] questions "
@@ -1392,10 +1406,16 @@ def _run_mmlu_benchmark(
         from pathlib import Path as _Path
         partial_path = _Path("data") / "mmlu" / "test.partial.jsonl"
         resuming = partial_path.exists()
+        # Check which download method will be used
+        try:
+            import datasets as _ds  # noqa: F401
+            method_hint = "via datasets lib"
+        except ImportError:
+            method_hint = "via REST API"
         label = "Resuming MMLU download" if resuming else "Downloading MMLU dataset"
         console.print()
         with console.status(
-            f"[bold]{label} from HuggingFace…[/]",
+            f"[bold]{label} from HuggingFace…[/] [dim]({method_hint})[/]",
             spinner="dots",
         ) as status:
             def on_download(downloaded: int, total: int) -> None:
@@ -1410,7 +1430,8 @@ def _run_mmlu_benchmark(
                 console.print(
                     f"\n  [bold red]✗[/] Failed to download MMLU dataset: {exc}\n"
                     "  [dim]This is usually caused by HuggingFace rate limiting.\n"
-                    "  Progress is saved — re-run to resume from where it stopped.[/]"
+                    "  Progress is saved — re-run to resume from where it stopped.\n"
+                    "  Tip: pip install tool-eval-bench[hf] for rate-limit-free downloads.[/]"
                 )
                 return
         console.print(
@@ -1673,10 +1694,15 @@ def _run_ifeval_benchmark(
         from pathlib import Path as _Path
         partial_path = _Path("data") / "ifeval" / "prompts.partial.jsonl"
         resuming = partial_path.exists()
+        try:
+            import datasets as _ds  # noqa: F401
+            method_hint = "via datasets lib"
+        except ImportError:
+            method_hint = "via REST API"
         label = "Resuming IFEval download" if resuming else "Downloading IFEval dataset"
         console.print()
         with console.status(
-            f"[bold]{label} from HuggingFace…[/]",
+            f"[bold]{label} from HuggingFace…[/] [dim]({method_hint})[/]",
             spinner="dots",
         ) as status:
             def on_download(downloaded: int, total: int) -> None:
@@ -1691,7 +1717,8 @@ def _run_ifeval_benchmark(
                 console.print(
                     f"\n  [bold red]✗[/] Failed to download IFEval dataset: {exc}\n"
                     "  [dim]This is usually caused by HuggingFace rate limiting.\n"
-                    "  Progress is saved — re-run to resume from where it stopped.[/]"
+                    "  Progress is saved — re-run to resume from where it stopped.\n"
+                    "  Tip: pip install tool-eval-bench[hf] for rate-limit-free downloads.[/]"
                 )
                 return
         console.print(

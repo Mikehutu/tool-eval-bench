@@ -110,6 +110,38 @@ tool-eval-bench --json --short
 | `--perf` | Also run throughput benchmark |
 | `--trials N` | Run N trials for statistical analysis |
 
+## Accuracy benchmarks (pluggable)
+
+In addition to the 69-scenario tool-call benchmark, `tool-eval-bench` supports
+accuracy benchmarks via the same OpenAI-compatible endpoints. These only require
+`/v1/chat/completions` — no `tools` support needed.
+
+```bash
+# GSM8K — math reasoning (1,319 questions, 8-shot)
+tool-eval-bench --gsm8k-only --gsm8k-limit 50
+
+# MMLU — multitask knowledge (14,042 questions, 5-shot)
+tool-eval-bench --mmlu-only --mmlu-limit 50
+
+# IFEval — instruction following (541 prompts, 25 constraints)
+tool-eval-bench --ifeval-only --ifeval-limit 20
+
+# Run all accuracy benchmarks (skip tool-call scenarios)
+tool-eval-bench --gsm8k-only --mmlu-only --ifeval-only
+```
+
+Datasets are downloaded from HuggingFace on first use and cached locally.
+Install `pip install tool-eval-bench[hf]` for rate-limit-free downloads.
+
+| Flag | Purpose |
+|------|---------|
+| `--gsm8k-only` | GSM8K math reasoning |
+| `--mmlu-only` | MMLU multitask knowledge |
+| `--ifeval-only` | IFEval instruction following |
+| `--gsm8k-limit N` | Limit questions (default: 200) |
+| `--mmlu-limit N` | Limit questions (default: 500) |
+| `--ifeval-limit N` | Limit prompts (default: all 541) |
+
 ## Understanding the JSON output
 
 ```jsonc

@@ -252,7 +252,7 @@ def load_via_datasets_lib(
     for i, item in enumerate(ds):
         # datasets returns dict-like objects; convert to plain dict
         rows.append(dict(item))
-        if on_progress and (i + 1) % 500 == 0:
+        if on_progress and (i + 1) % 100 == 0:
             on_progress(i + 1, total)
 
     if on_progress:

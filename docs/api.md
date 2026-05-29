@@ -250,3 +250,27 @@ with RunRepository() as repo:
 - For thinking models (Qwen3, DeepSeek), pass
   `extra_params={"chat_template_kwargs": {"enable_thinking": False}}` to
   disable thinking — or use the CLI's `--no-think` flag.
+
+## Accuracy Benchmarks (GSM8K, MMLU, IFEval)
+
+The accuracy benchmark plugins are currently **CLI-only** (`--gsm8k-only`,
+`--mmlu-only`, `--ifeval-only`).  They do not yet have a Python API equivalent
+of `run_benchmark()`.
+
+To run accuracy benchmarks programmatically, use `subprocess`:
+
+```python
+import json, subprocess
+
+r = subprocess.run(
+    ["tool-eval-bench", "--mmlu-only", "--mmlu-limit", "50", "--json"],
+    capture_output=True, text=True,
+)
+# Note: accuracy benchmark results are currently rendered to the
+# terminal and Markdown reports, not to the JSON output envelope.
+```
+
+Each plugin implements the `BenchmarkPlugin` ABC from
+`tool_eval_bench.domain.plugin` and can be instantiated directly for
+advanced usage — see the plugin source code for the `run()` method
+signature.

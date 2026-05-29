@@ -49,6 +49,8 @@ Before claiming completion:
 
 **Always use the project venv** (`.venv/bin/python`), not system Python.
 Dev dependencies like `pytest-asyncio` are installed in the venv via `pip install -e '.[dev]'`.
+The `[hf]` optional group (`pip install -e '.[hf]'`) installs the `datasets` library
+for rate-limit-free HuggingFace downloads.
 Running with system Python silently skips all `@pytest.mark.asyncio` tests, giving
 a false sense of coverage.
 
