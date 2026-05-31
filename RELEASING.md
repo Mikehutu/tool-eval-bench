@@ -5,10 +5,10 @@ Checklist for publishing a new release.
 ## Pre-release
 
 1. **Update version strings** (all three MUST match):
-   ```bash
-   # pyproject.toml → version = "X.Y.Z"
-   # src/tool_eval_bench/__init__.py → __version__ = "X.Y.Z"
-   # CHANGELOG.md → ## [X.Y.Z] — YYYY-MM-DD
+   ```
+   pyproject.toml        → version = "X.Y.Z"
+   src/tool_eval_bench/__init__.py → __version__ = "X.Y.Z"
+   CHANGELOG.md          → ## [X.Y.Z] — YYYY-MM-DD
    ```
 
 2. **Lint and test**:
@@ -17,20 +17,14 @@ Checklist for publishing a new release.
    .venv/bin/python -m pytest tests/ --ignore=tests/test_llama_benchy.py
    ```
 
-3. **Build wheel and sdist**:
+3. **Install smoke test**:
    ```bash
-   pip install build
-   python -m build
-   ```
-
-4. **Install smoke test**:
-   ```bash
-   pip install dist/tool_eval_bench-*.whl
-   tool-eval-bench --version
+   uv tool install --force .
+   tool-eval-bench --version   # should print X.Y.Z
    tool-eval-bench --help
    ```
 
-5. **Verify pip check**:
+4. **Verify dependencies**:
    ```bash
    pip check
    ```
@@ -44,17 +38,9 @@ git tag vX.Y.Z
 git push origin main --tags
 ```
 
-## Publishing (optional)
-
-```bash
-pip install twine
-twine upload dist/*
-```
-
 ## Post-release
 
 - Add a new `## [Unreleased]` section at the top of `CHANGELOG.md`
-- Bump version to next dev version if desired (e.g. `X.Y.Z+1.dev0`)
 
 ## Live Certification (recommended before major releases)
 
