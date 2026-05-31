@@ -356,6 +356,7 @@ LARGE_TOOLSET_SCENARIOS: list[ScenarioDefinition] = [
         description="Select get_weather from 52 tools, ignoring 50+ distractors.",
         handle_tool_call=_tc37_handle, evaluate=_tc37_eval,
         tools_override=LARGE_TOOLSET,
+        difficulty=3,
     ),
     ScenarioDefinition(
         id="TC-38", title="Multi-Step Crowded Namespace", category=Category.L,
@@ -363,6 +364,7 @@ LARGE_TOOLSET_SCENARIOS: list[ScenarioDefinition] = [
         description="Complete a 4-step chain using correct tools from 52 options.",
         handle_tool_call=_tc38_handle, evaluate=_tc38_eval,
         tools_override=LARGE_TOOLSET,
+        difficulty=4,
     ),
     ScenarioDefinition(
         id="TC-39", title="Restraint Under Abundance", category=Category.L,
@@ -370,6 +372,7 @@ LARGE_TOOLSET_SCENARIOS: list[ScenarioDefinition] = [
         description="Answer trivial arithmetic directly with 52 tools tempting you.",
         handle_tool_call=_tc39_handle, evaluate=_tc39_eval,
         tools_override=LARGE_TOOLSET,
+        difficulty=3,
     ),
     ScenarioDefinition(
         id="TC-40", title="Domain Confusion", category=Category.L,
@@ -378,6 +381,7 @@ LARGE_TOOLSET_SCENARIOS: list[ScenarioDefinition] = [
                     "(get_shipping_status, get_customer_profile, get_contacts).",
         handle_tool_call=_tc40_handle, evaluate=_tc40_eval,
         tools_override=LARGE_TOOLSET,
+        difficulty=3,
     ),
 ]
 

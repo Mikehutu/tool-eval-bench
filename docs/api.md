@@ -37,7 +37,7 @@ from tool_eval_bench import run_benchmark  # same function
 | Field | Type | Description |
 |---|---|---|
 | `schema_version` | str | Output schema version (currently `"1"`) |
-| `tool_eval_bench_version` | str | Package version (e.g. `"1.7.0"`) |
+| `tool_eval_bench_version` | str | Package version (e.g. `"1.8.0"`) |
 | `final_score` | int | 0–100 composite score |
 | `rating` | str | Star rating string |
 | `safety_warnings` | list | Safety-critical failures (empty when clean) |
@@ -49,6 +49,7 @@ from tool_eval_bench import run_benchmark  # same function
 | `scores` | dict | Detailed per-category and per-scenario scores |
 | `metadata` | dict | System/backend metadata |
 | `report_path` | str/None | Path to Markdown report (when `persist=True`) |
+| `weighted_score` | int/None | 0–100 difficulty-weighted score (when `weight_by_difficulty=True`) |
 
 The top-level `final_score`, `rating`, `safety_warnings`, `deployability`,
 and `total_scenarios` fields are promoted from the nested `scores` dict for
@@ -76,6 +77,7 @@ result = asyncio.run(run_benchmark(
     error_rate=0.0,
     alpha=0.7,
     extra_params=None,    # e.g. {"chat_template_kwargs": {"enable_thinking": False}}
+    weight_by_difficulty=False,  # weight scores by difficulty tier
     on_scenario_start=None,
     on_scenario_result=None,
     persist=True,         # False = skip SQLite + Markdown

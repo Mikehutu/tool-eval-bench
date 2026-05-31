@@ -505,6 +505,19 @@ ARGS_SCHEMA: list[dict[str, Any]] = [
         "default": None,
         "description": "Output file for --export (default: stdout)",
     },
+    {
+        "name": "resume",
+        "type": "string",
+        "default": None,
+        "description": "Resume a previous run — skip scenarios that already passed",
+    },
+    # -- Scoring --
+    {
+        "name": "weight_by_difficulty",
+        "type": "bool",
+        "default": False,
+        "description": "Weight scenario scores by difficulty tier (1×trivial … 5×very hard)",
+    },
 ]
 
 

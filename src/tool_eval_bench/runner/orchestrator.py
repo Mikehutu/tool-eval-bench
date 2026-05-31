@@ -472,6 +472,7 @@ async def run_all_scenarios(
     alpha: float = 0.7,
     extra_params: dict[str, Any] | None = None,
     context_pressure_messages: list[dict[str, Any]] | None = None,
+    weight_by_difficulty: bool = False,
 ) -> ModelScoreSummary:
     """Run every scenario and produce an aggregate score summary.
 
@@ -506,7 +507,8 @@ async def run_all_scenarios(
             results.append(result)
             if on_scenario_result:
                 await on_scenario_result(scenario, result, idx, total)
-        return score_results(results, target_scenarios, alpha=alpha)
+        return score_results(results, target_scenarios, alpha=alpha,
+                             weight_by_difficulty=weight_by_difficulty)
 
     # Parallel path with semaphore-bounded concurrency
     import asyncio
@@ -554,7 +556,8 @@ async def run_all_scenarios(
     await asyncio.gather(*tasks)
 
     final_results = [r for r in ordered_results if r is not None]
-    return score_results(final_results, target_scenarios, alpha=alpha)
+    return score_results(final_results, target_scenarios, alpha=alpha,
+                         weight_by_difficulty=weight_by_difficulty)
 
 
 # ---------------------------------------------------------------------------
@@ -565,12 +568,17 @@ def score_results(
     results: list[ScenarioResult],
     scenarios: list[ScenarioDefinition],
     alpha: float = 0.7,
+    weight_by_difficulty: bool = False,
 ) -> ModelScoreSummary:
     """Compute category and aggregate scores from scenario results.
 
     Args:
         alpha: Quality/speed weight for deployability (0.0–1.0).
                Higher values weight quality more. Default: 0.7.
+        weight_by_difficulty: When True, compute a difficulty-weighted score
+               where each scenario's points are multiplied by its difficulty
+               tier (1–5).  The weighted score is stored separately in
+               ``ModelScoreSummary.weighted_score``.
     """
     all_scenarios = scenarios
     scenario_map = {s.id: s for s in all_scenarios}
@@ -657,6 +665,18 @@ def score_results(
     if total_tokens > 0:
         token_eff = round(total_points / (total_tokens / 1000), 2)
 
+    # Difficulty-weighted scoring
+    weighted: int | None = None
+    if weight_by_difficulty:
+        w_earned = 0
+        w_max = 0
+        for r in results:
+            sc = scenario_map.get(r.scenario_id)
+            diff = sc.difficulty if sc and sc.difficulty else 1
+            w_earned += r.points * diff
+            w_max += 2 * diff  # max 2 points per scenario × weight
+        weighted = round((w_earned / w_max) * 100) if w_max > 0 else 0
+
     return ModelScoreSummary(
         scenario_results=results,
         category_scores=category_scores,
@@ -673,4 +693,5 @@ def score_results(
         alpha=alpha,
         total_tokens=total_tokens,
         token_efficiency=token_eff,
+        weighted_score=weighted,
     )

@@ -24,7 +24,7 @@ Inspired by [ToolCall-15](https://github.com/stevibe/ToolCall-15), this tool run
 | **H — Instruction Following** | TC-22 – TC-24, TC-44 – TC-45 | Output format, tool prohibition, multi-constraint, tool_choice compliance |
 | **I — Context & State** | TC-25 – TC-27, TC-46 – TC-50, TC-62 – TC-63 | Cross-reference, state consistency, multi-turn correction, 6-turn chains, constraint accumulation |
 | **J — Code Patterns** | TC-28 – TC-30 | Read-before-write, explain vs execute, chained conditional |
-| **K — Safety & Boundaries** | TC-31 – TC-36, TC-57 – TC-60 | Ambiguity, prompt injection (file/search/system/sleeper), authority escalation, contradictory params |
+| **K — Safety & Boundaries** | TC-31 – TC-36, TC-41 – TC-43, TC-57 – TC-60 | Ambiguity, prompt injection (file/search/system/sleeper), authority escalation, contradictory params, parameter validation |
 | **L — Toolset Scale** | TC-37 – TC-40 | Tool selection from 52 tools, multi-step in crowded namespace, restraint under abundance |
 | **M — Autonomous Planning** | TC-51 – TC-53 | Goal decomposition, open-ended research, conditional workflows |
 | **N — Creative Composition** | TC-54 – TC-56 | Cross-tool synthesis, data pipelines, notification workflows |
@@ -51,7 +51,7 @@ External benchmarks run through the same `BenchmarkPlugin` interface and share t
 - **1 point** — Partial (functional but suboptimal)
 - **0 points** — Fail (wrong tool, hallucinated data, missed the point)
 
-Each category is scored as a percentage of points earned within it. The **final score is weighted by scenario count** — `(total points earned / total max points) × 100` — so larger categories carry proportionally more weight (0–100).
+Each category is scored as a percentage of points earned within it. The **final score is weighted by scenario count** — `(total points earned / total max points) × 100` — so larger categories carry proportionally more weight (0–100). Each scenario also has a **difficulty tier** (1–5: trivial → very hard) shown in reports. Use `--weight-by-difficulty` to compute an alternative score that weights harder scenarios more heavily.
 
 | Score | Rating |
 |---|---|
@@ -220,6 +220,8 @@ tool-eval-bench --model gemma4 --backend vllm --base-url http://localhost:8080
 --leaderboard          Show ranked model leaderboard
 --export FORMAT        Export all results as csv or json
 --export-output FILE   Output file for --export (default: stdout)
+--resume RUN_ID        Resume a previous run (skip already-passed scenarios)
+--weight-by-difficulty Weight scores by difficulty tier (1× trivial … 5× very hard)
 
 --spec-live            Start live speculative decoding monitor (Ctrl+R to reset, Ctrl+C to stop)
 --spec-live-interval S Poll interval for --spec-live in seconds (default: 1.0)
@@ -516,7 +518,7 @@ The returned dict includes a versioned envelope with top-level Spark Arena field
 | Field | Type | Description |
 |---|---|---|
 | `schema_version` | str | Output schema version (currently `"1"`) |
-| `tool_eval_bench_version` | str | Package version (e.g. `"1.7.0"`) |
+| `tool_eval_bench_version` | str | Package version (e.g. `"1.8.0"`) |
 | `final_score` | int | 0–100 composite score |
 | `rating` | str | Star rating string |
 | `safety_warnings` | list | Safety-critical failures (empty when clean) |
@@ -568,6 +570,9 @@ The orchestrator then:
 
 ## Architecture
 
+For a detailed architecture reference with dependency rules, data-flow diagrams,
+and extension-point guides, see [docs/architecture.md](docs/architecture.md).
+
 ```text
 SKILL.md              # Agent guide — read this to use tool-eval-bench programmatically
 AGENTS.md             # Contributor conventions (architecture, quality bar, git rules)
@@ -579,19 +584,27 @@ src/tool_eval_bench/
   cli/
     bench.py          # Main CLI entry point (tool-eval-bench)
     display.py        # Zero-flicker streaming display
-    spec_live_display.py  # Live speculative decoding dashboard (Rich Live)
+    history.py        # --history, --compare, --diff rendering
+    leaderboard.py    # --leaderboard, --export rendering
+    spec_live_display.py    # Live speculative decoding dashboard (Rich Live)
+    spec_live_rendering.py  # Rich component rendering for spec-live
   domain/
+    errors.py         # Structured error code constants
     models.py         # BenchmarkConfig
     plugin.py         # BenchmarkPlugin ABC + BenchmarkResult (pluggable benchmarks)
     scenarios.py      # Scenario types, evaluation types, scoring
-    tools.py          # Universal tool definitions, system prompt
+    tools.py          # Universal tool definitions (12 tools), system prompt
+    tools_large.py    # Extended 52-tool definitions for Category L
   evals/
     helpers.py        # Shared evaluator utilities (safe math, text matching)
     noise.py          # Deterministic payload enrichment (realistic API noise)
-    scenarios.py      # Core 15 scenarios (A–E) + central registry
+    scenarios.py            # Core 15 scenarios (A–E) + central registry
     scenarios_extended.py   # Extended scenarios (F–G)
-    scenarios_agentic.py    # Agentic scenarios (H–K)
+    scenarios_agentic.py    # Agentic scenarios (H–K partial)
+    scenarios_adversarial.py  # Adversarial safety scenarios (K extras)
     scenarios_large_toolset.py  # Large-toolset scenarios (L)
+    scenarios_planning.py   # Planning + creative scenarios (M–N)
+    scenarios_structured.py # Structured output scenarios (O)
     scenarios_hardmode.py   # Hard Mode scenarios (P) — opt-in ceiling-breakers
   runner/
     orchestrator.py   # Multi-turn tool-call loop
@@ -600,6 +613,9 @@ src/tool_eval_bench/
     speculative.py    # Spec-decode / MTP benchmarking (acceptance rate, effective t/s)
     spec_live.py      # Live monitor data layer (Prometheus scraping, delta computation)
     llama_benchy.py   # External llama-benchy integration (subprocess + JSON parsing)
+    context_pressure.py   # Filler generation, calibration, prefix-cache busting
+    judge.py          # LLM-as-judge for failed scenario analysis (WIP)
+    async_tools.py    # Async tool execution simulation (polling-style tools)
   storage/
     db.py             # SQLite persistence
     reports.py        # Markdown report writer
@@ -611,7 +627,7 @@ src/tool_eval_bench/
     ifeval/           # IFEval benchmark plugin (541 prompts, 25 constraints)
   utils/
     ids.py            # Run ID generation
-    metadata.py       # System/backend metadata
+    metadata.py       # System/backend metadata collection (engine probing)
     urls.py           # Shared URL helpers for OpenAI-compatible endpoints
 ```
 
@@ -670,7 +686,8 @@ tool-eval-bench --compare <run_id_a> <run_id_b>
 
 ```bash
 ruff check .       # lint
-pytest             # scenario evaluators + storage
+pytest             # 1,667 tests — scenario evaluators, plugins, storage, CLI
+                   # includes --cov-fail-under=55 coverage gate (current: 63%)
 ```
 
 ## Related Work

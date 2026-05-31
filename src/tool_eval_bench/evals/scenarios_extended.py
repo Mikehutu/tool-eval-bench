@@ -329,18 +329,21 @@ EXTENDED_SCENARIOS: list[ScenarioDefinition] = [
         user_message="Wie ist das Wetter in München gerade?",
         description="Handle a German-language weather request, respond in German.",
         handle_tool_call=_tc16_handle, evaluate=_tc16_eval,
+        difficulty=2,
     ),
     ScenarioDefinition(
         id="TC-17", title="Timezone-Aware Scheduling", category=Category.F,
         user_message="Erstelle einen Termin für nächsten Dienstag um 14 Uhr Berliner Zeit. Titel: Team Standup.",
         description="Schedule in Europe/Berlin timezone, not UTC.",
         handle_tool_call=_tc17_handle, evaluate=_tc17_eval,
+        difficulty=3,
     ),
     ScenarioDefinition(
         id="TC-18", title="Translate & Forward", category=Category.F,
         user_message='Translate "The meeting has been moved to 3 PM. Please confirm your attendance." to German and email it to Hans.',
         description="Translate to German and email the translated version.",
         handle_tool_call=_tc18_handle, evaluate=_tc18_eval,
+        difficulty=3,
     ),
     ScenarioDefinition(
         id="TC-19", title="Message Routing", category=Category.G,
@@ -354,12 +357,14 @@ EXTENDED_SCENARIOS: list[ScenarioDefinition] = [
         ),
         description="Classify messages without using any tools.",
         handle_tool_call=_tc19_handle, evaluate=_tc19_eval,
+        difficulty=2,
     ),
     ScenarioDefinition(
         id="TC-20", title="Data Extraction & Calculation", category=Category.G,
         user_message="Find the Q3 sales report file and tell me the average sales per region.",
         description="Search → read → calculate, result should be $141,440.",
         handle_tool_call=_tc20_handle, evaluate=_tc20_eval,
+        difficulty=3,
     ),
     ScenarioDefinition(
         id="TC-21", title="Constraint Validation", category=Category.G,
@@ -370,6 +375,7 @@ EXTENDED_SCENARIOS: list[ScenarioDefinition] = [
         ),
         description="Find all 5 validation errors without resorting to tools.",
         handle_tool_call=_tc21_handle, evaluate=_tc21_eval,
+        difficulty=3,
     ),
 ]
 

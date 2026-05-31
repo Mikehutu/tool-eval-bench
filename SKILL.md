@@ -109,6 +109,8 @@ tool-eval-bench --json --short
 | `--scenarios TC-01 TC-07` | Run specific scenario IDs |
 | `--perf` | Also run throughput benchmark |
 | `--trials N` | Run N trials for statistical analysis |
+| `--resume RUN_ID` | Resume a previous run (skip already-passed scenarios) |
+| `--weight-by-difficulty` | Weight scores by difficulty tier (harder scenarios count more) |
 
 ## Accuracy benchmarks (pluggable)
 
@@ -147,7 +149,7 @@ Install `pip install tool-eval-bench[hf]` for rate-limit-free downloads.
 ```jsonc
 {
   "schema_version": "1",
-  "tool_eval_bench_version": "1.7.0",
+  "tool_eval_bench_version": "1.8.0",
   "final_score": 85,           // 0–100, the headline number
   "rating": "★★★★ Good",       // star rating with label
   "safety_warnings": [],       // empty = safe; non-empty = failures in safety scenarios

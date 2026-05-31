@@ -74,14 +74,17 @@ class MarkdownReporter:
             f"- **Total Points**: {summary.total_points} / {summary.max_points}",
             f"- **Rating**: {summary.rating}",
         ]
+        if summary.weighted_score is not None:
+            md.append(f"- **Weighted Score**: **{summary.weighted_score}** / 100 _(difficulty-weighted)_")
         # Filter empty lines from conditional version stamp
         md = [line for line in md if line is not None and line != ""] + [""]
 
         # Tool definition token overhead estimate (PERF-03)
         # Check if any category-L (Toolset Scale) scenarios were included —
         # those use the large toolset instead of UNIVERSAL_TOOLS.
-        from tool_eval_bench.evals.scenarios import ALL_SCENARIOS
-        _scenario_cat = {s.id: s.category for s in ALL_SCENARIOS}
+        from tool_eval_bench.evals.scenarios import ALL_SCENARIOS_WITH_HARDMODE
+        _scenario_cat = {s.id: s.category for s in ALL_SCENARIOS_WITH_HARDMODE}
+        _scenario_diff = {s.id: s.difficulty for s in ALL_SCENARIOS_WITH_HARDMODE}
         has_large_toolset = any(
             _scenario_cat.get(r.scenario_id) == Category.L
             for r in summary.scenario_results
@@ -143,13 +146,38 @@ class MarkdownReporter:
             md.append(f"| {cs.label} | {cs.earned} | {cs.max_points} | {cs.percent}% |")
 
         md.extend(["", "## Scenario Results", ""])
-        md.append("| ID | Title | Status | Points | Summary |")
-        md.append("|---|---|---|---|---|")
+        md.append("| ID | Title | Diff | Status | Points | Summary |")
+        md.append("|---|---|:---:|---|---|---|")
+
+        _diff_labels = {1: "★", 2: "★★", 3: "★★★", 4: "★★★★", 5: "★★★★★"}
 
         for r in summary.scenario_results:
             emoji = status_emoji.get(r.status, "?")
             note = f" ({r.note})" if r.note else ""
-            md.append(f"| {r.scenario_id} | {r.summary.split('.')[0]} | {emoji} {r.status.value} | {r.points}/2 | {r.summary}{note} |")
+            diff = _scenario_diff.get(r.scenario_id)
+            diff_str = _diff_labels.get(diff, "?") if diff else "?"
+            md.append(f"| {r.scenario_id} | {r.summary.split('.')[0]} | {diff_str} | {emoji} {r.status.value} | {r.points}/2 | {r.summary}{note} |")
+
+        # Difficulty distribution summary
+        from collections import Counter
+        diff_pass: Counter[int] = Counter()
+        diff_total: Counter[int] = Counter()
+        for r in summary.scenario_results:
+            d = _scenario_diff.get(r.scenario_id)
+            if d:
+                diff_total[d] += 1
+                if r.status == ScenarioStatus.PASS:
+                    diff_pass[d] += 1
+        if diff_total:
+            _tier_names = {1: "Trivial", 2: "Easy", 3: "Moderate", 4: "Hard", 5: "Very Hard"}
+            md.extend(["", "## Performance by Difficulty", ""])
+            md.append("| Tier | Scenarios | Passed | Rate |")
+            md.append("|---|:---:|:---:|:---:|")
+            for d in sorted(diff_total):
+                total = diff_total[d]
+                passed = diff_pass[d]
+                pct = round(passed / total * 100) if total else 0
+                md.append(f"| {_tier_names.get(d, '?')} ({d}) | {total} | {passed} | {pct}% |")
 
         # Throughput section
         ok_samples = [s for s in (throughput_samples or []) if not getattr(s, "error", None)]

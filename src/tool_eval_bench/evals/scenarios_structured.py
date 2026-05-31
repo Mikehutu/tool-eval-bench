@@ -628,6 +628,7 @@ STRUCTURED_SCENARIOS: list[ScenarioDefinition] = [
         description="Produce valid JSON matching a strict schema without tool calls.",
         handle_tool_call=_tc64_handle, evaluate=_tc64_eval,
         response_format_override=_TC64_SCHEMA,
+        difficulty=2,
     ),
     ScenarioDefinition(
         id="TC-65", title="Tool → Structured Output", category=Category.O,
@@ -639,6 +640,7 @@ STRUCTURED_SCENARIOS: list[ScenarioDefinition] = [
         description="Call get_weather, then format the result as schema-compliant JSON.",
         handle_tool_call=_tc65_handle, evaluate=_tc65_eval,
         response_format_override=_TC65_SCHEMA,
+        difficulty=3,
     ),
     ScenarioDefinition(
         id="TC-66", title="Nested Schema (Array of Objects)", category=Category.O,
@@ -650,6 +652,7 @@ STRUCTURED_SCENARIOS: list[ScenarioDefinition] = [
         description="Call get_contacts and format as nested JSON with array of objects.",
         handle_tool_call=_tc66_handle, evaluate=_tc66_eval,
         response_format_override=_TC66_SCHEMA,
+        difficulty=3,
     ),
     ScenarioDefinition(
         id="TC-67", title="Enum Constraint + Analysis", category=Category.O,
@@ -662,6 +665,7 @@ STRUCTURED_SCENARIOS: list[ScenarioDefinition] = [
         description="Call tools and produce JSON with enum-constrained signal field.",
         handle_tool_call=_tc67_handle, evaluate=_tc67_eval,
         response_format_override=_TC67_SCHEMA,
+        difficulty=3,
     ),
     ScenarioDefinition(
         id="TC-68", title="Schema Violation Resistance", category=Category.O,
@@ -680,6 +684,7 @@ STRUCTURED_SCENARIOS: list[ScenarioDefinition] = [
         # TC-68 tests whether the MODEL respects additionalProperties: false
         # on its own.  If we sent the schema via response_format, the SERVER
         # would enforce the constraint, making the test trivially passable.
+        difficulty=4,
     ),
     ScenarioDefinition(
         id="TC-69", title="Multi-Tool → Complex Schema", category=Category.O,
@@ -692,6 +697,7 @@ STRUCTURED_SCENARIOS: list[ScenarioDefinition] = [
         description="Call multiple tools and synthesize into complex nested schema.",
         handle_tool_call=_tc69_handle, evaluate=_tc69_eval,
         response_format_override=_TC69_SCHEMA,
+        difficulty=4,
     ),
 ]
 

@@ -138,6 +138,14 @@ class ScenarioDefinition:
     # to the adapter's response_format parameter. Used by structured output
     # scenarios to request JSON schema enforcement.
     response_format_override: dict[str, Any] | None = None
+    # Difficulty rating (1–5 scale).  None means "unrated" for backward
+    # compatibility.  See docs/methodology.md for the tier definitions.
+    #   1 = trivial   — single tool, obvious mapping
+    #   2 = easy      — one tool with parameter precision, or simple refusal
+    #   3 = moderate  — multi-step chains, conditional logic, error recovery
+    #   4 = hard      — multi-turn state, adversarial prompts, large toolsets
+    #   5 = very hard — compositional reasoning under multiple constraints
+    difficulty: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -241,6 +249,8 @@ class ModelScoreSummary:
     # Token usage (aggregate across all scenarios)
     total_tokens: int = 0
     token_efficiency: float | None = None
+    # Difficulty-weighted score (None unless --weight-by-difficulty is used)
+    weighted_score: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
@@ -277,6 +287,8 @@ class ModelScoreSummary:
             d["total_tokens"] = self.total_tokens
             if self.token_efficiency is not None:
                 d["token_efficiency"] = round(self.token_efficiency, 2)
+        if self.weighted_score is not None:
+            d["weighted_score"] = self.weighted_score
         return d
 
 

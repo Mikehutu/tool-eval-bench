@@ -2118,6 +2118,14 @@ def _make_parser() -> argparse.ArgumentParser:
                           help="Export all results in CSV or JSON format and exit")
     hist_grp.add_argument("--export-output", metavar="FILE", default=None,
                           help="Output file for --export (default: stdout)")
+    hist_grp.add_argument("--resume", metavar="RUN_ID", default=None,
+                          help="Resume a previous run — skip scenarios that already passed")
+
+    # -- Scoring options ---------------------------------------------------
+    scoring = parser.add_argument_group("scoring")
+    scoring.add_argument("--weight-by-difficulty", action="store_true",
+                         help="Weight scenario scores by difficulty tier "
+                              "(1×trivial … 5×very hard)")
 
     # -- Hidden / WIP (not shown in --help) --------------------------------
     parser.add_argument("--llm-judge", action="store_true", help=argparse.SUPPRESS)
@@ -2189,7 +2197,8 @@ def main() -> None:
                     for cat, count in sorted(cat_counts.items())
                 },
                 "scenarios": [
-                    {"id": s.id, "title": s.title, "category": s.category.value}
+                    {"id": s.id, "title": s.title, "category": s.category.value,
+                     "difficulty": s.difficulty}
                     for s in scenarios
                 ],
             }
@@ -2205,8 +2214,10 @@ def main() -> None:
             for label, count in sorted(cat_counts.items()):
                 console.print(f"  {label}: {count} scenarios")
             console.print()
+            _diff_stars = {1: "★", 2: "★★", 3: "★★★", 4: "★★★★", 5: "★★★★★"}
             for s in scenarios:
-                console.print(f"  [dim]{s.id}[/]  {s.title}")
+                d = _diff_stars.get(s.difficulty, "?") if s.difficulty else "?"
+                console.print(f"  [dim]{s.id}[/]  {d:>5s}  {s.title}")
             console.print()
         sys.exit(0)
 
@@ -2671,6 +2682,45 @@ def main() -> None:
     )
     use_live = not args.json and not args.no_live
     trials = max(1, args.trials)
+
+    # -- Resume: skip scenarios that already passed in a prior run --
+    if args.resume:
+        from tool_eval_bench.storage.db import RunRepository
+        resume_repo = RunRepository()
+        prev_results = resume_repo.get_scenario_results(args.resume)
+        resume_repo.close()
+        if prev_results is None:
+            console.print(
+                f"\n  [bold red]✗[/] Run '{args.resume}' not found in history.\n"
+                "  [dim]Use --history to list available runs.[/]\n"
+            )
+            sys.exit(1)
+        passed_ids = {
+            r["scenario_id"] for r in prev_results
+            if r.get("status") == "pass"
+        }
+        if not passed_ids:
+            if not args.json:
+                console.print(
+                    f"  [dim]ℹ No passed scenarios in run {args.resume} — running all.[/]"
+                )
+        else:
+            # Override --scenarios to exclude already-passed IDs
+            resolved = _resolve_scenarios(args)
+            remaining = [s for s in resolved if s.id not in passed_ids]
+            if not args.json:
+                console.print(
+                    f"  [bold cyan]↻ Resume:[/] {len(passed_ids)} scenarios already passed "
+                    f"in [dim]{args.resume}[/], "
+                    f"running {len(remaining)} remaining"
+                )
+            if not remaining:
+                console.print(
+                    "\n  [bold green]✓[/] All scenarios already passed — nothing to re-run.\n"
+                )
+                return
+            # Inject the filtered list as --scenarios so it flows through
+            args.scenarios = [s.id for s in remaining]
 
     if trials > 1 and not args.json:
         console.print(f"[dim]  Running {trials} trials for statistical measurement…[/]\n")
@@ -3278,6 +3328,7 @@ def _run_with_live_display(
             context_pressure_messages=context_pressure_messages,
             context_pressure_config=context_pressure_config,
             run_context=run_context,
+            weight_by_difficulty=getattr(args, 'weight_by_difficulty', False),
             **callbacks,
         )
 
@@ -3470,6 +3521,7 @@ def _run_json(
             context_pressure_messages=context_pressure_messages,
             context_pressure_config=context_pressure_config,
             run_context=run_context,
+            weight_by_difficulty=getattr(args, 'weight_by_difficulty', False),
             on_scenario_start=_stderr_progress_start,
             on_scenario_result=_stderr_progress_result,
         )
@@ -3564,6 +3616,7 @@ def _run_plain(
             context_pressure_messages=context_pressure_messages,
             context_pressure_config=context_pressure_config,
             run_context=run_context,
+            weight_by_difficulty=getattr(args, 'weight_by_difficulty', False),
             **callbacks,
         )
 
@@ -3583,6 +3636,8 @@ def _run_plain(
     elapsed = time.time() - started
     scores = all_results_dicts[-1].get("scores", {})
     console.print(f"\n[bold]Score: {scores.get('final_score', 0)} / 100  — {scores.get('rating', '')}[/]")
+    if scores.get("weighted_score") is not None:
+        console.print(f"[bold]Weighted Score: {scores['weighted_score']} / 100[/]  [dim](difficulty-weighted)[/]")
     console.print(f"[dim]Completed in {elapsed:.1f}s[/]\n")
 
     # Show trial statistics if multiple trials

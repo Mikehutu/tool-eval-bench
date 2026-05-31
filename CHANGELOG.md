@@ -6,6 +6,31 @@ All notable changes to `tool-eval-bench` are documented here.
 
 ### Added
 
+- **McNemar's significance test** in `--compare` — Automatically computes
+  whether differences between two runs are statistically significant using
+  McNemar's chi-squared test with continuity correction.  No external
+  dependencies (uses stdlib `math.erfc`).  Reports p-value, discordant
+  pair count, and direction.
+
+- **Difficulty tier classification** — All 74 scenarios now have a
+  `difficulty` rating (1–5 scale: trivial → very hard).  Distribution:
+  4 trivial, 17 easy, 31 moderate, 20 hard, 2 very hard.  Field is
+  available on `ScenarioDefinition.difficulty` for downstream reporting.
+
+- **Difficulty in reports** — Markdown reports now include a `Diff` column
+  with star ratings (★–★★★★★) in the scenario results table, plus a
+  "Performance by Difficulty" summary section showing pass rates per tier.
+  The `--dry-run` output also shows difficulty alongside each scenario.
+
+- **Difficulty-weighted scoring** (`--weight-by-difficulty`) — Optional CLI
+  flag that multiplies each scenario's points by its difficulty tier (1–5)
+  before computing the final score.  The weighted score is shown in reports,
+  CLI output, and JSON alongside the standard unweighted score.
+
+- **Run resume** (`--resume <RUN_ID>`) — Resume a previous run by skipping
+  scenarios that already passed.  Loads completed results from SQLite and
+  re-runs only the failed/partial scenarios.  Use `--history` to find run IDs.
+
 - **Pluggable benchmark abstraction** (`domain/plugin.py`) — new `BenchmarkPlugin` ABC
   and `BenchmarkResult` dataclass that allow adding external benchmark modules (GSM8K,
   future MMLU, HumanEval, etc.) alongside the existing tool-call evaluation. Plugins

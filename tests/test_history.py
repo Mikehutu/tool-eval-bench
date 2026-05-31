@@ -572,3 +572,143 @@ class TestCompareRuns:
             assert "60 → 90" in output
             assert "Points:" in output
             assert "0 → 2" in output
+
+
+# ===========================================================================
+# McNemar significance test
+# ===========================================================================
+
+
+class TestMcNemarSignificance:
+    """Tests for the _print_mcnemar helper used by compare_runs."""
+
+    def test_identical_runs_no_significance(self) -> None:
+        """When both runs have identical pass/fail, no test is needed."""
+        from tool_eval_bench.cli.history import _print_mcnemar
+
+        map_a = {"TC-01": {"status": "pass"}, "TC-02": {"status": "fail"}}
+        map_b = {"TC-01": {"status": "pass"}, "TC-02": {"status": "fail"}}
+
+        console = Console(file=StringIO(), width=200, no_color=True)
+        _print_mcnemar(console, map_a, map_b, ["TC-01", "TC-02"])
+
+        output = console.file.getvalue()
+        assert "no discordant pairs" in output
+        assert "identical" in output
+
+    def test_significant_difference_detected(self) -> None:
+        """Many discordant pairs in one direction should be significant."""
+        from tool_eval_bench.cli.history import _print_mcnemar
+
+        # B improves on 10 scenarios, A improves on 0 → very significant
+        map_a = {f"TC-{i:02d}": {"status": "fail"} for i in range(1, 11)}
+        map_b = {f"TC-{i:02d}": {"status": "pass"} for i in range(1, 11)}
+        all_ids = [f"TC-{i:02d}" for i in range(1, 11)]
+
+        console = Console(file=StringIO(), width=200, no_color=True)
+        _print_mcnemar(console, map_a, map_b, all_ids)
+
+        output = console.file.getvalue()
+        assert "significant" in output
+        assert "B is statistically better" in output
+
+    def test_not_significant_with_balanced_discordance(self) -> None:
+        """Equal discordant pairs in both directions → not significant."""
+        from tool_eval_bench.cli.history import _print_mcnemar
+
+        # 2 improve, 2 regress → not significant
+        map_a = {
+            "TC-01": {"status": "fail"}, "TC-02": {"status": "fail"},
+            "TC-03": {"status": "pass"}, "TC-04": {"status": "pass"},
+        }
+        map_b = {
+            "TC-01": {"status": "pass"}, "TC-02": {"status": "pass"},
+            "TC-03": {"status": "fail"}, "TC-04": {"status": "fail"},
+        }
+        all_ids = ["TC-01", "TC-02", "TC-03", "TC-04"]
+
+        console = Console(file=StringIO(), width=200, no_color=True)
+        _print_mcnemar(console, map_a, map_b, all_ids)
+
+        output = console.file.getvalue()
+        assert "not significant" in output
+
+    def test_partial_to_pass_counts_as_discordant(self) -> None:
+        """Partial is not-pass, so partial→pass should be discordant."""
+        from tool_eval_bench.cli.history import _print_mcnemar
+
+        map_a = {"TC-01": {"status": "partial"}}
+        map_b = {"TC-01": {"status": "pass"}}
+
+        console = Console(file=StringIO(), width=200, no_color=True)
+        _print_mcnemar(console, map_a, map_b, ["TC-01"])
+
+        output = console.file.getvalue()
+        # 1 discordant pair → should run the test (not "identical")
+        assert "Discordant pairs: 1" in output
+
+    def test_skips_scenarios_missing_in_one_run(self) -> None:
+        """Scenarios only in one run should be excluded from McNemar."""
+        from tool_eval_bench.cli.history import _print_mcnemar
+
+        map_a = {"TC-01": {"status": "pass"}}
+        map_b = {"TC-01": {"status": "pass"}, "TC-99": {"status": "fail"}}
+
+        console = Console(file=StringIO(), width=200, no_color=True)
+        _print_mcnemar(console, map_a, map_b, ["TC-01", "TC-99"])
+
+        output = console.file.getvalue()
+        # TC-99 should be skipped, TC-01 is concordant → no discordant pairs
+        assert "no discordant pairs" in output
+
+    def test_direction_a_when_a_better(self) -> None:
+        """When A outperforms B, direction should be A."""
+        from tool_eval_bench.cli.history import _print_mcnemar
+
+        # A passes 10 scenarios that B fails
+        map_a = {f"TC-{i:02d}": {"status": "pass"} for i in range(1, 11)}
+        map_b = {f"TC-{i:02d}": {"status": "fail"} for i in range(1, 11)}
+        all_ids = [f"TC-{i:02d}" for i in range(1, 11)]
+
+        console = Console(file=StringIO(), width=200, no_color=True)
+        _print_mcnemar(console, map_a, map_b, all_ids)
+
+        output = console.file.getvalue()
+        assert "A is statistically better" in output
+
+    def test_mcnemar_appears_in_compare_runs(self) -> None:
+        """McNemar output should appear in the compare_runs output."""
+        run_a = {
+            "run_id": "a",
+            "config": {"model": "model-a"},
+            "scores": {
+                "final_score": 60,
+                "scenario_results": [
+                    {"scenario_id": "TC-01", "points": 2, "status": "pass"},
+                    {"scenario_id": "TC-02", "points": 0, "status": "fail"},
+                ],
+            },
+        }
+        run_b = {
+            "run_id": "b",
+            "config": {"model": "model-b"},
+            "scores": {
+                "final_score": 80,
+                "scenario_results": [
+                    {"scenario_id": "TC-01", "points": 2, "status": "pass"},
+                    {"scenario_id": "TC-02", "points": 2, "status": "pass"},
+                ],
+            },
+        }
+
+        with patch("tool_eval_bench.storage.db.RunRepository") as MockRepo:
+            repo = MagicMock()
+            repo.get.side_effect = lambda rid: run_a if rid == "a" else run_b
+            repo.get_latest.return_value = None
+            MockRepo.return_value = repo
+
+            console = Console(file=StringIO(), width=200, no_color=True)
+            compare_runs(console, "a", "b")
+
+            output = console.file.getvalue()
+            assert "McNemar" in output

@@ -708,18 +708,21 @@ PLANNING_SCENARIOS: list[ScenarioDefinition] = [
         user_message="Organize a team lunch for this Friday with the engineering team.",
         description="Autonomously decompose goal into contacts → event → notify workflow.",
         handle_tool_call=_tc51_handle, evaluate=_tc51_eval,
+        difficulty=4,
     ),
     ScenarioDefinition(
         id="TC-52", title="Open-Ended Research", category=Category.M,
         user_message="I need to prepare a summary comparing our stock performance against the market. Our ticker is AAPL.",
         description="Autonomously research market data + stock price and synthesize comparison.",
         handle_tool_call=_tc52_handle, evaluate=_tc52_eval,
+        difficulty=4,
     ),
     ScenarioDefinition(
         id="TC-53", title="Conditional Planning", category=Category.M,
         user_message="Check if it's going to rain in London this weekend, and if so, move our outdoor meeting to the office and notify the attendees.",
         description="Execute conditional workflow: weather check → branch on rain → act.",
         handle_tool_call=_tc53_handle, evaluate=_tc53_eval,
+        difficulty=4,
     ),
     # Category N — Creative Composition
     ScenarioDefinition(
@@ -727,18 +730,21 @@ PLANNING_SCENARIOS: list[ScenarioDefinition] = [
         user_message="What's the local currency equivalent of MSFT's stock price in Tokyo right now?",
         description="Combine stock price + exchange rate lookup + calculation.",
         handle_tool_call=_tc54_handle, evaluate=_tc54_eval,
+        difficulty=4,
     ),
     ScenarioDefinition(
         id="TC-55", title="Data Pipeline", category=Category.N,
         user_message="Find all Q3 revenue files and calculate the total revenue across all regions.",
         description="Build pipeline: search → read ×2 → calculate aggregate.",
         handle_tool_call=_tc55_handle, evaluate=_tc55_eval,
+        difficulty=4,
     ),
     ScenarioDefinition(
         id="TC-56", title="Notification Workflow", category=Category.N,
         user_message="Check the weather in NYC. If it's below freezing, email me a warning and set a reminder to dress warmly tomorrow morning.",
         description="Compose weather check → conditional → email notification.",
         handle_tool_call=_tc56_handle, evaluate=_tc56_eval,
+        difficulty=3,
     ),
     # Category C expansion — Async Polling
     ScenarioDefinition(
@@ -746,6 +752,7 @@ PLANNING_SCENARIOS: list[ScenarioDefinition] = [
         user_message='Run this data analysis script and give me the results: analyze_data(source="transactions_2026")',
         description="Handle async tool response: submit → detect pending → poll → surface result.",
         handle_tool_call=_tc61_handle, evaluate=_tc61_eval,
+        difficulty=3,
     ),
     # Category I expansion — Deep Multi-Turn
     ScenarioDefinition(
@@ -754,6 +761,7 @@ PLANNING_SCENARIOS: list[ScenarioDefinition] = [
         description="6-turn research chain with data correction, competitor pivot, and revision.",
         handle_tool_call=_tc62_handle, evaluate=_tc62_eval,
         follow_up_messages=_TC62_FOLLOW_UPS,
+        difficulty=4,
     ),
     ScenarioDefinition(
         id="TC-63", title="Accumulating Constraints", category=Category.I,
@@ -761,6 +769,7 @@ PLANNING_SCENARIOS: list[ScenarioDefinition] = [
         description="Maintain 4 constraints accumulated across 5 turns.",
         handle_tool_call=_tc63_handle, evaluate=_tc63_eval,
         follow_up_messages=_TC63_FOLLOW_UPS,
+        difficulty=4,
     ),
 ]
 

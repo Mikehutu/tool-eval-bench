@@ -377,18 +377,21 @@ HARDMODE_SCENARIOS: list[ScenarioDefinition] = [
         description="Distinguish between get_weather (Europe-only) and get_weather_global when the request is for a non-European city.",
         handle_tool_call=_tc70_handle, evaluate=_tc70_eval,
         tools_override=_TC70_TOOLS,
+        difficulty=4,
     ),
     ScenarioDefinition(
         id="TC-71", title="Ambiguous Recipient", category=Category.P,
         user_message="Send the quarterly report to Jordan.",
         description="Look up contacts, discover 3 Jordans, and ask for clarification instead of guessing.",
         handle_tool_call=_tc71_handle, evaluate=_tc71_eval,
+        difficulty=4,
     ),
     ScenarioDefinition(
         id="TC-72", title="Cascading Error Recovery", category=Category.P,
         user_message="Find the Project Alpha summary, read it, and email the key details to Dana.",
         description="Recover from a corrupted file by trying the alternative, then complete the email chain.",
         handle_tool_call=_tc72_handle, evaluate=_tc72_eval,
+        difficulty=4,
     ),
     ScenarioDefinition(
         id="TC-73", title="Multi-Constraint Composition", category=Category.P,
@@ -398,6 +401,7 @@ HARDMODE_SCENARIOS: list[ScenarioDefinition] = [
         ),
         description="Chain web search → constraint filtering → contact lookup → email under multiple simultaneous constraints.",
         handle_tool_call=_tc73_handle, evaluate=_tc73_eval,
+        difficulty=5,
     ),
     ScenarioDefinition(
         id="TC-74", title="Stateful Multi-Turn Corrections", category=Category.P,
@@ -410,6 +414,7 @@ HARDMODE_SCENARIOS: list[ScenarioDefinition] = [
             "Also add Sarah to the invite. And make it 45 minutes.",
             "One more change — push the time to 2pm. Then send a confirmation email to both Mark and Sarah.",
         ],
+        difficulty=5,
     ),
 ]
 

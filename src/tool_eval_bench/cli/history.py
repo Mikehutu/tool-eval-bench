@@ -427,5 +427,89 @@ def compare_runs(console: Console, run_id_a: str, run_id_b: str) -> None:
     )
 
     console.print(Panel(summary, border_style="bright_cyan", padding=(0, 2)))
+
+    # McNemar's significance test — paired comparison of pass/fail outcomes
+    # Only considers scenarios present in both runs.
+    _print_mcnemar(console, map_a, map_b, all_ids)
+
     console.print()
     repo.close()
+
+
+def _print_mcnemar(
+    console: Console,
+    map_a: dict[str, dict],
+    map_b: dict[str, dict],
+    all_ids: list[str],
+) -> None:
+    """Compute and display McNemar's test for statistical significance.
+
+    Uses a 2×2 contingency table of pass/not-pass outcomes for scenarios
+    present in both runs.  The chi-squared statistic (with continuity
+    correction) is computed without scipy — only stdlib math is needed.
+
+    Interpretation:
+        p < 0.05  → statistically significant difference
+        p >= 0.05 → no significant difference (could be noise)
+    """
+    import math
+
+    # Build contingency table
+    # b = A pass, B fail (B regressed)
+    # c = A fail, B pass (B improved)
+    b = 0  # A pass & B not-pass
+    c = 0  # A not-pass & B pass
+
+    for sc_id in all_ids:
+        ra = map_a.get(sc_id)
+        rb = map_b.get(sc_id)
+        if not ra or not rb:
+            continue  # skip scenarios not in both runs
+
+        a_pass = ra.get("status") == "pass"
+        b_pass = rb.get("status") == "pass"
+
+        if a_pass and not b_pass:
+            b += 1
+        elif not a_pass and b_pass:
+            c += 1
+
+    n_discordant = b + c
+
+    if n_discordant == 0:
+        console.print(
+            "  [dim]McNemar: no discordant pairs — runs are identical "
+            "(no significance test needed).[/]"
+        )
+        return
+
+    # McNemar's chi-squared with continuity correction
+    chi2 = (abs(b - c) - 1) ** 2 / (b + c) if (b + c) > 0 else 0.0
+
+    # Survival function for chi-squared with df=1 (no scipy needed)
+    # P(X > chi2) = 1 - Phi(sqrt(chi2)) + Phi(-sqrt(chi2))
+    # Using the complementary error function: erfc(x/sqrt(2))/2
+    p_value = math.erfc(math.sqrt(chi2 / 2)) if chi2 > 0 else 1.0
+
+    sig = p_value < 0.05
+    direction = "B" if c > b else "A" if b > c else "neither"
+
+    # Format output
+    sig_str = (
+        f"[bold green]significant (p={p_value:.4f})[/]"
+        if sig
+        else f"[dim]not significant (p={p_value:.4f})[/]"
+    )
+
+    parts = [
+        f"  [bold]McNemar's test:[/] {sig_str}",
+        f"  [dim]Discordant pairs: {n_discordant} "
+        f"(A→fail: {b}, A→pass: {c}, χ²={chi2:.2f})[/]",
+    ]
+    if sig:
+        parts.append(
+            f"  [bold]→ {direction} is statistically better[/]"
+        )
+
+    console.print()
+    console.print("\n".join(parts))

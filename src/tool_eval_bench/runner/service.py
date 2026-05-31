@@ -78,6 +78,7 @@ class BenchmarkService:
         context_pressure_messages: list[dict[str, Any]] | None = None,
         context_pressure_config: dict[str, Any] | None = None,
         run_context: RunContext | None = None,
+        weight_by_difficulty: bool = False,
     ) -> dict[str, Any]:
         """Run the tool-call benchmark against a model and persist results."""
         adapter = self._adapter_for(backend)
@@ -141,6 +142,7 @@ class BenchmarkService:
                 alpha=alpha,
                 extra_params=extra_params,
                 context_pressure_messages=context_pressure_messages,
+                weight_by_difficulty=weight_by_difficulty,
             )
         finally:
             if hasattr(adapter, "aclose"):
