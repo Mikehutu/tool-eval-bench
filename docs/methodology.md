@@ -61,11 +61,11 @@ Where `max_points = num_scenarios_in_category × 2`.
 | M | Autonomous Planning | 3 | Goal decomposition, open-ended research, conditional workflows |
 | N | Creative Composition | 3 | Cross-tool synthesis, data pipelines, notification workflows |
 | O | Structured Output | 6 | JSON schema compliance, tool→schema chaining, nested schemas, enum constraints, violation resistance |
-| P | Hard Mode _(opt-in)_ | 5 | Adversarial near-duplicate tools, ambiguous request clarification, cascading error recovery, multi-constraint composition, stateful multi-turn corrections |
+| P | Hard Mode _(opt-in)_ | 15 | Ceiling-breaking relevance, parallel-call, stateful, adversarial, format-sensitive, and recovery scenarios |
 
 > **Hard Mode (Category P)** is excluded from the standard benchmark by default.
-> Enable with `--hardmode` to include these 5 scenarios, raising the total from
-> 69 to 74. Category P scores are tracked separately and do not affect the base
+> Enable with `--hardmode` to include these 15 scenarios, raising the total from
+> 69 to 84. Category P scores are tracked separately and do not affect the base
 > score unless explicitly included. This preserves comparability with existing results.
 
 ---
@@ -103,8 +103,8 @@ Each scenario is assigned a **difficulty tier** from 1 to 5:
 | 1 | Trivial | 4 | Single-step, obvious tool selection |
 | 2 | Easy | 17 | Straightforward parameter extraction or basic refusal |
 | 3 | Moderate | 31 | Multi-step chains, structured reasoning, or format compliance |
-| 4 | Hard | 20 | Complex chaining, safety traps, adversarial inputs, or multi-constraint composition |
-| 5 | Very Hard | 2 | Cascading errors, stateful multi-turn corrections, or extreme disambiguation |
+| 4 | Hard | 24 | Complex chaining, safety traps, adversarial inputs, or multi-constraint composition |
+| 5 | Very Hard | 8 | Cascading errors, stateful multi-turn corrections, or extreme disambiguation |
 
 Difficulty tiers are shown in reports (star ratings ★–★★★★★) and in `--dry-run`
 output for planning purposes.
@@ -217,7 +217,8 @@ Each evaluator has unit tests covering at minimum:
 | `tests/test_scenarios.py` | Registry integrity, scoring, safety gating, trial aggregation |
 | `tests/test_evaluator_contract.py` | **Golden-trace contract tests** — PASS/FAIL/PARTIAL fixtures for all 15 base scenarios (TC-01–TC-15), including paraphrased refusals, wrong-order dependency chains, and common malformed argument patterns |
 | `tests/test_evaluators_extended.py` | Extended/agentic/adversarial scenario evaluators (F–O) |
-| `tests/test_hardmode.py` | Hard Mode scenarios (Category P, TC-70–TC-74) |
+| `tests/test_hardmode.py` | Original Hard Mode scenarios and Category P registry integration |
+| `tests/test_hardmode_expanded.py` | Expanded Hard Mode scenarios (Category P, TC-75–TC-84) |
 | `tests/test_evaluator_robustness.py` | Crash-resistance: empty state, 50-call floods, unicode, very long answers |
 
 The contract test layer (`test_evaluator_contract.py`) is the primary guard against

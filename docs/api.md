@@ -125,7 +125,7 @@ result = asyncio.run(run_benchmark(
     scenarios=selected,
 ))
 
-# All 74 including Hard Mode
+# All 84 including Hard Mode
 result = asyncio.run(run_benchmark(
     model="my-model", base_url="http://localhost:8000",
     scenarios=list(ALL_SCENARIOS_WITH_HARDMODE),

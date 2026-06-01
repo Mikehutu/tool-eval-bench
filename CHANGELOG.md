@@ -2,6 +2,21 @@
 
 All notable changes to `tool-eval-bench` are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Expanded Hard Mode pack** — Added ten opt-in Category P scenarios
+  (`TC-75` through `TC-84`) for missing-parameter detection, unavailable
+  capabilities, irrelevant-tool restraint, independent and dependency-aware
+  calls, transactional state safety, tool-output prompt injection, stale
+  memory, strict JSON chaining, and long-horizon recovery.
+
+- **Hard Mode diagnostics** — Scenario results now record informational
+  same-turn parallel tool-call telemetry and optional per-call state
+  checkpoints. Parallel execution is not required for correctness, preserving
+  compatibility with backends such as llama.cpp.
+
 ## [2.0.0] — 2026-05-31
 
 ### Changed (Benchmark Integrity — 2.0 Readiness)

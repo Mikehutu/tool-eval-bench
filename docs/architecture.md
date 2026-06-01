@@ -80,14 +80,15 @@ Each scenario is a self-contained `ScenarioDefinition` with:
 | `scenarios_large_toolset.py` | L | TC-37 – TC-40 |
 | `scenarios_planning.py` | M–N | TC-51 – TC-56 |
 | `scenarios_structured.py` | O | TC-64 – TC-69 |
-| `scenarios_hardmode.py` | P (opt-in) | TC-70 – TC-74 |
+| `scenarios_hardmode.py` | P (opt-in registry) | TC-70 – TC-74 |
+| `scenarios_hardmode_expanded.py` | P (opt-in expansion) | TC-75 – TC-84 |
 | `helpers.py` | — | Shared evaluator utilities (datetime matching, text scanning, safe math) |
 | `noise.py` | — | Deterministic payload enrichment for realistic API noise |
 
 Registries:
 - `SCENARIOS` — core 15 (used by `--short`)
 - `ALL_SCENARIOS` — full 69
-- `ALL_SCENARIOS_WITH_HARDMODE` — full 74
+- `ALL_SCENARIOS_WITH_HARDMODE` — full 84
 
 ### `runner/` — Orchestration
 

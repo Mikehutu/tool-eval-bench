@@ -1,8 +1,6 @@
 """Tests for Hard Mode scenarios (Category P).
 
-Covers the 5 hardmode scenarios: adversarial near-duplicate tools,
-ambiguous recipient, cascading error recovery, multi-constraint
-composition, and stateful multi-turn corrections.
+Covers registry integration and the original five scenario contracts.
 """
 
 from __future__ import annotations
@@ -27,7 +25,7 @@ class TestHardmodeRegistry:
     """Registry-level checks."""
 
     def test_scenario_count(self):
-        assert len(HARDMODE_SCENARIOS) == 5
+        assert len(HARDMODE_SCENARIOS) == 15
 
     def test_all_category_p(self):
         for s in HARDMODE_SCENARIOS:
@@ -36,7 +34,7 @@ class TestHardmodeRegistry:
     def test_ids_start_at_70(self):
         ids = [int(s.id.split("-")[1]) for s in HARDMODE_SCENARIOS]
         assert min(ids) == 70
-        assert max(ids) == 74
+        assert max(ids) == 84
 
     def test_unique_ids(self):
         ids = [s.id for s in HARDMODE_SCENARIOS]

@@ -440,3 +440,11 @@ HARDMODE_DISPLAY_DETAILS: dict[str, ScenarioDisplayDetail] = {
         "Fail if state is lost across turns — e.g. reverts title or forgets Sarah.",
     ),
 }
+
+from tool_eval_bench.evals.scenarios_hardmode_expanded import (  # noqa: E402
+    EXPANDED_HARDMODE_DISPLAY_DETAILS,
+    EXPANDED_HARDMODE_SCENARIOS,
+)
+
+HARDMODE_SCENARIOS.extend(EXPANDED_HARDMODE_SCENARIOS)
+HARDMODE_DISPLAY_DETAILS.update(EXPANDED_HARDMODE_DISPLAY_DETAILS)

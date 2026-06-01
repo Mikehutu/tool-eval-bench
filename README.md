@@ -2,7 +2,7 @@
 
 A **tool-calling quality benchmark** for evaluating LLM tool-use in agentic workflows across open-weight model serving stacks (**vLLM**, **LiteLLM**, **llama.cpp**). Also includes pluggable accuracy benchmarks (**GSM8K**, **MMLU**, **IFEval**) via the same OpenAI-compatible endpoints.
 
-Inspired by [ToolCall-15](https://github.com/stevibe/ToolCall-15), this tool runs **69 deterministic scenarios** (+ 5 opt-in Hard Mode) through OpenAI-compatible `/chat/completions` endpoints, scores each result as **pass**, **partial**, or **fail**, and produces detailed trace reports. Mock tool responses include realistic payload noise (extra metadata, timestamps, nested objects) to test whether models can extract relevant fields from noisy API responses. It also includes an integrated **throughput benchmark** (llama-bench style) for measuring prefill and token generation speed.
+Inspired by [ToolCall-15](https://github.com/stevibe/ToolCall-15), this tool runs **69 deterministic scenarios** (+ 15 opt-in Hard Mode) through OpenAI-compatible `/chat/completions` endpoints, scores each result as **pass**, **partial**, or **fail**, and produces detailed trace reports. Mock tool responses include realistic payload noise (extra metadata, timestamps, nested objects) to test whether models can extract relevant fields from noisy API responses. It also includes an integrated **throughput benchmark** (llama-bench style) for measuring prefill and token generation speed.
 
 ![tool-eval-bench benchmark output](docs/images/benchmark-output.png)
 
@@ -29,7 +29,7 @@ Inspired by [ToolCall-15](https://github.com/stevibe/ToolCall-15), this tool run
 | **M — Autonomous Planning** | TC-51 – TC-53 | Goal decomposition, open-ended research, conditional workflows |
 | **N — Creative Composition** | TC-54 – TC-56 | Cross-tool synthesis, data pipelines, notification workflows |
 | **O — Structured Output** | TC-64 – TC-69 | JSON schema compliance, tool→schema chaining, nested schemas, enum constraints, violation resistance |
-| **P — Hard Mode** _(opt-in)_ | TC-70 – TC-74 | Adversarial tools, ambiguous requests, cascading errors, multi-constraint composition, stateful corrections |
+| **P — Hard Mode** _(opt-in)_ | TC-70 – TC-84 | Ceiling-breaking adversarial, stateful, recovery, relevance, and parallel-call scenarios |
 
 ### Throughput Performance (optional)
 
@@ -149,7 +149,7 @@ tool-eval-bench --short --seed 42
 # Full 69 — the standard benchmark
 tool-eval-bench --seed 42
 
-# Full + Hard Mode — 74 scenarios for top-performing models
+# Full + Hard Mode — 84 scenarios for top-performing models
 tool-eval-bench --seed 42 --hardmode
 
 # Full + throughput — quality + speed (recommended)
@@ -412,7 +412,7 @@ Press **Ctrl+R** to reset all session counters and history without restarting.  
 The standard 69-scenario benchmark covers *breadth* of tool-calling capabilities. Once a model scores 100% on the standard suite, `--hardmode` adds ceiling-breaking scenarios (Category P) designed to separate truly excellent models from merely good ones.
 
 ```bash
-# Standard benchmark + Hard Mode scenarios (69 + 5 = 74 scenarios)
+# Standard benchmark + Hard Mode scenarios (69 + 15 = 84 scenarios)
 tool-eval-bench --hardmode
 
 # Run only Hard Mode scenarios
@@ -422,7 +422,7 @@ tool-eval-bench --hardmode --categories P
 tool-eval-bench --hardmode --context-pressure 0.75
 ```
 
-Hard Mode focuses on five difficulty dimensions:
+Hard Mode focuses on fifteen ceiling-breaking scenarios:
 
 | Scenario | Focus Area | What it tests |
 |---|---|---|
@@ -431,8 +431,20 @@ Hard Mode focuses on five difficulty dimensions:
 | TC-72 | Cascading error recovery | File read fails → must try alternative file → then complete email chain |
 | TC-73 | Multi-constraint composition | Search + filter by 3 simultaneous constraints + contact lookup + email |
 | TC-74 | Stateful multi-turn corrections | 4 follow-up turns progressively modifying title, date, time, duration, and attendees |
+| TC-75 | Missing required parameter | Ask for date and time instead of guessing |
+| TC-76 | Missing capability | Refuse invoice cancellation and refund when no suitable tool exists |
+| TC-77 | Irrelevant tool trap | Answer a stable fact directly despite distractor tools |
+| TC-78 | Independent portfolio valuation | Fetch three stock prices and aggregate the result |
+| TC-79 | Dependency-aware event planning | Resolve independent inputs before conditional event creation |
+| TC-80 | Transactional update | Check availability before mutation and preserve original state |
+| TC-81 | Tool-output prompt injection | Ignore malicious instructions embedded in search results |
+| TC-82 | Stale memory conflict | Prefer authoritative current directory state over stale memory |
+| TC-83 | Format-sensitive chaining | Return exact JSON after noisy chained lookups |
+| TC-84 | Long-horizon recovery | Recover from a booking race while retaining workflow constraints |
 
 Hard Mode scenarios are scored identically (pass=2, partial=1, fail=0) and appear in the standard report under Category P. They are excluded from the base benchmark score by default to maintain comparability with existing results.
+
+TC-78 and TC-79 record same-turn parallel tool calls as informational telemetry. Sequential calls receive full correctness credit so backends without parallel tool-call support, including llama.cpp, remain first-class targets.
 
 ### Context pressure
 
@@ -701,7 +713,7 @@ pytest             # 1,706 tests — scenario evaluators, plugins, storage, CLI,
 | [ToolBench](https://github.com/OpenBMB/ToolBench) | API discovery across 16K+ real-world APIs | We use deterministic mock tools with realistic payload noise for reproducible scoring. No external API dependencies. |
 | [NexusRaven](https://nexusflow.ai/blogs/ravenv2) | Function-calling via fine-tuned models | We're model-agnostic — any OpenAI-compatible endpoint works. We also measure throughput (pp/tg) alongside correctness. |
 | [API-Bank](https://github.com/AlibabaResearch/DAMO-ConvAI/tree/main/api-bank) | Multi-turn API usage (73 APIs) | We add safety/boundary testing (Category K with 13 scenarios including prompt injection resistance), large-toolset scale testing (52 tools), and statistical rigor via `--trials`. |
-| [ToolCall-15](https://github.com/stevibe/ToolCall-15) | 15-scenario quick assessment | Our direct ancestor. We extended it to 69 scenarios across 15 categories (+ 5 opt-in Hard Mode), added multi-turn orchestration, autonomous planning, creative composition, structured output evaluation, throughput benchmarking, and production-grade persistence. |
+| [ToolCall-15](https://github.com/stevibe/ToolCall-15) | 15-scenario quick assessment | Our direct ancestor. We extended it to 69 scenarios across 15 categories (+ 15 opt-in Hard Mode), added multi-turn orchestration, autonomous planning, creative composition, structured output evaluation, throughput benchmarking, and production-grade persistence. |
 | [PinchBench (OpenClaw)](https://github.com/open-claw/PinchBench) | Agentic task completion in real environments | PinchBench tests end-to-end task completion. We focus on the tool-calling substrate: does the model pick the right tool, pass the right params, and chain correctly? Complementary benchmarks. |
 
 **Key differentiators:** Local-first (no cloud APIs required), deterministic scoring, multi-trial statistics with Pass@k/Pass^k, integrated throughput measurement, token efficiency tracking, and safety-critical failure detection with rating caps.
