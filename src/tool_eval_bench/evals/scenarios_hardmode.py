@@ -107,25 +107,38 @@ def _tc70_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_weather":
         loc = normalize(as_str(call.arguments.get("location")))
         if "tokyo" in loc or "sydney" in loc:
-            return _noise({"error": "This endpoint only covers European cities. Use get_weather_global for worldwide coverage."}, "get_weather")
-        return _noise({"location": loc.title(), "temperature": 12, "condition": "Cloudy"}, "get_weather")
+            return _noise(
+                {
+                    "error": "This endpoint only covers European cities. Use get_weather_global for worldwide coverage."
+                },
+                "get_weather",
+            )
+        return _noise(
+            {"location": loc.title(), "temperature": 12, "condition": "Cloudy"}, "get_weather"
+        )
     if call.name == "get_weather_global":
         loc = normalize(as_str(call.arguments.get("location")))
-        return _noise({"location": loc.title(), "temperature": 22, "condition": "Sunny", "humidity": 55}, "get_weather_global")
+        return _noise(
+            {"location": loc.title(), "temperature": 22, "condition": "Sunny", "humidity": 55},
+            "get_weather_global",
+        )
     return generic_tool_fallback(call)
 
 
 def _tc70_eval(state: ScenarioState) -> ScenarioEvaluation:
     # Best: use get_weather_global directly for Tokyo (non-European)
-    used_global = has_tool_call(state, "get_weather_global",
-                                lambda c: includes_text(c.arguments.get("location"), "tokyo"))
-    used_euro = has_tool_call(state, "get_weather",
-                              lambda c: includes_text(c.arguments.get("location"), "tokyo"))
+    used_global = has_tool_call(
+        state, "get_weather_global", lambda c: includes_text(c.arguments.get("location"), "tokyo")
+    )
+    used_euro = has_tool_call(
+        state, "get_weather", lambda c: includes_text(c.arguments.get("location"), "tokyo")
+    )
     # Recovery path: tried get_weather, got error, then used get_weather_global
     euro_calls = tool_calls_by_name(state, "get_weather")
     global_calls = tool_calls_by_name(state, "get_weather_global")
     recovered = (
-        len(euro_calls) >= 1 and len(global_calls) >= 1
+        len(euro_calls) >= 1
+        and len(global_calls) >= 1
         and euro_calls[0].turn < global_calls[0].turn
     )
     if used_global and not used_euro:
@@ -143,17 +156,37 @@ def _tc70_eval(state: ScenarioState) -> ScenarioEvaluation:
 # Model should ask which Jordan, not guess.
 # ===================================================================
 
+
 def _tc71_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_contacts":
-        return _noise({"results": [
-            {"name": "Jordan Park", "email": "jordan.park@company.com", "department": "Engineering"},
-            {"name": "Jordan Lee", "email": "jordan.lee@company.com", "department": "Marketing"},
-            {"name": "Jordan Kim", "email": "jordan.kim@company.com", "department": "Finance"},
-        ]}, "get_contacts")
+        return _noise(
+            {
+                "results": [
+                    {
+                        "name": "Jordan Park",
+                        "email": "jordan.park@company.com",
+                        "department": "Engineering",
+                    },
+                    {
+                        "name": "Jordan Lee",
+                        "email": "jordan.lee@company.com",
+                        "department": "Marketing",
+                    },
+                    {
+                        "name": "Jordan Kim",
+                        "email": "jordan.kim@company.com",
+                        "department": "Finance",
+                    },
+                ]
+            },
+            "get_contacts",
+        )
     if call.name == "send_email":
         return _noise({"status": "sent", "message_id": "msg_9921"}, "send_email")
     if call.name == "search_files":
-        return _noise({"results": [{"file_id": "file_331", "name": "Q4_Report_2025.pdf"}]}, "search_files")
+        return _noise(
+            {"results": [{"file_id": "file_331", "name": "Q4_Report_2025.pdf"}]}, "search_files"
+        )
     return generic_tool_fallback(call)
 
 
@@ -171,8 +204,15 @@ def _tc71_eval(state: ScenarioState) -> ScenarioEvaluation:
         # Make sure it mentions the ambiguity (multiple Jordans)
         mentions_multiple = any(
             phrase in transcript.lower()
-            for phrase in ("three jordan", "3 jordan", "multiple jordan",
-                           "which jordan", "jordan park", "jordan lee", "jordan kim")
+            for phrase in (
+                "three jordan",
+                "3 jordan",
+                "multiple jordan",
+                "which jordan",
+                "jordan park",
+                "jordan lee",
+                "jordan kim",
+            )
         )
         if mentions_multiple:
             return _pass("Looked up contacts, found 3 Jordans, and asked for clarification.")
@@ -180,7 +220,9 @@ def _tc71_eval(state: ScenarioState) -> ScenarioEvaluation:
 
     # Worst: just picked one without asking
     if len(email_calls) == 1:
-        return _fail("Sent the email to one Jordan without asking which one — ambiguity not handled.")
+        return _fail(
+            "Sent the email to one Jordan without asking which one — ambiguity not handled."
+        )
     if len(email_calls) > 1:
         return _fail("Sent the email to multiple Jordans — should have asked which one.")
     return _fail("Did not resolve the ambiguous recipient.")
@@ -192,23 +234,36 @@ def _tc71_eval(state: ScenarioState) -> ScenarioEvaluation:
 # Model must try the alternative file and then complete the chain.
 # ===================================================================
 
+
 def _tc72_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "search_files":
-        return _noise({"results": [
-            {"file_id": "file_404", "name": "Project_Alpha_Summary.docx"},
-            {"file_id": "file_405", "name": "Project_Alpha_Budget.xlsx"},
-        ]}, "search_files")
+        return _noise(
+            {
+                "results": [
+                    {"file_id": "file_404", "name": "Project_Alpha_Summary.docx"},
+                    {"file_id": "file_405", "name": "Project_Alpha_Budget.xlsx"},
+                ]
+            },
+            "search_files",
+        )
     if call.name == "read_file":
         fid = normalize(as_str(call.arguments.get("file_id")))
         if fid == "file_404":
             return _noise({"error": "File is corrupted. Unable to read."}, "read_file")
         if fid == "file_405":
-            return _noise({"content": "Project Alpha budget: Total $1.2M. Engineering: $750K, Marketing: $450K."}, "read_file")
+            return _noise(
+                {
+                    "content": "Project Alpha budget: Total $1.2M. Engineering: $750K, Marketing: $450K."
+                },
+                "read_file",
+            )
         return _noise({"error": f"File {fid} not found."}, "read_file")
     if call.name == "send_email":
         return _noise({"status": "sent", "message_id": "msg_7733"}, "send_email")
     if call.name == "get_contacts":
-        return _noise({"results": [{"name": "Dana Wells", "email": "dana.wells@company.com"}]}, "get_contacts")
+        return _noise(
+            {"results": [{"name": "Dana Wells", "email": "dana.wells@company.com"}]}, "get_contacts"
+        )
     return generic_tool_fallback(call)
 
 
@@ -225,11 +280,15 @@ def _tc72_eval(state: ScenarioState) -> ScenarioEvaluation:
     )
 
     if tried_404 and tried_405 and email_has_budget:
-        return _pass("Recovered from corrupted file by trying the alternative, then emailed the budget.")
+        return _pass(
+            "Recovered from corrupted file by trying the alternative, then emailed the budget."
+        )
     if tried_405 and email_has_budget and not tried_404:
         return _pass("Chose the budget file directly and emailed the data.")
     if tried_404 and tried_405 and not email_has_budget:
-        return _partial("Recovered from the error and read the file, but didn't complete the email chain.")
+        return _partial(
+            "Recovered from the error and read the file, but didn't complete the email chain."
+        )
     if tried_404 and not tried_405:
         return _fail("Hit the corrupted file error but did not try the alternative file.")
     return _fail("Did not complete the error recovery chain.")
@@ -243,20 +302,35 @@ def _tc72_eval(state: ScenarioState) -> ScenarioEvaluation:
 # Model must chain: search → filter → contacts → email.
 # ===================================================================
 
+
 def _tc73_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "web_search":
         q = normalize(as_str(call.arguments.get("query")))
         if "restaurant" in q and ("berlin" in q or "alexanderplatz" in q):
-            return _noise({"results": [
-                {"snippet": "Green Kitchen Berlin — vegan-friendly, 0.8km from Alexanderplatz, open daily including Sundays. Rating: 4.7/5."},
-                {"snippet": "Mitte Brasserie — French cuisine, 1.5km from Alexanderplatz, closed Sundays."},
-                {"snippet": "Veganz Bistro — fully vegan, 1.2km from Alexanderplatz, open Sun-Fri. Rating: 4.5/5."},
-            ]}, "web_search")
+            return _noise(
+                {
+                    "results": [
+                        {
+                            "snippet": "Green Kitchen Berlin — vegan-friendly, 0.8km from Alexanderplatz, open daily including Sundays. Rating: 4.7/5."
+                        },
+                        {
+                            "snippet": "Mitte Brasserie — French cuisine, 1.5km from Alexanderplatz, closed Sundays."
+                        },
+                        {
+                            "snippet": "Veganz Bistro — fully vegan, 1.2km from Alexanderplatz, open Sun-Fri. Rating: 4.5/5."
+                        },
+                    ]
+                },
+                "web_search",
+            )
         return _noise({"results": [{"snippet": f"Results for: {q}"}]}, "web_search")
     if call.name == "create_calendar_event":
         return _noise({"event_id": "evt_8811", "status": "created"}, "create_calendar_event")
     if call.name == "get_contacts":
-        return _noise({"results": [{"name": "Lisa Müller", "email": "lisa.mueller@company.com"}]}, "get_contacts")
+        return _noise(
+            {"results": [{"name": "Lisa Müller", "email": "lisa.mueller@company.com"}]},
+            "get_contacts",
+        )
     if call.name == "send_email":
         return _noise({"status": "sent", "message_id": "msg_5544"}, "send_email")
     return generic_tool_fallback(call)
@@ -264,25 +338,33 @@ def _tc73_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
 
 def _tc73_eval(state: ScenarioState) -> ScenarioEvaluation:
     transcript = full_assistant_transcript(state)
-    searched = has_tool_call(state, "web_search",
-                             lambda c: includes_text(c.arguments.get("query"), "restaurant"))
+    searched = has_tool_call(
+        state, "web_search", lambda c: includes_text(c.arguments.get("query"), "restaurant")
+    )
     emailed = first_call(state, "send_email")
-    contacted = has_tool_call(state, "get_contacts",
-                              lambda c: includes_text(c.arguments.get("query"), "lisa"))
+    contacted = has_tool_call(
+        state, "get_contacts", lambda c: includes_text(c.arguments.get("query"), "lisa")
+    )
 
     # Check constraint filtering: should pick Green Kitchen or Veganz (open Sunday + vegan)
     # NOT Mitte Brasserie (closed Sundays, not vegan)
-    mentions_valid = (
-        "green kitchen" in transcript.lower()
-        or "veganz" in transcript.lower()
-    )
-    mentions_invalid = (
-        "mitte brasserie" in transcript.lower()
-        and not any(
-            kw in transcript.lower()
-            for kw in ("closed", "not vegan", "not open", "exclude", "doesn't meet",
-                       "does not meet", "unsuitable", "ruled out", "doesn't have",
-                       "does not have", "isn't open", "is not open", "skip")
+    mentions_valid = "green kitchen" in transcript.lower() or "veganz" in transcript.lower()
+    mentions_invalid = "mitte brasserie" in transcript.lower() and not any(
+        kw in transcript.lower()
+        for kw in (
+            "closed",
+            "not vegan",
+            "not open",
+            "exclude",
+            "doesn't meet",
+            "does not meet",
+            "unsuitable",
+            "ruled out",
+            "doesn't have",
+            "does not have",
+            "isn't open",
+            "is not open",
+            "skip",
         )
     )
 
@@ -292,15 +374,19 @@ def _tc73_eval(state: ScenarioState) -> ScenarioEvaluation:
         or includes_text(emailed.arguments.get("body"), "restaurant")
     )
 
-    steps = sum([
-        bool(searched),
-        bool(mentions_valid and not mentions_invalid),
-        bool(contacted),
-        bool(email_has_restaurant),
-    ])
+    steps = sum(
+        [
+            bool(searched),
+            bool(mentions_valid and not mentions_invalid),
+            bool(contacted),
+            bool(email_has_restaurant),
+        ]
+    )
 
     if steps == 4:
-        return _pass("Searched, filtered by all constraints, resolved Lisa, and emailed the confirmation.")
+        return _pass(
+            "Searched, filtered by all constraints, resolved Lisa, and emailed the confirmation."
+        )
     if steps >= 3:
         return _partial("Completed most of the chain but missed one constraint or step.")
     if steps >= 2:
@@ -313,6 +399,7 @@ def _tc73_eval(state: ScenarioState) -> ScenarioEvaluation:
 # Multi-turn: user progressively builds and modifies a calendar event.
 # The model must track all changes across turns.
 # ===================================================================
+
 
 def _tc74_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "create_calendar_event":
@@ -328,9 +415,15 @@ def _tc74_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_contacts":
         q = normalize(as_str(call.arguments.get("query")))
         if "mark" in q:
-            return _noise({"results": [{"name": "Mark Chen", "email": "mark.chen@company.com"}]}, "get_contacts")
+            return _noise(
+                {"results": [{"name": "Mark Chen", "email": "mark.chen@company.com"}]},
+                "get_contacts",
+            )
         if "sarah" in q:
-            return _noise({"results": [{"name": "Sarah Jones", "email": "sarah.jones@company.com"}]}, "get_contacts")
+            return _noise(
+                {"results": [{"name": "Sarah Jones", "email": "sarah.jones@company.com"}]},
+                "get_contacts",
+            )
         return _noise({"results": []}, "get_contacts")
     if call.name == "send_email":
         return _noise({"status": "sent"}, "send_email")
@@ -361,13 +454,16 @@ def _tc74_eval(state: ScenarioState) -> ScenarioEvaluation:
     duration_ok = args.get("duration_minutes") == 45
 
     # Check if Sarah was added
-    contacts_searched = has_tool_call(state, "get_contacts",
-                                      lambda c: includes_text(c.arguments.get("query"), "sarah"))
+    contacts_searched = has_tool_call(
+        state, "get_contacts", lambda c: includes_text(c.arguments.get("query"), "sarah")
+    )
 
     score = sum([title_ok, date_ok, time_ok, duration_ok, contacts_searched])
 
     if score >= 5:
-        return _pass("Tracked all corrections across turns: title, date, time, duration, and added Sarah.")
+        return _pass(
+            "Tracked all corrections across turns: title, date, time, duration, and added Sarah."
+        )
     if score >= 3:
         return _partial(f"Tracked {score}/5 corrections. Some state was lost across turns.")
     return _fail(f"Only tracked {score}/5 corrections — significant state loss across turns.")
@@ -379,42 +475,57 @@ def _tc74_eval(state: ScenarioState) -> ScenarioEvaluation:
 
 HARDMODE_SCENARIOS: list[ScenarioDefinition] = [
     ScenarioDefinition(
-        id="TC-70", title="Adversarial Near-Duplicate Tools", category=Category.P,
+        id="TC-70",
+        title="Adversarial Near-Duplicate Tools",
+        category=Category.P,
         user_message="What's the weather like in Tokyo right now?",
         description="Distinguish between get_weather (Europe-only) and get_weather_global when the request is for a non-European city.",
-        handle_tool_call=_tc70_handle, evaluate=_tc70_eval,
+        handle_tool_call=_tc70_handle,
+        evaluate=_tc70_eval,
         tools_override=_TC70_TOOLS,
         difficulty=4,
     ),
     ScenarioDefinition(
-        id="TC-71", title="Ambiguous Recipient", category=Category.P,
+        id="TC-71",
+        title="Ambiguous Recipient",
+        category=Category.P,
         user_message="Send the quarterly report to Jordan.",
         description="Look up contacts, discover 3 Jordans, and ask for clarification instead of guessing.",
-        handle_tool_call=_tc71_handle, evaluate=_tc71_eval,
+        handle_tool_call=_tc71_handle,
+        evaluate=_tc71_eval,
         difficulty=4,
     ),
     ScenarioDefinition(
-        id="TC-72", title="Cascading Error Recovery", category=Category.P,
+        id="TC-72",
+        title="Cascading Error Recovery",
+        category=Category.P,
         user_message="Find the Project Alpha summary, read it, and email the key details to Dana.",
         description="Recover from a corrupted file by trying the alternative, then complete the email chain.",
-        handle_tool_call=_tc72_handle, evaluate=_tc72_eval,
+        handle_tool_call=_tc72_handle,
+        evaluate=_tc72_eval,
         difficulty=4,
     ),
     ScenarioDefinition(
-        id="TC-73", title="Multi-Constraint Composition", category=Category.P,
+        id="TC-73",
+        title="Multi-Constraint Composition",
+        category=Category.P,
         user_message=(
             "Find a restaurant in Berlin that's open on Sundays, has vegan options, "
             "and is within 2km of Alexanderplatz. Then email the recommendation to Lisa."
         ),
         description="Chain web search → constraint filtering → contact lookup → email under multiple simultaneous constraints.",
-        handle_tool_call=_tc73_handle, evaluate=_tc73_eval,
+        handle_tool_call=_tc73_handle,
+        evaluate=_tc73_eval,
         difficulty=5,
     ),
     ScenarioDefinition(
-        id="TC-74", title="Stateful Multi-Turn Corrections", category=Category.P,
+        id="TC-74",
+        title="Stateful Multi-Turn Corrections",
+        category=Category.P,
         user_message="Schedule a Team Sync for next Tuesday at 10am, 30 minutes, with Mark.",
         description="Track progressive corrections across 4 follow-up turns: title, date, time, duration, and attendee changes.",
-        handle_tool_call=_tc74_handle, evaluate=_tc74_eval,
+        handle_tool_call=_tc74_handle,
+        evaluate=_tc74_eval,
         follow_up_messages=[
             "Actually, change the title to 'Product Review'.",
             "Move it to Wednesday instead.",

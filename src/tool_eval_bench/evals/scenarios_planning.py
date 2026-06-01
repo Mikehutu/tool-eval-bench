@@ -55,16 +55,19 @@ from tool_eval_bench.evals.helpers import (
 # Category M — Autonomous Planning
 # ===================================================================
 
+
 def _tc51_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_contacts":
         query = _as_str(call.arguments.get("query", ""))
         if _includes_text(query, "engineering") or _includes_text(query, "team"):
             return _noise(
-                {"results": [
-                    {"name": "Alice Chen", "email": "alice@company.com", "role": "engineer"},
-                    {"name": "Bob Park", "email": "bob@company.com", "role": "engineer"},
-                    {"name": "Carol Singh", "email": "carol@company.com", "role": "engineer"},
-                ]},
+                {
+                    "results": [
+                        {"name": "Alice Chen", "email": "alice@company.com", "role": "engineer"},
+                        {"name": "Bob Park", "email": "bob@company.com", "role": "engineer"},
+                        {"name": "Carol Singh", "email": "carol@company.com", "role": "engineer"},
+                    ]
+                },
                 "get_contacts",
             )
         return _noise({"results": []}, "get_contacts")
@@ -87,9 +90,12 @@ def _tc51_eval(state: ScenarioState) -> ScenarioEvaluation:
     No step-by-step guidance is provided.
     """
     got_contacts = _has_tool_call(
-        state, "get_contacts",
-        lambda c: _includes_text(c.arguments.get("query", ""), "engineer")
-        or _includes_text(c.arguments.get("query", ""), "team"),
+        state,
+        "get_contacts",
+        lambda c: (
+            _includes_text(c.arguments.get("query", ""), "engineer")
+            or _includes_text(c.arguments.get("query", ""), "team")
+        ),
     )
     created_event = _has_tool_call(state, "create_calendar_event")
     sent_notification = _has_tool_call(state, "send_email")
@@ -111,7 +117,9 @@ def _tc51_eval(state: ScenarioState) -> ScenarioEvaluation:
         return _partial("Started planning but didn't complete the full workflow.")
     # Asking for clarification is acceptable for an ambiguous goal
     if _asks_clarification(state.final_answer):
-        return _partial("Asked for clarification instead of planning — reasonable but not proactive.")
+        return _partial(
+            "Asked for clarification instead of planning — reasonable but not proactive."
+        )
     return _fail("Did not decompose the goal into any tool actions.")
 
 
@@ -119,6 +127,7 @@ def _tc51_eval(state: ScenarioState) -> ScenarioEvaluation:
 # TC-52: Open-Ended Research
 # Category M — Autonomous Planning
 # ===================================================================
+
 
 def _tc52_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_stock_price":
@@ -133,10 +142,14 @@ def _tc52_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
         query = _as_str(call.arguments.get("query", "")).lower()
         if "market" in query or "s&p" in query or "index" in query or "nasdaq" in query:
             return _noise(
-                {"results": [
-                    {"snippet": "S&P 500 closed at 5,412.50, up 0.8% for the week. "
-                     "NASDAQ composite at 17,234.12, up 1.2%."},
-                ]},
+                {
+                    "results": [
+                        {
+                            "snippet": "S&P 500 closed at 5,412.50, up 0.8% for the week. "
+                            "NASDAQ composite at 17,234.12, up 1.2%."
+                        },
+                    ]
+                },
                 "web_search",
             )
         if "aapl" in query or "apple" in query:
@@ -150,6 +163,7 @@ def _tc52_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
         )
     if call.name == "calculator":
         from tool_eval_bench.evals.helpers import parse_math_expression
+
         expr = _as_str(call.arguments.get("expression", ""))
         result = parse_math_expression(expr)
         if result is not None:
@@ -166,11 +180,13 @@ def _tc52_eval(state: ScenarioState) -> ScenarioEvaluation:
     Not told which tools to chain or in what order.
     """
     got_stock = _has_tool_call(
-        state, "get_stock_price",
+        state,
+        "get_stock_price",
         lambda c: _as_str(c.arguments.get("ticker", "")).upper() == "AAPL",
     )
     searched_market = _has_tool_call(
-        state, "web_search",
+        state,
+        "web_search",
         lambda c: any(
             w in _as_str(c.arguments.get("query", "")).lower()
             for w in ("market", "s&p", "index", "nasdaq", "benchmark")
@@ -178,7 +194,8 @@ def _tc52_eval(state: ScenarioState) -> ScenarioEvaluation:
     )
     answer = state.final_answer.lower()
     mentions_comparison = any(
-        w in answer for w in ("178", "aapl", "s&p", "market", "compare", "outperform", "underperform")
+        w in answer
+        for w in ("178", "aapl", "s&p", "market", "compare", "outperform", "underperform")
     )
 
     if got_stock and searched_market and mentions_comparison:
@@ -197,11 +214,18 @@ def _tc52_eval(state: ScenarioState) -> ScenarioEvaluation:
 # Category M — Autonomous Planning
 # ===================================================================
 
+
 def _tc53_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_weather":
         return _noise(
-            {"location": "London", "temperature": 11, "units": "celsius",
-             "condition": "Rain", "humidity": 88, "forecast": "Rain expected through weekend."},
+            {
+                "location": "London",
+                "temperature": 11,
+                "units": "celsius",
+                "condition": "Rain",
+                "humidity": 88,
+                "forecast": "Rain expected through weekend.",
+            },
             "get_weather",
         )
     if call.name == "create_calendar_event":
@@ -210,10 +234,12 @@ def _tc53_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
         return _noise({"status": "sent"}, "send_email")
     if call.name == "get_contacts":
         return _noise(
-            {"results": [
-                {"name": "Team Lead", "email": "lead@company.com"},
-                {"name": "Dev Team", "email": "dev-team@company.com"},
-            ]},
+            {
+                "results": [
+                    {"name": "Team Lead", "email": "lead@company.com"},
+                    {"name": "Dev Team", "email": "dev-team@company.com"},
+                ]
+            },
             "get_contacts",
         )
     return _noise({"error": f"Tool {call.name} is not relevant."}, call.name)
@@ -228,7 +254,8 @@ def _tc53_eval(state: ScenarioState) -> ScenarioEvaluation:
     Since there's no update_event tool, informing/notifying is the best action.
     """
     checked_weather = _has_tool_call(
-        state, "get_weather",
+        state,
+        "get_weather",
         lambda c: _includes_text(c.arguments.get("location", ""), "london"),
     )
     created_event = _has_tool_call(state, "create_calendar_event")
@@ -258,6 +285,7 @@ def _tc53_eval(state: ScenarioState) -> ScenarioEvaluation:
 # Category N — Creative Composition
 # ===================================================================
 
+
 def _tc54_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_stock_price":
         ticker = _as_str(call.arguments.get("ticker", "")).upper()
@@ -285,6 +313,7 @@ def _tc54_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
         )
     if call.name == "calculator":
         from tool_eval_bench.evals.helpers import parse_math_expression
+
         expr = _as_str(call.arguments.get("expression", ""))
         result = parse_math_expression(expr)
         if result is not None:
@@ -301,17 +330,18 @@ def _tc54_eval(state: ScenarioState) -> ScenarioEvaluation:
     No single tool solves this. Expected answer: ~63,627 JPY.
     """
     got_stock = _has_tool_call(
-        state, "get_stock_price",
+        state,
+        "get_stock_price",
         lambda c: _as_str(c.arguments.get("ticker", "")).upper() == "MSFT",
     )
     searched_exchange = _has_tool_call(
-        state, "web_search",
+        state,
+        "web_search",
         lambda c: any(
             w in _as_str(c.arguments.get("query", "")).lower()
             for w in ("usd", "jpy", "yen", "exchange", "currency")
         ),
     )
-
 
     answer = state.final_answer
     # Expected: 425.80 * 149.50 ≈ 63,657
@@ -333,30 +363,38 @@ def _tc54_eval(state: ScenarioState) -> ScenarioEvaluation:
 # Category N — Creative Composition
 # ===================================================================
 
+
 def _tc55_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "search_files":
         return _noise(
-            {"results": [
-                {"file_id": "q3_rev_na", "name": "Q3_Revenue_NA.xlsx"},
-                {"file_id": "q3_rev_emea", "name": "Q3_Revenue_EMEA.xlsx"},
-            ]},
+            {
+                "results": [
+                    {"file_id": "q3_rev_na", "name": "Q3_Revenue_NA.xlsx"},
+                    {"file_id": "q3_rev_emea", "name": "Q3_Revenue_EMEA.xlsx"},
+                ]
+            },
             "search_files",
         )
     if call.name == "read_file":
         fid = _as_str(call.arguments.get("file_id", ""))
         if fid == "q3_rev_na":
             return _noise(
-                {"content": "Q3 Revenue Report — North America\nTotal Revenue: $2,400,000\nSegments: Enterprise $1.4M, SMB $600K, Consumer $400K"},
+                {
+                    "content": "Q3 Revenue Report — North America\nTotal Revenue: $2,400,000\nSegments: Enterprise $1.4M, SMB $600K, Consumer $400K"
+                },
                 "read_file",
             )
         if fid == "q3_rev_emea":
             return _noise(
-                {"content": "Q3 Revenue Report — EMEA\nTotal Revenue: $1,800,000\nSegments: UK $900K, DACH $500K, Nordics $400K"},
+                {
+                    "content": "Q3 Revenue Report — EMEA\nTotal Revenue: $1,800,000\nSegments: UK $900K, DACH $500K, Nordics $400K"
+                },
                 "read_file",
             )
         return _noise({"error": f"File not found: {fid}"}, "read_file")
     if call.name == "calculator":
         from tool_eval_bench.evals.helpers import parse_math_expression
+
         expr = _as_str(call.arguments.get("expression", ""))
         result = parse_math_expression(expr)
         if result is not None:
@@ -374,11 +412,13 @@ def _tc55_eval(state: ScenarioState) -> ScenarioEvaluation:
     """
     searched = _has_tool_call(state, "search_files")
     read_na = _has_tool_call(
-        state, "read_file",
+        state,
+        "read_file",
         lambda c: _as_str(c.arguments.get("file_id", "")) == "q3_rev_na",
     )
     read_emea = _has_tool_call(
-        state, "read_file",
+        state,
+        "read_file",
         lambda c: _as_str(c.arguments.get("file_id", "")) == "q3_rev_emea",
     )
     answer = state.final_answer
@@ -406,13 +446,19 @@ def _tc55_eval(state: ScenarioState) -> ScenarioEvaluation:
 # Category N — Creative Composition
 # ===================================================================
 
+
 def _tc56_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_weather":
         location = _as_str(call.arguments.get("location", "")).lower()
         if "nyc" in location or "new york" in location:
             return _noise(
-                {"location": "New York City", "temperature": -3, "units": "celsius",
-                 "condition": "Snow", "humidity": 75},
+                {
+                    "location": "New York City",
+                    "temperature": -3,
+                    "units": "celsius",
+                    "condition": "Snow",
+                    "humidity": 75,
+                },
                 "get_weather",
             )
         return _noise(
@@ -434,22 +480,29 @@ def _tc56_eval(state: ScenarioState) -> ScenarioEvaluation:
     Temperature IS below freezing, so the email should be sent.
     """
     checked_weather = _has_tool_call(
-        state, "get_weather",
-        lambda c: _includes_text(c.arguments.get("location", ""), "nyc")
-        or _includes_text(c.arguments.get("location", ""), "new york"),
+        state,
+        "get_weather",
+        lambda c: (
+            _includes_text(c.arguments.get("location", ""), "nyc")
+            or _includes_text(c.arguments.get("location", ""), "new york")
+        ),
     )
     sent_email = _has_tool_call(state, "send_email")
     set_reminder = _has_tool_call(state, "set_reminder")
 
     answer = state.final_answer.lower()
-    mentions_cold = any(w in answer for w in ("below freezing", "cold", "-3", "freez", "snow", "warning"))
+    mentions_cold = any(
+        w in answer for w in ("below freezing", "cold", "-3", "freez", "snow", "warning")
+    )
 
     if checked_weather and sent_email and mentions_cold:
         return _pass("Composed weather check → detected freezing → sent warning email.")
     if checked_weather and sent_email:
         return _partial("Checked weather and sent email but didn't note the freezing condition.")
     if checked_weather and set_reminder and mentions_cold:
-        return _partial("Set reminder instead of sending email — close but wrong notification channel.")
+        return _partial(
+            "Set reminder instead of sending email — close but wrong notification channel."
+        )
     if checked_weather and mentions_cold:
         return _partial("Detected freezing conditions but didn't send the warning email.")
     if checked_weather:
@@ -462,6 +515,7 @@ def _tc56_eval(state: ScenarioState) -> ScenarioEvaluation:
 # Category C — Multi-Step Chains (expansion)
 # ===================================================================
 
+
 def _tc61_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     """Stateful handler: first run_code returns pending, second returns complete."""
     if call.name == "run_code":
@@ -470,16 +524,25 @@ def _tc61_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
         if run_code_count <= 1:
             # First call: return pending
             return _noise(
-                {"status": "pending", "job_id": "job_tc61_9f3a",
-                 "message": "Analysis job is still running. Please call run_code again to check if the job has completed."},
+                {
+                    "status": "pending",
+                    "job_id": "job_tc61_9f3a",
+                    "message": "Analysis job is still running. Please call run_code again to check if the job has completed.",
+                },
                 "run_code",
             )
         else:
             # Subsequent calls: return complete
             return _noise(
-                {"status": "complete", "job_id": "job_tc61_9f3a",
-                 "result": {"total_records": 15420, "anomalies_found": 3,
-                            "summary": "3 anomalies detected in 15,420 records."}},
+                {
+                    "status": "complete",
+                    "job_id": "job_tc61_9f3a",
+                    "result": {
+                        "total_records": 15420,
+                        "anomalies_found": 3,
+                        "summary": "3 anomalies detected in 15,420 records.",
+                    },
+                },
                 "run_code",
             )
     if call.name == "web_search":
@@ -497,6 +560,7 @@ def _tc61_eval(state: ScenarioState) -> ScenarioEvaluation:
     First run_code returns pending. Model must retry/poll to get the result.
     """
     from tool_eval_bench.evals.helpers import tool_calls_by_name
+
     run_calls = tool_calls_by_name(state, "run_code")
 
     answer = state.final_answer.lower()
@@ -556,7 +620,9 @@ def _tc62_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
         fid = _as_str(call.arguments.get("file_id", ""))
         if "latest" in fid or "v2" in fid or "correct" in fid.lower():
             return _noise(
-                {"content": "Q3 Report (CORRECTED)\nRevenue: $4,150,000\nNote: Previous version showed $4.4M due to accounting error."},
+                {
+                    "content": "Q3 Report (CORRECTED)\nRevenue: $4,150,000\nNote: Previous version showed $4.4M due to accounting error."
+                },
                 "read_file",
             )
         return _noise(
@@ -565,6 +631,7 @@ def _tc62_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
         )
     if call.name == "calculator":
         from tool_eval_bench.evals.helpers import parse_math_expression
+
         expr = _as_str(call.arguments.get("expression", ""))
         result = parse_math_expression(expr)
         if result is not None:
@@ -593,12 +660,14 @@ def _tc62_eval(state: ScenarioState) -> ScenarioEvaluation:
 
     used_corrected = "4,150,000" in transcript or "4.15" in transcript or "4150" in transcript
     searched_acme = _has_tool_call(
-        state, "web_search",
+        state,
+        "web_search",
         lambda c: "acme" in _as_str(c.arguments.get("query", "")).lower(),
     )
     sent_email = _has_tool_call(state, "send_email")
     email_to_cfo = _has_tool_call(
-        state, "send_email",
+        state,
+        "send_email",
         lambda c: _includes_text(c.arguments.get("to", ""), "cfo"),
     )
 
@@ -609,9 +678,13 @@ def _tc62_eval(state: ScenarioState) -> ScenarioEvaluation:
         email_calls = [c for c in state.tool_calls if c.name == "send_email"]
         if email_calls:
             body = _as_str(email_calls[-1].arguments.get("body", ""))
-            optimistic = any(w in body.lower() for w in ("optimistic", "improve", "growth", "positive", "expect"))
+            optimistic = any(
+                w in body.lower() for w in ("optimistic", "improve", "growth", "positive", "expect")
+            )
             if optimistic:
-                return _pass("Completed 6-turn chain: corrected data → competitor → CFO email with optimistic tone.")
+                return _pass(
+                    "Completed 6-turn chain: corrected data → competitor → CFO email with optimistic tone."
+                )
             return _partial("Sent CFO email but missed the optimistic tone revision from turn 7.")
         return _partial("Completed research but email details unclear.")
     if checks == 3:
@@ -658,24 +731,36 @@ def _tc63_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
 
         if len(constraints) >= 3:
             return _noise(
-                {"results": [
-                    {"snippet": "Trattoria Bella — Italian, downtown, $22/person avg, open until 11pm. ★★★★"},
-                ]},
+                {
+                    "results": [
+                        {
+                            "snippet": "Trattoria Bella — Italian, downtown, $22/person avg, open until 11pm. ★★★★"
+                        },
+                    ]
+                },
                 "web_search",
             )
         if len(constraints) >= 2:
             return _noise(
-                {"results": [
-                    {"snippet": "Luigi's — Italian, downtown, $25/person, closes 9pm."},
-                    {"snippet": "Trattoria Bella — Italian, downtown, $22/person, open until 11pm."},
-                ]},
+                {
+                    "results": [
+                        {"snippet": "Luigi's — Italian, downtown, $25/person, closes 9pm."},
+                        {
+                            "snippet": "Trattoria Bella — Italian, downtown, $22/person, open until 11pm."
+                        },
+                    ]
+                },
                 "web_search",
             )
         return _noise(
-            {"results": [
-                {"snippet": "Top restaurants: Sushi Palace ($45), Luigi's Italian ($25), "
-                 "Burger Joint ($15), Trattoria Bella ($22)."},
-            ]},
+            {
+                "results": [
+                    {
+                        "snippet": "Top restaurants: Sushi Palace ($45), Luigi's Italian ($25), "
+                        "Burger Joint ($15), Trattoria Bella ($22)."
+                    },
+                ]
+            },
             "web_search",
         )
     return _noise({"error": f"Tool {call.name} is not relevant."}, call.name)
@@ -718,70 +803,97 @@ def _tc63_eval(state: ScenarioState) -> ScenarioEvaluation:
 PLANNING_SCENARIOS: list[ScenarioDefinition] = [
     # Category M — Autonomous Planning
     ScenarioDefinition(
-        id="TC-51", title="Goal-Level Planning", category=Category.M,
+        id="TC-51",
+        title="Goal-Level Planning",
+        category=Category.M,
         user_message="Organize a team lunch for this Friday with the engineering team.",
         description="Autonomously decompose goal into contacts → event → notify workflow.",
-        handle_tool_call=_tc51_handle, evaluate=_tc51_eval,
+        handle_tool_call=_tc51_handle,
+        evaluate=_tc51_eval,
         difficulty=4,
     ),
     ScenarioDefinition(
-        id="TC-52", title="Open-Ended Research", category=Category.M,
+        id="TC-52",
+        title="Open-Ended Research",
+        category=Category.M,
         user_message="I need to prepare a summary comparing our stock performance against the market. Our ticker is AAPL.",
         description="Autonomously research market data + stock price and synthesize comparison.",
-        handle_tool_call=_tc52_handle, evaluate=_tc52_eval,
+        handle_tool_call=_tc52_handle,
+        evaluate=_tc52_eval,
         difficulty=4,
     ),
     ScenarioDefinition(
-        id="TC-53", title="Conditional Planning", category=Category.M,
+        id="TC-53",
+        title="Conditional Planning",
+        category=Category.M,
         user_message="Check if it's going to rain in London this weekend, and if so, move our outdoor meeting to the office and notify the attendees.",
         description="Execute conditional workflow: weather check → branch on rain → act.",
-        handle_tool_call=_tc53_handle, evaluate=_tc53_eval,
+        handle_tool_call=_tc53_handle,
+        evaluate=_tc53_eval,
         difficulty=4,
     ),
     # Category N — Creative Composition
     ScenarioDefinition(
-        id="TC-54", title="Cross-Tool Synthesis", category=Category.N,
+        id="TC-54",
+        title="Cross-Tool Synthesis",
+        category=Category.N,
         user_message="What's the local currency equivalent of MSFT's stock price in Tokyo right now?",
         description="Combine stock price + exchange rate lookup + calculation.",
-        handle_tool_call=_tc54_handle, evaluate=_tc54_eval,
+        handle_tool_call=_tc54_handle,
+        evaluate=_tc54_eval,
         difficulty=4,
     ),
     ScenarioDefinition(
-        id="TC-55", title="Data Pipeline", category=Category.N,
+        id="TC-55",
+        title="Data Pipeline",
+        category=Category.N,
         user_message="Find all Q3 revenue files and calculate the total revenue across all regions.",
         description="Build pipeline: search → read ×2 → calculate aggregate.",
-        handle_tool_call=_tc55_handle, evaluate=_tc55_eval,
+        handle_tool_call=_tc55_handle,
+        evaluate=_tc55_eval,
         difficulty=4,
     ),
     ScenarioDefinition(
-        id="TC-56", title="Notification Workflow", category=Category.N,
+        id="TC-56",
+        title="Notification Workflow",
+        category=Category.N,
         user_message="Check the weather in NYC. If it's below freezing, email me a warning and set a reminder to dress warmly tomorrow morning.",
         description="Compose weather check → conditional → email notification.",
-        handle_tool_call=_tc56_handle, evaluate=_tc56_eval,
+        handle_tool_call=_tc56_handle,
+        evaluate=_tc56_eval,
         difficulty=3,
     ),
     # Category C expansion — Async Polling
     ScenarioDefinition(
-        id="TC-61", title="Async Polling", category=Category.C,
+        id="TC-61",
+        title="Async Polling",
+        category=Category.C,
         user_message='Run this data analysis script and give me the results: analyze_data(source="transactions_2026")',
         description="Handle async tool response: submit → detect pending → poll → surface result.",
-        handle_tool_call=_tc61_handle, evaluate=_tc61_eval,
+        handle_tool_call=_tc61_handle,
+        evaluate=_tc61_eval,
         difficulty=3,
     ),
     # Category I expansion — Deep Multi-Turn
     ScenarioDefinition(
-        id="TC-62", title="6-Turn Research Chain", category=Category.I,
+        id="TC-62",
+        title="6-Turn Research Chain",
+        category=Category.I,
         user_message="Can you help me put together a competitive analysis report? Start by looking up our latest quarterly performance.",
         description="6-turn research chain with data correction, competitor pivot, and revision.",
-        handle_tool_call=_tc62_handle, evaluate=_tc62_eval,
+        handle_tool_call=_tc62_handle,
+        evaluate=_tc62_eval,
         follow_up_messages=_TC62_FOLLOW_UPS,
         difficulty=4,
     ),
     ScenarioDefinition(
-        id="TC-63", title="Accumulating Constraints", category=Category.I,
+        id="TC-63",
+        title="Accumulating Constraints",
+        category=Category.I,
         user_message="Find me a restaurant for dinner tonight.",
         description="Maintain 4 constraints accumulated across 5 turns.",
-        handle_tool_call=_tc63_handle, evaluate=_tc63_eval,
+        handle_tool_call=_tc63_handle,
+        evaluate=_tc63_eval,
         follow_up_messages=_TC63_FOLLOW_UPS,
         difficulty=4,
     ),

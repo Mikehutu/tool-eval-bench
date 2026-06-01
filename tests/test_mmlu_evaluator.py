@@ -19,6 +19,7 @@ from tool_eval_bench.plugins.mmlu.prompts import (
 # extract_answer
 # ---------------------------------------------------------------------------
 
+
 class TestExtractAnswer:
     """Test multiple-choice letter extraction."""
 
@@ -47,7 +48,9 @@ class TestExtractAnswer:
         assert extract_answer("Answer: (A)") == ("A", "answer_pattern")
 
     def test_first_standalone_letter(self):
-        assert extract_answer("I think the best choice here is definitely B because of the reasons stated.") == ("B", "first_letter")
+        assert extract_answer(
+            "I think the best choice here is definitely B because of the reasons stated."
+        ) == ("B", "first_letter")
 
     def test_empty_string(self):
         assert extract_answer("") == (None, "none")
@@ -73,6 +76,7 @@ class TestExtractAnswer:
 # ---------------------------------------------------------------------------
 # evaluate_answer
 # ---------------------------------------------------------------------------
+
 
 class TestEvaluateAnswer:
     """Test answer evaluation against ground truth."""
@@ -105,6 +109,7 @@ class TestEvaluateAnswer:
 # MMLUItem
 # ---------------------------------------------------------------------------
 
+
 class TestMMLUItem:
     """Test MMLUItem properties."""
 
@@ -131,6 +136,7 @@ class TestMMLUItem:
 # ---------------------------------------------------------------------------
 # Subject categories
 # ---------------------------------------------------------------------------
+
 
 class TestSubjectCategories:
     """Test subject → category mapping."""
@@ -165,12 +171,12 @@ class TestSubjectCategories:
 # Prompt building
 # ---------------------------------------------------------------------------
 
+
 class TestBuildMessages:
     """Test prompt construction."""
 
     def test_zero_shot(self):
-        item = MMLUItem(0, "What is 2+2?", "elementary_mathematics",
-                        ["3", "4", "5", "6"], 1)
+        item = MMLUItem(0, "What is 2+2?", "elementary_mathematics", ["3", "4", "5", "6"], 1)
         msgs = build_messages(item, n_shots=0)
         assert len(msgs) == 2  # system + user
         assert msgs[0]["role"] == "system"
@@ -205,17 +211,21 @@ class TestBuildMessages:
 # Rating
 # ---------------------------------------------------------------------------
 
+
 class TestRating:
     """Test rating function."""
 
     def test_excellent(self):
         from tool_eval_bench.plugins.mmlu.plugin import _rating_for_accuracy
+
         assert "Excellent" in _rating_for_accuracy(90)
 
     def test_good(self):
         from tool_eval_bench.plugins.mmlu.plugin import _rating_for_accuracy
+
         assert "Good" in _rating_for_accuracy(75)
 
     def test_poor(self):
         from tool_eval_bench.plugins.mmlu.plugin import _rating_for_accuracy
+
         assert "Poor" in _rating_for_accuracy(20)

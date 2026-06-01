@@ -70,24 +70,29 @@ def _load_from_cache(path: Path) -> list[IFEvalItem]:
             if not line:
                 continue
             row = json.loads(line)
-            items.append(IFEvalItem(
-                key=row["key"],
-                prompt=row["prompt"],
-                instruction_id_list=row["instruction_id_list"],
-                kwargs=row["kwargs"],
-            ))
+            items.append(
+                IFEvalItem(
+                    key=row["key"],
+                    prompt=row["prompt"],
+                    instruction_id_list=row["instruction_id_list"],
+                    kwargs=row["kwargs"],
+                )
+            )
     return items
+
 
 def _rows_to_items(rows: list[dict]) -> list[IFEvalItem]:
     """Convert raw row dicts to IFEvalItem objects."""
     items: list[IFEvalItem] = []
     for row in rows:
-        items.append(IFEvalItem(
-            key=int(row["key"]),
-            prompt=row["prompt"],
-            instruction_id_list=list(row["instruction_id_list"]),
-            kwargs=list(row["kwargs"]),
-        ))
+        items.append(
+            IFEvalItem(
+                key=int(row["key"]),
+                prompt=row["prompt"],
+                instruction_id_list=list(row["instruction_id_list"]),
+                kwargs=list(row["kwargs"]),
+            )
+        )
     return items
 
 
@@ -105,7 +110,9 @@ def _download_dataset(
 
     # Fast path: datasets library (no rate limits)
     rows = load_via_datasets_lib(
-        _DATASET, _CONFIG, _SPLIT,
+        _DATASET,
+        _CONFIG,
+        _SPLIT,
         on_progress=on_progress,
     )
     if rows is not None:
@@ -114,7 +121,9 @@ def _download_dataset(
     # Fallback: REST API with resume support
     partial_path = _CACHE_DIR / "prompts.partial.jsonl"
     rows = download_rows_paginated(
-        _DATASET, _CONFIG, _SPLIT,
+        _DATASET,
+        _CONFIG,
+        _SPLIT,
         page_size=_PAGE_SIZE,
         partial_path=partial_path,
         on_progress=on_progress,
@@ -144,4 +153,3 @@ def load_dataset(
     partial_path.unlink(missing_ok=True)
 
     return items
-

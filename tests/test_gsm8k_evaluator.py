@@ -85,11 +85,7 @@ class TestExtractAnswer:
 
     def test_multiline_marker(self):
         """Marker on its own line with surrounding text."""
-        text = (
-            "Step 1: 16 - 3 - 4 = 9\n"
-            "Step 2: 9 * 2 = 18\n"
-            "#### 18\n"
-        )
+        text = "Step 1: 16 - 3 - 4 = 9\nStep 2: 9 * 2 = 18\n#### 18\n"
         num, method = extract_answer(text)
         assert num == 18
         assert method == "marker"

@@ -23,6 +23,7 @@ from tool_eval_bench.utils.ids import build_config_fingerprint
 # Score-to-color helpers
 # ---------------------------------------------------------------------------
 
+
 def _score_color(pct: float) -> str:
     """Map a percentage score to a Rich color for heatmap display."""
     if pct >= 90:
@@ -69,21 +70,21 @@ def _rating_short(rating: str) -> str:
 # ---------------------------------------------------------------------------
 
 _CAT_LABELS = {
-    "A": "Sel",   # Tool Selection
-    "B": "Prm",   # Parameter Precision
-    "C": "Chn",   # Multi-Step Chains
-    "D": "Rst",   # Restraint & Refusal
-    "E": "Err",   # Error Recovery
-    "F": "Loc",   # Localization
-    "G": "Rsn",   # Structured Reasoning
-    "H": "Ins",   # Instruction Following
-    "I": "Ctx",   # Context & State
-    "J": "Cod",   # Code Patterns
-    "K": "Saf",   # Safety & Boundaries
-    "L": "Scl",   # Toolset Scale
-    "M": "Pln",   # Autonomous Planning
-    "N": "Crt",   # Creative Composition
-    "O": "Out",   # Structured Output
+    "A": "Sel",  # Tool Selection
+    "B": "Prm",  # Parameter Precision
+    "C": "Chn",  # Multi-Step Chains
+    "D": "Rst",  # Restraint & Refusal
+    "E": "Err",  # Error Recovery
+    "F": "Loc",  # Localization
+    "G": "Rsn",  # Structured Reasoning
+    "H": "Ins",  # Instruction Following
+    "I": "Ctx",  # Context & State
+    "J": "Cod",  # Code Patterns
+    "K": "Saf",  # Safety & Boundaries
+    "L": "Scl",  # Toolset Scale
+    "M": "Pln",  # Autonomous Planning
+    "N": "Crt",  # Creative Composition
+    "O": "Out",  # Structured Output
 }
 
 _CAT_FULL = {
@@ -109,6 +110,7 @@ _CAT_FULL = {
 # Data extraction from stored runs
 # ---------------------------------------------------------------------------
 
+
 def _extract_leaderboard_rows(
     runs: list[dict],
 ) -> list[dict[str, Any]]:
@@ -129,14 +131,14 @@ def _extract_leaderboard_rows(
         if run_type != "tool_eval":
             continue
 
-        scenario_count = config.get("scenario_count", len(
-            scores.get("scenario_results", [])
-        ))
+        scenario_count = config.get("scenario_count", len(scores.get("scenario_results", [])))
         backend = config.get("backend", "?")
-        fingerprint = config.get("config_fingerprint") or build_config_fingerprint({
-            "config": config,
-            "metadata": run.get("metadata") or {},
-        })
+        fingerprint = config.get("config_fingerprint") or build_config_fingerprint(
+            {
+                "config": config,
+                "metadata": run.get("metadata") or {},
+            }
+        )
         key = (model, fingerprint)
         by_config.setdefault(key, []).append(run)
 
@@ -149,9 +151,7 @@ def _extract_leaderboard_rows(
         )
         scores = best.get("scores") or {}
         config = best.get("config") or {}
-        scenario_count = config.get("scenario_count", len(
-            scores.get("scenario_results", [])
-        ))
+        scenario_count = config.get("scenario_count", len(scores.get("scenario_results", [])))
         backend = config.get("backend", "?")
 
         # Extract per-category percentages
@@ -168,36 +168,38 @@ def _extract_leaderboard_rows(
         # Extract metadata (issue #6)
         metadata = best.get("metadata") or {}
 
-        rows.append({
-            "model": model,
-            "run_id": best.get("run_id", "?"),
-            "date": best.get("created_at", "?")[:19],
-            "final_score": scores.get("final_score", 0),
-            "rating": scores.get("rating", "?"),
-            "total_points": scores.get("total_points", 0),
-            "max_points": scores.get("max_points", 0),
-            "passes": passes,
-            "partials": partials,
-            "fails": fails,
-            "cat_scores": cat_scores,
-            "scenario_count": scenario_count,
-            "backend": backend,
-            "config_fingerprint": fingerprint,
-            "total_tokens": scores.get("total_tokens", 0),
-            "token_efficiency": scores.get("token_efficiency"),
-            "median_turn_ms": scores.get("median_turn_ms"),
-            "deployability": scores.get("deployability"),
-            "safety_warnings": len(scores.get("safety_warnings", [])),
-            "num_runs": len(group_runs),
-            # Issue #6 metadata fields
-            "tool_version": metadata.get("tool_version"),
-            "engine_name": metadata.get("engine_name"),
-            "engine_version": metadata.get("engine_version"),
-            "quantization": metadata.get("quantization"),
-            "max_model_len": metadata.get("max_model_len"),
-            "temperature": metadata.get("temperature"),
-            "server_model_root": metadata.get("server_model_root"),
-        })
+        rows.append(
+            {
+                "model": model,
+                "run_id": best.get("run_id", "?"),
+                "date": best.get("created_at", "?")[:19],
+                "final_score": scores.get("final_score", 0),
+                "rating": scores.get("rating", "?"),
+                "total_points": scores.get("total_points", 0),
+                "max_points": scores.get("max_points", 0),
+                "passes": passes,
+                "partials": partials,
+                "fails": fails,
+                "cat_scores": cat_scores,
+                "scenario_count": scenario_count,
+                "backend": backend,
+                "config_fingerprint": fingerprint,
+                "total_tokens": scores.get("total_tokens", 0),
+                "token_efficiency": scores.get("token_efficiency"),
+                "median_turn_ms": scores.get("median_turn_ms"),
+                "deployability": scores.get("deployability"),
+                "safety_warnings": len(scores.get("safety_warnings", [])),
+                "num_runs": len(group_runs),
+                # Issue #6 metadata fields
+                "tool_version": metadata.get("tool_version"),
+                "engine_name": metadata.get("engine_name"),
+                "engine_version": metadata.get("engine_version"),
+                "quantization": metadata.get("quantization"),
+                "max_model_len": metadata.get("max_model_len"),
+                "temperature": metadata.get("temperature"),
+                "server_model_root": metadata.get("server_model_root"),
+            }
+        )
 
     # Sort by final score descending
     rows.sort(key=lambda r: r["final_score"], reverse=True)
@@ -207,6 +209,7 @@ def _extract_leaderboard_rows(
 # ---------------------------------------------------------------------------
 # Leaderboard display
 # ---------------------------------------------------------------------------
+
 
 def print_leaderboard(console: Console, limit: int = 50) -> None:
     """Print a beautiful, screenshottable leaderboard table."""
@@ -257,7 +260,10 @@ def print_leaderboard(console: Console, limit: int = 50) -> None:
     for cat in cat_order:
         label = _CAT_LABELS.get(cat, cat)
         table.add_column(
-            label, justify="center", width=4, no_wrap=True,
+            label,
+            justify="center",
+            width=4,
+            no_wrap=True,
         )
 
     # Efficiency and metadata
@@ -338,7 +344,8 @@ def print_leaderboard(console: Console, limit: int = 50) -> None:
     has_partial = any(r.get("scenario_count", 69) < 69 for r in rows)
     partial_note = (
         "\n  [dim]Runs with different backends or scenario counts are ranked separately.[/]"
-        if has_partial else ""
+        if has_partial
+        else ""
     )
 
     console.print(
@@ -360,6 +367,7 @@ def print_leaderboard(console: Console, limit: int = 50) -> None:
 # ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------
+
 
 def export_runs(
     console: Console,
@@ -404,9 +412,7 @@ def export_runs(
                 "backend": row["backend"],
                 "total_tokens": row["total_tokens"],
                 "num_runs": row["num_runs"],
-                "categories": {
-                    cat: row["cat_scores"].get(cat) for cat in cat_order
-                },
+                "categories": {cat: row["cat_scores"].get(cat) for cat in cat_order},
             }
             if row.get("token_efficiency") is not None:
                 entry["token_efficiency"] = row["token_efficiency"]
@@ -415,9 +421,15 @@ def export_runs(
             if row.get("median_turn_ms") is not None:
                 entry["median_turn_ms"] = row["median_turn_ms"]
             # Issue #6 metadata fields
-            for meta_key in ["tool_version", "engine_name", "engine_version",
-                             "quantization", "max_model_len", "temperature",
-                             "server_model_root"]:
+            for meta_key in [
+                "tool_version",
+                "engine_name",
+                "engine_version",
+                "quantization",
+                "max_model_len",
+                "temperature",
+                "server_model_root",
+            ]:
                 if row.get(meta_key) is not None:
                     entry[meta_key] = row[meta_key]
             export_data.append(entry)
@@ -432,11 +444,27 @@ def export_runs(
 
     elif fmt == "csv":
         headers = [
-            "rank", "model", "run_id", "date", "final_score", "rating",
-            "total_points", "max_points", "passes", "partials", "fails",
-            "scenario_count", "backend", "total_tokens", "num_runs",
-            "tool_version", "engine_name", "engine_version",
-            "quantization", "max_model_len", "temperature",
+            "rank",
+            "model",
+            "run_id",
+            "date",
+            "final_score",
+            "rating",
+            "total_points",
+            "max_points",
+            "passes",
+            "partials",
+            "fails",
+            "scenario_count",
+            "backend",
+            "total_tokens",
+            "num_runs",
+            "tool_version",
+            "engine_name",
+            "engine_version",
+            "quantization",
+            "max_model_len",
+            "temperature",
             "server_model_root",
         ]
         headers.extend(f"cat_{cat}" for cat in cat_order)

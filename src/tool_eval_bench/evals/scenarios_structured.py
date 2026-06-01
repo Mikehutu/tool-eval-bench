@@ -100,7 +100,7 @@ def _tc64_eval(state: ScenarioState) -> ScenarioEvaluation:
     answer = state.final_answer.strip()
 
     # Try to extract JSON from code fences if present
-    json_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', answer, re.DOTALL)
+    json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", answer, re.DOTALL)
     if json_match:
         answer = json_match.group(1).strip()
 
@@ -176,13 +176,16 @@ _TC65_SCHEMA = {
 
 def _tc65_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_weather":
-        return _noise({
-            "location": "Tokyo",
-            "temperature": 28,
-            "units": "celsius",
-            "condition": "Sunny",
-            "humidity": 65,
-        }, "get_weather")
+        return _noise(
+            {
+                "location": "Tokyo",
+                "temperature": 28,
+                "units": "celsius",
+                "condition": "Sunny",
+                "humidity": 65,
+            },
+            "get_weather",
+        )
     return generic_tool_fallback(call)
 
 
@@ -194,7 +197,7 @@ def _tc65_eval(state: ScenarioState) -> ScenarioEvaluation:
     answer = state.final_answer.strip()
 
     # Extract JSON from fences if present
-    json_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', answer, re.DOTALL)
+    json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", answer, re.DOTALL)
     if json_match:
         answer = json_match.group(1).strip()
 
@@ -258,13 +261,28 @@ _TC66_SCHEMA = {
 
 def _tc66_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_contacts":
-        return _noise({
-            "results": [
-                {"name": "Alice Zhang", "email": "alice.zhang@company.com", "department": "Engineering"},
-                {"name": "Bob Martinez", "email": "bob.martinez@company.com", "department": "Design"},
-                {"name": "Carol Singh", "email": "carol.singh@company.com", "department": "Engineering"},
-            ],
-        }, "get_contacts")
+        return _noise(
+            {
+                "results": [
+                    {
+                        "name": "Alice Zhang",
+                        "email": "alice.zhang@company.com",
+                        "department": "Engineering",
+                    },
+                    {
+                        "name": "Bob Martinez",
+                        "email": "bob.martinez@company.com",
+                        "department": "Design",
+                    },
+                    {
+                        "name": "Carol Singh",
+                        "email": "carol.singh@company.com",
+                        "department": "Engineering",
+                    },
+                ],
+            },
+            "get_contacts",
+        )
     return generic_tool_fallback(call)
 
 
@@ -275,7 +293,7 @@ def _tc66_eval(state: ScenarioState) -> ScenarioEvaluation:
 
     answer = state.final_answer.strip()
 
-    json_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', answer, re.DOTALL)
+    json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", answer, re.DOTALL)
     if json_match:
         answer = json_match.group(1).strip()
 
@@ -348,22 +366,30 @@ _TC67_SCHEMA = {
 
 def _tc67_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_stock_price":
-        return _noise({
-            "ticker": "NVDA",
-            "price": 892.50,
-            "currency": "USD",
-            "change": "+15.30",
-            "change_percent": "+1.74%",
-            "volume": "42.3M",
-        }, "get_stock_price")
+        return _noise(
+            {
+                "ticker": "NVDA",
+                "price": 892.50,
+                "currency": "USD",
+                "change": "+15.30",
+                "change_percent": "+1.74%",
+                "volume": "42.3M",
+            },
+            "get_stock_price",
+        )
     if call.name == "web_search":
-        return _noise({
-            "results": [{
-                "snippet": "NVIDIA (NVDA) reported record Q4 revenue of $22.1B, "
-                           "up 265% year-over-year, driven by data center AI demand. "
-                           "Analysts maintain buy ratings with average price target of $950.",
-            }],
-        }, "web_search")
+        return _noise(
+            {
+                "results": [
+                    {
+                        "snippet": "NVIDIA (NVDA) reported record Q4 revenue of $22.1B, "
+                        "up 265% year-over-year, driven by data center AI demand. "
+                        "Analysts maintain buy ratings with average price target of $950.",
+                    }
+                ],
+            },
+            "web_search",
+        )
     return generic_tool_fallback(call)
 
 
@@ -374,7 +400,7 @@ def _tc67_eval(state: ScenarioState) -> ScenarioEvaluation:
 
     answer = state.final_answer.strip()
 
-    json_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', answer, re.DOTALL)
+    json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", answer, re.DOTALL)
     if json_match:
         answer = json_match.group(1).strip()
 
@@ -447,7 +473,7 @@ def _tc68_eval(state: ScenarioState) -> ScenarioEvaluation:
 
     answer = state.final_answer.strip()
 
-    json_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', answer, re.DOTALL)
+    json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", answer, re.DOTALL)
     if json_match:
         answer = json_match.group(1).strip()
 
@@ -534,21 +560,27 @@ _TC69_SCHEMA = {
 
 def _tc69_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_weather":
-        return _noise({
-            "location": "San Francisco",
-            "temperature": 18,
-            "units": "celsius",
-            "condition": "Foggy",
-            "humidity": 85,
-        }, "get_weather")
+        return _noise(
+            {
+                "location": "San Francisco",
+                "temperature": 18,
+                "units": "celsius",
+                "condition": "Foggy",
+                "humidity": 85,
+            },
+            "get_weather",
+        )
     if call.name == "get_stock_price":
-        return _noise({
-            "ticker": "AAPL",
-            "price": 192.30,
-            "currency": "USD",
-            "change": "-2.15",
-            "change_percent": "-1.11%",
-        }, "get_stock_price")
+        return _noise(
+            {
+                "ticker": "AAPL",
+                "price": 192.30,
+                "currency": "USD",
+                "change": "-2.15",
+                "change_percent": "-1.11%",
+            },
+            "get_stock_price",
+        )
     return generic_tool_fallback(call)
 
 
@@ -566,7 +598,7 @@ def _tc69_eval(state: ScenarioState) -> ScenarioEvaluation:
 
     answer = state.final_answer.strip()
 
-    json_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', answer, re.DOTALL)
+    json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", answer, re.DOTALL)
     if json_match:
         answer = json_match.group(1).strip()
 
@@ -616,8 +648,7 @@ def _tc69_eval(state: ScenarioState) -> ScenarioEvaluation:
         return _partial("Market direction should be 'down' (stock dropped -1.11%).")
 
     return _pass(
-        "Called both tools and produced schema-compliant nested JSON "
-        "with correct data synthesis."
+        "Called both tools and produced schema-compliant nested JSON with correct data synthesis."
     )
 
 
@@ -627,44 +658,55 @@ def _tc69_eval(state: ScenarioState) -> ScenarioEvaluation:
 
 STRUCTURED_SCENARIOS: list[ScenarioDefinition] = [
     ScenarioDefinition(
-        id="TC-64", title="Simple Schema Compliance", category=Category.O,
+        id="TC-64",
+        title="Simple Schema Compliance",
+        category=Category.O,
         user_message=(
             "Write a review of the movie 'The Matrix'. "
             "Output ONLY valid JSON matching this schema — no extra text.\n\n"
             f"Schema:\n```json\n{_schema_text(_TC64_SCHEMA)}\n```"
         ),
         description="Produce valid JSON matching a strict schema without tool calls.",
-        handle_tool_call=_tc64_handle, evaluate=_tc64_eval,
+        handle_tool_call=_tc64_handle,
+        evaluate=_tc64_eval,
         response_format_override=_TC64_SCHEMA,
         tools_override=[],
         difficulty=2,
     ),
     ScenarioDefinition(
-        id="TC-65", title="Tool → Structured Output", category=Category.O,
+        id="TC-65",
+        title="Tool → Structured Output",
+        category=Category.O,
         user_message=(
             "Get the current weather in Tokyo and output it as JSON "
             "matching this schema. Include a recommendation for what to wear.\n\n"
             f"Schema:\n```json\n{_schema_text(_TC65_SCHEMA)}\n```"
         ),
         description="Call get_weather, then format the result as schema-compliant JSON.",
-        handle_tool_call=_tc65_handle, evaluate=_tc65_eval,
+        handle_tool_call=_tc65_handle,
+        evaluate=_tc65_eval,
         response_format_override=_TC65_SCHEMA,
         difficulty=3,
     ),
     ScenarioDefinition(
-        id="TC-66", title="Nested Schema (Array of Objects)", category=Category.O,
+        id="TC-66",
+        title="Nested Schema (Array of Objects)",
+        category=Category.O,
         user_message=(
             "Look up all engineering contacts and return the results "
             "as a JSON object matching this schema.\n\n"
             f"Schema:\n```json\n{_schema_text(_TC66_SCHEMA)}\n```"
         ),
         description="Call get_contacts and format as nested JSON with array of objects.",
-        handle_tool_call=_tc66_handle, evaluate=_tc66_eval,
+        handle_tool_call=_tc66_handle,
+        evaluate=_tc66_eval,
         response_format_override=_TC66_SCHEMA,
         difficulty=3,
     ),
     ScenarioDefinition(
-        id="TC-67", title="Enum Constraint + Analysis", category=Category.O,
+        id="TC-67",
+        title="Enum Constraint + Analysis",
+        category=Category.O,
         user_message=(
             "Get the current stock price for NVDA and produce a stock analysis "
             "as JSON matching this schema. Research recent news "
@@ -672,12 +714,15 @@ STRUCTURED_SCENARIOS: list[ScenarioDefinition] = [
             f"Schema:\n```json\n{_schema_text(_TC67_SCHEMA)}\n```"
         ),
         description="Call tools and produce JSON with enum-constrained signal field.",
-        handle_tool_call=_tc67_handle, evaluate=_tc67_eval,
+        handle_tool_call=_tc67_handle,
+        evaluate=_tc67_eval,
         response_format_override=_TC67_SCHEMA,
         difficulty=3,
     ),
     ScenarioDefinition(
-        id="TC-68", title="Schema Violation Resistance", category=Category.O,
+        id="TC-68",
+        title="Schema Violation Resistance",
+        category=Category.O,
         user_message=(
             "Create a task status update for task PROJ-127: it's in progress, "
             "assigned to me. Also include the priority level, due date, "
@@ -685,10 +730,10 @@ STRUCTURED_SCENARIOS: list[ScenarioDefinition] = [
             f"Schema:\n```json\n{_schema_text(_TC68_SCHEMA)}\n```"
         ),
         description=(
-            "Resist user pressure to add extra fields that violate "
-            "additionalProperties: false."
+            "Resist user pressure to add extra fields that violate additionalProperties: false."
         ),
-        handle_tool_call=_tc68_handle, evaluate=_tc68_eval,
+        handle_tool_call=_tc68_handle,
+        evaluate=_tc68_eval,
         # NOTE: intentionally NO response_format_override here.
         # TC-68 tests whether the MODEL respects additionalProperties: false
         # on its own.  If we sent the schema via response_format, the SERVER
@@ -696,7 +741,9 @@ STRUCTURED_SCENARIOS: list[ScenarioDefinition] = [
         difficulty=4,
     ),
     ScenarioDefinition(
-        id="TC-69", title="Multi-Tool → Complex Schema", category=Category.O,
+        id="TC-69",
+        title="Multi-Tool → Complex Schema",
+        category=Category.O,
         user_message=(
             "Create my daily briefing: check the weather in San Francisco "
             "and look up AAPL stock price. Output as JSON matching this schema "
@@ -704,7 +751,8 @@ STRUCTURED_SCENARIOS: list[ScenarioDefinition] = [
             f"Schema:\n```json\n{_schema_text(_TC69_SCHEMA)}\n```"
         ),
         description="Call multiple tools and synthesize into complex nested schema.",
-        handle_tool_call=_tc69_handle, evaluate=_tc69_eval,
+        handle_tool_call=_tc69_handle,
+        evaluate=_tc69_eval,
         response_format_override=_TC69_SCHEMA,
         difficulty=4,
     ),

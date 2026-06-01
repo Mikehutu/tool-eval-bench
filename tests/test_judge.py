@@ -46,7 +46,6 @@ def _make_scenario(
     )
 
 
-
 def _make_result(
     scenario_id: str = "TC-01",
     status: ScenarioStatus = ScenarioStatus.FAIL,
@@ -79,10 +78,12 @@ class JudgeMockAdapter(BackendAdapter):
     async def chat_completion(self, **kwargs) -> ChatCompletionResult:
         self._call_count += 1
         self._last_messages = kwargs.get("messages", [])
-        content = json.dumps({
-            "verdict": self._verdict,
-            "reason": self._reason,
-        })
+        content = json.dumps(
+            {
+                "verdict": self._verdict,
+                "reason": self._reason,
+            }
+        )
         return ChatCompletionResult(
             content=content,
             elapsed_ms=100.0,
@@ -95,7 +96,7 @@ class JudgeMockAdapterCodeFence(JudgeMockAdapter):
     async def chat_completion(self, **kwargs) -> ChatCompletionResult:
         self._call_count += 1
         self._last_messages = kwargs.get("messages", [])
-        content = "```json\n{\"verdict\": \"partial\", \"reason\": \"Model showed intent.\"}\n```"
+        content = '```json\n{"verdict": "partial", "reason": "Model showed intent."}\n```'
         return ChatCompletionResult(
             content=content,
             elapsed_ms=100.0,
@@ -204,7 +205,9 @@ class TestBuildJudgePrompt:
         result = _make_result()
         state = _make_state(
             tool_results=[
-                MagicMock(name="send_email", result={"status": "sent"}, __repr__=lambda self: "ToolResult"),
+                MagicMock(
+                    name="send_email", result={"status": "sent"}, __repr__=lambda self: "ToolResult"
+                ),
             ]
         )
 
@@ -598,6 +601,7 @@ class TestCallJudge:
         state = _make_state()
 
         from tool_eval_bench.runner.judge import _call_judge
+
         judge_result = await _call_judge(
             adapter,
             judge_model="judge",
@@ -620,6 +624,7 @@ class TestCallJudge:
         state = _make_state()
 
         from tool_eval_bench.runner.judge import _call_judge
+
         judge_result = await _call_judge(
             adapter,
             judge_model="judge",
@@ -640,6 +645,7 @@ class TestCallJudge:
         state = _make_state(final_answer="Test answer")
 
         from tool_eval_bench.runner.judge import _call_judge
+
         await _call_judge(
             adapter,
             judge_model="judge-model",

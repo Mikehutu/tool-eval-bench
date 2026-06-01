@@ -52,6 +52,7 @@ from tool_eval_bench.storage.reports import MarkdownReporter, _render_run_contex
 # speculative: _metrics_url
 # ---------------------------------------------------------------------------
 
+
 class TestMetricsUrl:
     def test_strips_v1(self):
         assert _metrics_url("http://host:8000/v1") == "http://host:8000/metrics"
@@ -66,6 +67,7 @@ class TestMetricsUrl:
 # ---------------------------------------------------------------------------
 # speculative: _get_prompt_for_type
 # ---------------------------------------------------------------------------
+
 
 class TestGetPromptForType:
     def test_code(self):
@@ -87,6 +89,7 @@ class TestGetPromptForType:
 # speculative: SpecDecodeSample edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestSpecDecodeSampleEdges:
     def test_effective_zero_total_ms(self):
         s = SpecDecodeSample(tg_tokens=50, total_ms=0)
@@ -104,6 +107,7 @@ class TestSpecDecodeSampleEdges:
 # ---------------------------------------------------------------------------
 # speculative: scrape_spec_metrics (async, mock transport)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_scrape_spec_metrics_active():
@@ -136,6 +140,7 @@ async def test_scrape_spec_metrics_non_200():
 async def test_scrape_spec_metrics_exception():
     def explode(r):
         raise ConnectionError("down")
+
     transport = httpx.MockTransport(explode)
     async with httpx.AsyncClient(transport=transport) as client:
         c = await scrape_spec_metrics(client, "http://host:8000/v1")
@@ -154,6 +159,7 @@ async def test_scrape_spec_metrics_zero_but_present():
 # ---------------------------------------------------------------------------
 # speculative: detect_spec_decoding
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_detect_spec_decoding_via_prometheus():
@@ -214,6 +220,7 @@ async def test_detect_spec_decoding_no_metrics():
 async def test_detect_spec_decoding_connection_error():
     def explode(r):
         raise ConnectionError("down")
+
     transport = httpx.MockTransport(explode)
     async with httpx.AsyncClient(transport=transport) as client:
         info = await detect_spec_decoding(client, "http://host:8000/v1")
@@ -223,6 +230,7 @@ async def test_detect_spec_decoding_connection_error():
 # ---------------------------------------------------------------------------
 # async_tools: AsyncToolExecutor
 # ---------------------------------------------------------------------------
+
 
 class TestAsyncToolExecutor:
     def test_start_unregistered_tool(self):
@@ -245,7 +253,9 @@ class TestAsyncToolExecutor:
 
     def test_poll_completed(self):
         ex = AsyncToolExecutor()
-        ex.register_tool(AsyncToolSpec(tool_name="fast", duration_ms=0.001, final_result={"ok": True}))
+        ex.register_tool(
+            AsyncToolSpec(tool_name="fast", duration_ms=0.001, final_result={"ok": True})
+        )
         r = ex.start_tool("fast")
         time.sleep(0.01)
         r2 = ex.poll_tool(r.handle)
@@ -254,11 +264,14 @@ class TestAsyncToolExecutor:
 
     def test_poll_running_with_intermediate(self):
         ex = AsyncToolExecutor()
-        ex.register_tool(AsyncToolSpec(
-            tool_name="slow", duration_ms=100_000,
-            supports_streaming=True,
-            intermediate_results=["partial_a", "partial_b"],
-        ))
+        ex.register_tool(
+            AsyncToolSpec(
+                tool_name="slow",
+                duration_ms=100_000,
+                supports_streaming=True,
+                intermediate_results=["partial_a", "partial_b"],
+            )
+        )
         r = ex.start_tool("slow")
         r2 = ex.poll_tool(r.handle)
         assert r2.status == AsyncToolStatus.RUNNING
@@ -278,10 +291,14 @@ class TestAsyncToolExecutor:
 
     def test_simulated_failure(self):
         ex = AsyncToolExecutor()
-        ex.register_tool(AsyncToolSpec(
-            tool_name="fail", duration_ms=0.001,
-            simulate_failure=True, failure_at_percent=0.0,
-        ))
+        ex.register_tool(
+            AsyncToolSpec(
+                tool_name="fail",
+                duration_ms=0.001,
+                simulate_failure=True,
+                failure_at_percent=0.0,
+            )
+        )
         r = ex.start_tool("fail")
         time.sleep(0.01)
         r2 = ex.poll_tool(r.handle)
@@ -299,6 +316,7 @@ class TestAsyncToolExecutor:
 # async_tools: format_async_status
 # ---------------------------------------------------------------------------
 
+
 class TestFormatAsyncStatus:
     def test_pending(self):
         r = AsyncToolResult(status=AsyncToolStatus.PENDING, handle="h1")
@@ -312,7 +330,12 @@ class TestFormatAsyncStatus:
         assert parsed["status"] == "running"
 
     def test_running_with_intermediate(self):
-        r = AsyncToolResult(status=AsyncToolStatus.RUNNING, handle="h3", progress_percent=0.5, intermediate_data={"x": 1})
+        r = AsyncToolResult(
+            status=AsyncToolStatus.RUNNING,
+            handle="h3",
+            progress_percent=0.5,
+            intermediate_data={"x": 1},
+        )
         s = format_async_status(r)
         parsed = json.loads(s)
         assert parsed["intermediate_data"] == {"x": 1}
@@ -345,6 +368,7 @@ def test_create_example_async_specs():
 # ---------------------------------------------------------------------------
 # noise: enrichment functions
 # ---------------------------------------------------------------------------
+
 
 class TestNoiseEnrichment:
     def test_enrich_weather(self):
@@ -426,6 +450,7 @@ class TestEnrichPayload:
 # storage/db: additional coverage
 # ---------------------------------------------------------------------------
 
+
 class TestRunRepositoryExtended:
     def test_get_nonexistent(self, tmp_path):
         repo = RunRepository(db_path=str(tmp_path / "test.sqlite"))
@@ -439,26 +464,35 @@ class TestRunRepositoryExtended:
 
     def test_get_latest_with_data(self, tmp_path):
         repo = RunRepository(db_path=str(tmp_path / "test.sqlite"))
-        repo.upsert_scenario_run({"run_id": "r1", "config": {"model": "m"}, "scores": {}, "metadata": {}})
+        repo.upsert_scenario_run(
+            {"run_id": "r1", "config": {"model": "m"}, "scores": {}, "metadata": {}}
+        )
         latest = repo.get_latest()
         assert latest is not None and latest["run_id"] == "r1"
         repo.close()
 
     def test_get_latest_filtered_by_model(self, tmp_path):
         repo = RunRepository(db_path=str(tmp_path / "test.sqlite"))
-        repo.upsert_scenario_run({"run_id": "r1", "config": {"model": "a"}, "scores": {}, "metadata": {}})
-        repo.upsert_scenario_run({"run_id": "r2", "config": {"model": "b"}, "scores": {}, "metadata": {}})
+        repo.upsert_scenario_run(
+            {"run_id": "r1", "config": {"model": "a"}, "scores": {}, "metadata": {}}
+        )
+        repo.upsert_scenario_run(
+            {"run_id": "r2", "config": {"model": "b"}, "scores": {}, "metadata": {}}
+        )
         assert repo.get_latest(model="a")["run_id"] == "r1"
         assert repo.get_latest(model="c") is None
         repo.close()
 
     def test_get_scenario_results(self, tmp_path):
         repo = RunRepository(db_path=str(tmp_path / "test.sqlite"))
-        repo.upsert_scenario_run({
-            "run_id": "r1", "config": {"model": "m"},
-            "scores": {"scenario_results": [{"id": "TC-01", "status": "pass"}]},
-            "metadata": {},
-        })
+        repo.upsert_scenario_run(
+            {
+                "run_id": "r1",
+                "config": {"model": "m"},
+                "scores": {"scenario_results": [{"id": "TC-01", "status": "pass"}]},
+                "metadata": {},
+            }
+        )
         results = repo.get_scenario_results("r1")
         assert results is not None and len(results) == 1
         repo.close()
@@ -476,15 +510,23 @@ class TestRunRepositoryExtended:
 
     def test_upsert_updates_existing(self, tmp_path):
         repo = RunRepository(db_path=str(tmp_path / "test.sqlite"))
-        repo.upsert_scenario_run({"run_id": "r1", "config": {"model": "m"}, "scores": {"v": 1}, "metadata": {}})
-        repo.upsert_scenario_run({"run_id": "r1", "config": {"model": "m"}, "scores": {"v": 2}, "metadata": {}})
+        repo.upsert_scenario_run(
+            {"run_id": "r1", "config": {"model": "m"}, "scores": {"v": 1}, "metadata": {}}
+        )
+        repo.upsert_scenario_run(
+            {"run_id": "r1", "config": {"model": "m"}, "scores": {"v": 2}, "metadata": {}}
+        )
         assert repo.get("r1")["scores"]["v"] == 2
         repo.close()
 
     def test_list_filter_by_model(self, tmp_path):
         repo = RunRepository(db_path=str(tmp_path / "test.sqlite"))
-        repo.upsert_scenario_run({"run_id": "r1", "config": {"model": "a"}, "scores": {}, "metadata": {}})
-        repo.upsert_scenario_run({"run_id": "r2", "config": {"model": "b"}, "scores": {}, "metadata": {}})
+        repo.upsert_scenario_run(
+            {"run_id": "r1", "config": {"model": "a"}, "scores": {}, "metadata": {}}
+        )
+        repo.upsert_scenario_run(
+            {"run_id": "r2", "config": {"model": "b"}, "scores": {}, "metadata": {}}
+        )
         assert len(repo.list(model="a")) == 1
         repo.close()
 
@@ -497,11 +539,17 @@ class TestRunRepositoryExtended:
 # storage/reports: _render_run_context
 # ---------------------------------------------------------------------------
 
+
 def _make_run_context(**overrides) -> RunContext:
     defaults = dict(
-        tool_version="1.3.0", git_sha="abc1234", hostname="testhost",
-        platform_info="Linux-6.1", python_version="3.11.5",
-        model="test-model", backend="vllm", base_url="http://localhost:8000",
+        tool_version="1.3.0",
+        git_sha="abc1234",
+        hostname="testhost",
+        platform_info="Linux-6.1",
+        python_version="3.11.5",
+        model="test-model",
+        backend="vllm",
+        base_url="http://localhost:8000",
     )
     defaults.update(overrides)
     return RunContext(**defaults)
@@ -517,7 +565,9 @@ class TestRenderRunContext:
         assert "## Environment" in text  # no engine info
 
     def test_with_engine_info(self):
-        ctx = _make_run_context(engine_name="vLLM", engine_version="0.8.5", max_model_len=32768, gpu_count=2)
+        ctx = _make_run_context(
+            engine_name="vLLM", engine_version="0.8.5", max_model_len=32768, gpu_count=2
+        )
         md = _render_run_context(ctx)
         text = "\n".join(md)
         assert "## Inference Engine" in text
@@ -554,12 +604,27 @@ class TestRenderRunContext:
 # storage/reports: spec decode report + run_context in reports
 # ---------------------------------------------------------------------------
 
+
 class TestSpecDecodeReport:
     def test_basic_spec_report(self, tmp_path):
         reporter = MarkdownReporter(root=str(tmp_path))
         samples = [
-            SpecDecodeSample(tg_tokens=128, total_ms=2000, ttft_ms=200, tg_tps=50.0, spec_method="mtp", prompt_type="code"),
-            SpecDecodeSample(tg_tokens=128, total_ms=3000, ttft_ms=300, tg_tps=40.0, spec_method="mtp", prompt_type="structured"),
+            SpecDecodeSample(
+                tg_tokens=128,
+                total_ms=2000,
+                ttft_ms=200,
+                tg_tps=50.0,
+                spec_method="mtp",
+                prompt_type="code",
+            ),
+            SpecDecodeSample(
+                tg_tokens=128,
+                total_ms=3000,
+                ttft_ms=300,
+                tg_tps=40.0,
+                spec_method="mtp",
+                prompt_type="structured",
+            ),
         ]
         path = reporter.write_spec_decode_report("spec_001", "test-model", samples)
         content = path.read_text()
@@ -571,9 +636,14 @@ class TestSpecDecodeReport:
         reporter = MarkdownReporter(root=str(tmp_path))
         samples = [
             SpecDecodeSample(
-                tg_tokens=128, total_ms=2000, ttft_ms=200, tg_tps=50.0,
-                spec_method="mtp", prompt_type="code",
-                acceptance_rate=0.85, acceptance_length=3.2,
+                tg_tokens=128,
+                total_ms=2000,
+                ttft_ms=200,
+                tg_tps=50.0,
+                spec_method="mtp",
+                prompt_type="code",
+                acceptance_rate=0.85,
+                acceptance_length=3.2,
             ),
         ]
         path = reporter.write_spec_decode_report("spec_002", "test-model", samples)
@@ -593,14 +663,22 @@ class TestSpecDecodeReport:
 
 class TestScenarioReportWithContext:
     def _make_summary(self):
-        results = [ScenarioResult(
-            scenario_id="TC-01", status=ScenarioStatus.PASS, points=2,
-            summary="ok", raw_log="trace",
-        )]
+        results = [
+            ScenarioResult(
+                scenario_id="TC-01",
+                status=ScenarioStatus.PASS,
+                points=2,
+                summary="ok",
+                raw_log="trace",
+            )
+        ]
         return ModelScoreSummary(
             scenario_results=results,
             category_scores=[CategoryScore(Category.A, "A", 2, 2, 100)],
-            final_score=100, total_points=2, max_points=2, rating="★★★★★",
+            final_score=100,
+            total_points=2,
+            max_points=2,
+            rating="★★★★★",
         )
 
     def test_report_with_run_context(self, tmp_path):
@@ -626,7 +704,9 @@ class TestScenarioReportWithContext:
     def test_report_with_context_pressure(self, tmp_path):
         reporter = MarkdownReporter(root=str(tmp_path))
         cp = {"ratio": 0.5, "fill_tokens": 4000, "context_size": 8192}
-        path = reporter.write_scenario_report("r3", "m", self._make_summary(), context_pressure_config=cp)
+        path = reporter.write_scenario_report(
+            "r3", "m", self._make_summary(), context_pressure_config=cp
+        )
         content = path.read_text()
         assert "Context Pressure" in content
         assert "50%" in content

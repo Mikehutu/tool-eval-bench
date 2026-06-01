@@ -191,28 +191,40 @@ def _build_dashboard(
     # Cumulative waste
     waste = (1.0 - ar) if ar > 0 else None
     waste_str = f"{waste * 100:.1f}%" if waste is not None else "—"
-    waste_color = "bright_green" if waste and waste < 0.3 else "yellow" if waste and waste < 0.6 else "bright_red"
+    waste_color = (
+        "bright_green"
+        if waste and waste < 0.3
+        else "yellow"
+        if waste and waste < 0.6
+        else "bright_red"
+    )
 
     metrics.add_row(
-        Text("  τ Acc Length", style="dim"), Text(tau_str, style="bold cyan"),
+        Text("  τ Acc Length", style="dim"),
+        Text(tau_str, style="bold cyan"),
         Text("│", style="dim"),
-        Text("  Draft Window", style="dim"), Text(win_str, style="bold"),
+        Text("  Draft Window", style="dim"),
+        Text(win_str, style="bold"),
         Text("│", style="dim"),
         Text("  Spec Tokens", style="dim"),
         Text(nst_str, style="bold cyan"),
     )
     metrics.add_row(
-        Text("  Accepted t/s", style="dim"), Text(f"{delta.accepted_tps:.1f}", style="bold green"),
+        Text("  Accepted t/s", style="dim"),
+        Text(f"{delta.accepted_tps:.1f}", style="bold green"),
         Text("│", style="dim"),
-        Text("  Drafted t/s", style="dim"), Text(f"{delta.drafted_tps:.1f}", style="bold"),
+        Text("  Drafted t/s", style="dim"),
+        Text(f"{delta.drafted_tps:.1f}", style="bold"),
         Text("│", style="dim"),
         Text("  Waste Ratio", style="dim"),
         Text(waste_str, style=f"bold {waste_color}" if waste is not None else "dim"),
     )
     metrics.add_row(
-        Text("  Gen t/s", style="dim"), Text(f"{delta.generation_tps:.1f}", style="bold bright_green"),
+        Text("  Gen t/s", style="dim"),
+        Text(f"{delta.generation_tps:.1f}", style="bold bright_green"),
         Text("│", style="dim"),
-        Text("", style="dim"), Text("", style="dim"),
+        Text("", style="dim"),
+        Text("", style="dim"),
         Text("", style="dim"),
         Text("", style="dim"),
         Text("", style="dim"),
@@ -303,18 +315,23 @@ def _build_dashboard(
 
     # ── Right Column: Sparklines + Throughput History ──
     # Use cumulative α for sparklines (always available)
-    ar_hist = [d.cumulative_acceptance_rate for d in history if d.cumulative_acceptance_rate is not None]
+    ar_hist = [
+        d.cumulative_acceptance_rate for d in history if d.cumulative_acceptance_rate is not None
+    ]
     # For throughput, use gen_tps gauge (always updated) and filter accepted to active intervals
     gen_hist = [d.generation_tps for d in history]
     acc_hist = [d.accepted_tps for d in history if d.had_activity]
-    waste_hist = [1.0 - d.cumulative_acceptance_rate for d in history if d.cumulative_acceptance_rate is not None]
+    waste_hist = [
+        1.0 - d.cumulative_acceptance_rate
+        for d in history
+        if d.cumulative_acceptance_rate is not None
+    ]
 
     spark_table = Table.grid(padding=(0, 1))
     spark_table.add_column("label", width=13, no_wrap=True)
     spark_table.add_column("spark", no_wrap=True)
     spark_table.add_column("val", width=7, justify="right", no_wrap=True)
     spark_table.add_column("range", width=16, justify="right", no_wrap=True)
-
 
     # Accept Rate sparkline
     ar_current = f"{ar * 100:.1f}%" if ar else "—"
@@ -355,9 +372,7 @@ def _build_dashboard(
     waste_range = ""
     if len(waste_hist) > 1:
         waste_range = f"↕{min(waste_hist) * 100:.0f}–{max(waste_hist) * 100:.0f}%"
-    waste_style = (
-        f"bold {_ar_color(1.0 - waste)}" if waste is not None else "dim"
-    )
+    waste_style = f"bold {_ar_color(1.0 - waste)}" if waste is not None else "dim"
     spark_table.add_row(
         Text("Waste", style="bold"),
         _sparkline(
@@ -414,7 +429,8 @@ def _build_dashboard(
     per_pos_panel: Panel | None = None
     if delta.per_position_rates:
         pos_bars_hz = _position_bars_horizontal(
-            delta.per_position_rates, inner_w=inner_w,
+            delta.per_position_rates,
+            inner_w=inner_w,
         )
         # Add compact decay summary on same line
         decay_summary = _per_position_decay_summary(delta.per_position_rates)
@@ -464,6 +480,7 @@ def _build_dashboard(
 # ---------------------------------------------------------------------------
 # Main async loop
 # ---------------------------------------------------------------------------
+
 
 async def _read_keypress(stop_event: asyncio.Event) -> str | None:
     """Non-blocking stdin key reader for the async loop.
@@ -537,7 +554,9 @@ async def run_spec_live(
     server_spec_info: ServerSpecInfo | None = None
     try:
         server_spec_info = await probe_server_spec_info(
-            base_url, api_key=api_key, primary_model=model_name,
+            base_url,
+            api_key=api_key,
+            primary_model=model_name,
         )
     except Exception:
         logger.debug("Server spec info probe failed — using Prometheus heuristics")
@@ -584,9 +603,17 @@ async def run_spec_live(
             limits=httpx.Limits(max_connections=5, max_keepalive_connections=2),
         ) as client:
             with Live(
-                _build_dashboard(None, history, start_time, model_name, url, 0, baseline_snap,
-                                 term_width=console.width,
-                                 server_spec_info=server_spec_info),
+                _build_dashboard(
+                    None,
+                    history,
+                    start_time,
+                    model_name,
+                    url,
+                    0,
+                    baseline_snap,
+                    term_width=console.width,
+                    server_spec_info=server_spec_info,
+                ),
                 console=console,
                 refresh_per_second=2,
                 transient=False,
@@ -625,11 +652,16 @@ async def run_spec_live(
                                     delta.cumulative_acceptance_length = None
 
                                 # Session per-position rates from counters
-                                if snap.per_position_counters and baseline_snap.per_position_counters:
+                                if (
+                                    snap.per_position_counters
+                                    and baseline_snap.per_position_counters
+                                ):
                                     if sess_drafts > 0:
                                         sess_rates: dict[int, float] = {}
                                         for pos, count in snap.per_position_counters.items():
-                                            base_count = baseline_snap.per_position_counters.get(pos, 0.0)
+                                            base_count = baseline_snap.per_position_counters.get(
+                                                pos, 0.0
+                                            )
                                             sess_rates[pos] = (count - base_count) / sess_drafts
                                         delta.per_position_rates = sess_rates
                                     else:
@@ -678,8 +710,12 @@ async def run_spec_live(
 
                     live.update(
                         _build_dashboard(
-                            last_delta, history, start_time,
-                            model_name, url, poll_count,
+                            last_delta,
+                            history,
+                            start_time,
+                            model_name,
+                            url,
+                            poll_count,
                             baseline_snap,
                             term_width=console.width,
                             server_spec_info=server_spec_info,
@@ -698,6 +734,7 @@ async def run_spec_live(
                         except ImportError:
                             return
                         import sys as _sys  # avoid shadowing outer
+
                         fd = _sys.stdin.fileno()
                         try:
                             old = termios.tcgetattr(fd)
@@ -738,7 +775,8 @@ async def run_spec_live(
                         # Fallback: plain wait (no stdin support)
                         try:
                             await asyncio.wait_for(
-                                stop_event.wait(), timeout=poll_interval,
+                                stop_event.wait(),
+                                timeout=poll_interval,
                             )
                             break
                         except asyncio.TimeoutError:
@@ -773,7 +811,11 @@ async def run_spec_live(
 
     # Print session summary
     if history:
-        ar_vals = [d.cumulative_acceptance_rate for d in history if d.cumulative_acceptance_rate is not None]
+        ar_vals = [
+            d.cumulative_acceptance_rate
+            for d in history
+            if d.cumulative_acceptance_rate is not None
+        ]
         gen_vals = [d.generation_tps for d in history]
         if ar_vals:
             from statistics import mean, stdev
@@ -827,4 +869,3 @@ async def run_spec_live(
                 )
             )
     console.print()
-

@@ -20,6 +20,7 @@ from tool_eval_bench.domain.scenarios import (
 # Leaderboard: _extract_leaderboard_rows
 # ===========================================================================
 
+
 class TestLeaderboardExtraction:
     """Tests for the leaderboard row extraction logic."""
 
@@ -43,11 +44,13 @@ class TestLeaderboardExtraction:
                 "rating": rating,
                 "total_points": total_points,
                 "max_points": max_points,
-                "category_scores": cat_scores or [
+                "category_scores": cat_scores
+                or [
                     {"category": "A", "percent": 100},
                     {"category": "B", "percent": 67},
                 ],
-                "scenario_results": scenario_results or [
+                "scenario_results": scenario_results
+                or [
                     {"status": "pass", "scenario_id": "TC-01"},
                     {"status": "partial", "scenario_id": "TC-02"},
                     {"status": "fail", "scenario_id": "TC-03"},
@@ -100,11 +103,15 @@ class TestLeaderboardExtraction:
     def test_category_scores_extracted(self) -> None:
         from tool_eval_bench.cli.leaderboard import _extract_leaderboard_rows
 
-        runs = [self._make_run(cat_scores=[
-            {"category": "A", "percent": 100},
-            {"category": "K", "percent": 50},
-            {"category": "O", "percent": 83},
-        ])]
+        runs = [
+            self._make_run(
+                cat_scores=[
+                    {"category": "A", "percent": 100},
+                    {"category": "K", "percent": 50},
+                    {"category": "O", "percent": 83},
+                ]
+            )
+        ]
         rows = _extract_leaderboard_rows(runs)
         assert rows[0]["cat_scores"]["A"] == 100
         assert rows[0]["cat_scores"]["K"] == 50
@@ -133,31 +140,38 @@ class TestLeaderboardExtraction:
 # Leaderboard: color helpers
 # ===========================================================================
 
+
 class TestLeaderboardColors:
     """Tests for score-to-color mapping functions."""
 
     def test_score_color_excellent(self) -> None:
         from tool_eval_bench.cli.leaderboard import _score_color
+
         assert "green" in _score_color(95)
 
     def test_score_color_good(self) -> None:
         from tool_eval_bench.cli.leaderboard import _score_color
+
         assert "green" in _score_color(80)
 
     def test_score_color_adequate(self) -> None:
         from tool_eval_bench.cli.leaderboard import _score_color
+
         assert "yellow" in _score_color(65)
 
     def test_score_color_weak(self) -> None:
         from tool_eval_bench.cli.leaderboard import _score_color
+
         assert "red" in _score_color(45)
 
     def test_score_color_poor(self) -> None:
         from tool_eval_bench.cli.leaderboard import _score_color
+
         assert "red" in _score_color(20)
 
     def test_rating_short_all_variants(self) -> None:
         from tool_eval_bench.cli.leaderboard import _rating_short
+
         assert "★★★★★" in _rating_short("★★★★★ Excellent")
         assert "★★★★" in _rating_short("★★★★ Good")
         assert "★★★" in _rating_short("★★★ Adequate")
@@ -170,28 +184,31 @@ class TestLeaderboardColors:
 # Export: CSV format
 # ===========================================================================
 
+
 class TestExportCSV:
     """Tests for CSV export logic."""
 
     def test_csv_output(self) -> None:
         from tool_eval_bench.cli.leaderboard import _extract_leaderboard_rows
 
-        runs = [{
-            "model": "test-model",
-            "run_id": "run_001",
-            "created_at": "2026-04-19T12:00:00",
-            "config": {"scenario_count": 69, "backend": "vllm"},
-            "scores": {
-                "final_score": 85,
-                "rating": "Good",
-                "total_points": 100,
-                "max_points": 138,
-                "category_scores": [{"category": "A", "percent": 100}],
-                "scenario_results": [{"status": "pass", "scenario_id": "TC-01"}],
-                "total_tokens": 5000,
-                "safety_warnings": [],
-            },
-        }]
+        runs = [
+            {
+                "model": "test-model",
+                "run_id": "run_001",
+                "created_at": "2026-04-19T12:00:00",
+                "config": {"scenario_count": 69, "backend": "vllm"},
+                "scores": {
+                    "final_score": 85,
+                    "rating": "Good",
+                    "total_points": 100,
+                    "max_points": 138,
+                    "category_scores": [{"category": "A", "percent": 100}],
+                    "scenario_results": [{"status": "pass", "scenario_id": "TC-01"}],
+                    "total_tokens": 5000,
+                    "safety_warnings": [],
+                },
+            }
+        ]
         rows = _extract_leaderboard_rows(runs)
         assert len(rows) == 1
         assert rows[0]["model"] == "test-model"
@@ -207,22 +224,24 @@ class TestExportCSV:
             tmpfile = f.name
 
         # Patch RunRepository to return test data
-        mock_runs = [{
-            "model": "export-test",
-            "run_id": "run_export",
-            "created_at": "2026-04-19T12:00:00",
-            "config": {"scenario_count": 69, "backend": "vllm"},
-            "scores": {
-                "final_score": 90,
-                "rating": "Excellent",
-                "total_points": 120,
-                "max_points": 138,
-                "category_scores": [{"category": "A", "percent": 100}],
-                "scenario_results": [{"status": "pass", "scenario_id": "TC-01"}],
-                "total_tokens": 3000,
-                "safety_warnings": [],
-            },
-        }]
+        mock_runs = [
+            {
+                "model": "export-test",
+                "run_id": "run_export",
+                "created_at": "2026-04-19T12:00:00",
+                "config": {"scenario_count": 69, "backend": "vllm"},
+                "scores": {
+                    "final_score": 90,
+                    "rating": "Excellent",
+                    "total_points": 120,
+                    "max_points": 138,
+                    "category_scores": [{"category": "A", "percent": 100}],
+                    "scenario_results": [{"status": "pass", "scenario_id": "TC-01"}],
+                    "total_tokens": 3000,
+                    "safety_warnings": [],
+                },
+            }
+        ]
 
         with patch("tool_eval_bench.storage.db.RunRepository") as MockRepo:
             mock_repo = MagicMock()
@@ -247,22 +266,24 @@ class TestExportCSV:
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
             tmpfile = f.name
 
-        mock_runs = [{
-            "model": "json-test",
-            "run_id": "run_json",
-            "created_at": "2026-04-19T12:00:00",
-            "config": {"scenario_count": 69, "backend": "vllm"},
-            "scores": {
-                "final_score": 75,
-                "rating": "Good",
-                "total_points": 100,
-                "max_points": 138,
-                "category_scores": [{"category": "A", "percent": 100}],
-                "scenario_results": [{"status": "pass", "scenario_id": "TC-01"}],
-                "total_tokens": 4000,
-                "safety_warnings": [],
-            },
-        }]
+        mock_runs = [
+            {
+                "model": "json-test",
+                "run_id": "run_json",
+                "created_at": "2026-04-19T12:00:00",
+                "config": {"scenario_count": 69, "backend": "vllm"},
+                "scores": {
+                    "final_score": 75,
+                    "rating": "Good",
+                    "total_points": 100,
+                    "max_points": 138,
+                    "category_scores": [{"category": "A", "percent": 100}],
+                    "scenario_results": [{"status": "pass", "scenario_id": "TC-01"}],
+                    "total_tokens": 4000,
+                    "safety_warnings": [],
+                },
+            }
+        ]
 
         with patch("tool_eval_bench.storage.db.RunRepository") as MockRepo:
             mock_repo = MagicMock()
@@ -295,6 +316,7 @@ class TestExportCSV:
 # ===========================================================================
 # LLM-as-Judge: prompt building
 # ===========================================================================
+
 
 class TestJudgePromptBuilding:
     """Tests for judge prompt construction."""
@@ -349,15 +371,22 @@ class TestJudgePromptBuilding:
             summary="Called wrong tools.",
         )
         state = ScenarioState()
-        state.tool_calls.append(ToolCallRecord(
-            id="call_1", name="web_search",
-            raw_arguments='{"query": "contacts"}',
-            arguments={"query": "contacts"}, turn=1,
-        ))
-        state.tool_results.append(ToolResultRecord(
-            call_id="call_1", name="web_search",
-            result={"results": [{"snippet": "No contacts found"}]},
-        ))
+        state.tool_calls.append(
+            ToolCallRecord(
+                id="call_1",
+                name="web_search",
+                raw_arguments='{"query": "contacts"}',
+                arguments={"query": "contacts"},
+                turn=1,
+            )
+        )
+        state.tool_results.append(
+            ToolResultRecord(
+                call_id="call_1",
+                name="web_search",
+                result={"results": [{"snippet": "No contacts found"}]},
+            )
+        )
         state.final_answer = "I searched but found nothing."
 
         prompt = _build_judge_prompt(scenario, result, state)
@@ -370,6 +399,7 @@ class TestJudgePromptBuilding:
 # LLM-as-Judge: verdict handling
 # ===========================================================================
 
+
 class TestJudgeVerdicts:
     """Tests for judge result processing."""
 
@@ -379,17 +409,25 @@ class TestJudgeVerdicts:
         from tool_eval_bench.runner.judge import judge_failed_scenarios
 
         scenario = ScenarioDefinition(
-            id="TC-01", title="Test", category=Category.A,
-            user_message="test", description="test",
-            handle_tool_call=lambda s, c: {}, evaluate=lambda s: None,
+            id="TC-01",
+            title="Test",
+            category=Category.A,
+            user_message="test",
+            description="test",
+            handle_tool_call=lambda s, c: {},
+            evaluate=lambda s: None,
         )
         pass_result = ScenarioResult(
-            scenario_id="TC-01", status=ScenarioStatus.PASS,
-            points=2, summary="ok",
+            scenario_id="TC-01",
+            status=ScenarioStatus.PASS,
+            points=2,
+            summary="ok",
         )
         partial_result = ScenarioResult(
-            scenario_id="TC-02", status=ScenarioStatus.PARTIAL,
-            points=1, summary="partial ok",
+            scenario_id="TC-02",
+            status=ScenarioStatus.PARTIAL,
+            points=1,
+            summary="partial ok",
         )
 
         adapter = AsyncMock()
@@ -411,6 +449,7 @@ class TestJudgeVerdicts:
 # ===========================================================================
 # AsyncToolExecutor
 # ===========================================================================
+
 
 class TestAsyncToolExecutor:
     """Tests for the experimental async tool executor."""
@@ -451,11 +490,13 @@ class TestAsyncToolExecutor:
         )
 
         executor = AsyncToolExecutor()
-        executor.register_tool(AsyncToolSpec(
-            tool_name="search_files",
-            duration_ms=10000.0,
-            final_result={},
-        ))
+        executor.register_tool(
+            AsyncToolSpec(
+                tool_name="search_files",
+                duration_ms=10000.0,
+                final_result={},
+            )
+        )
 
         started = executor.start_tool("search_files")
         cancelled = executor.cancel_tool(started.handle)
@@ -539,6 +580,7 @@ class TestAsyncToolExecutor:
 # tool_call_arg_bytes tracking
 # ===========================================================================
 
+
 class TestArgBytesTracking:
     """Tests for per-tool-call argument size tracking."""
 
@@ -588,6 +630,7 @@ class TestArgBytesTracking:
 # Category O registration
 # ===========================================================================
 
+
 class TestCategoryORegistration:
     """Verify Category O is fully integrated into the system."""
 
@@ -597,15 +640,18 @@ class TestCategoryORegistration:
 
     def test_category_label_defined(self) -> None:
         from tool_eval_bench.domain.scenarios import CATEGORY_LABELS
+
         assert Category.O in CATEGORY_LABELS
         assert CATEGORY_LABELS[Category.O] == "Structured Output"
 
     def test_display_color_defined(self) -> None:
         from tool_eval_bench.cli.display import CATEGORY_COLORS
+
         assert Category.O in CATEGORY_COLORS
 
     def test_structured_scenarios_in_all(self) -> None:
         from tool_eval_bench.evals.scenarios import ALL_SCENARIOS
+
         cat_o = [s for s in ALL_SCENARIOS if s.category == Category.O]
         assert len(cat_o) == 6
         ids = {s.id for s in cat_o}
@@ -613,11 +659,13 @@ class TestCategoryORegistration:
 
     def test_display_details_present(self) -> None:
         from tool_eval_bench.evals.scenarios import ALL_DISPLAY_DETAILS
+
         for tc_id in ("TC-64", "TC-65", "TC-66", "TC-67", "TC-68", "TC-69"):
             assert tc_id in ALL_DISPLAY_DETAILS, f"Missing display details for {tc_id}"
 
     def test_leaderboard_labels_include_O(self) -> None:
         from tool_eval_bench.cli.leaderboard import _CAT_FULL, _CAT_LABELS
+
         assert "O" in _CAT_LABELS
         assert "O" in _CAT_FULL
         assert _CAT_LABELS["O"] == "Out"
@@ -628,15 +676,16 @@ class TestCategoryORegistration:
         If response_format is set, the SERVER enforces the constraint,
         making the test trivially passable."""
         from tool_eval_bench.evals.scenarios_structured import STRUCTURED_SCENARIOS
+
         tc68 = next(s for s in STRUCTURED_SCENARIOS if s.id == "TC-68")
         assert tc68.response_format_override is None, (
-            "TC-68 must NOT use response_format — it tests model restraint, "
-            "not server enforcement"
+            "TC-68 must NOT use response_format — it tests model restraint, not server enforcement"
         )
 
     def test_other_structured_scenarios_have_response_format(self) -> None:
         """TC-64, 65, 66, 67, 69 should all have response_format_override."""
         from tool_eval_bench.evals.scenarios_structured import STRUCTURED_SCENARIOS
+
         for s in STRUCTURED_SCENARIOS:
             if s.id == "TC-68":
                 continue  # TC-68 intentionally omits it
@@ -648,24 +697,23 @@ class TestCategoryORegistration:
         """All Category O user messages should contain the actual JSON schema
         text so models see it even if the backend ignores response_format."""
         from tool_eval_bench.evals.scenarios_structured import STRUCTURED_SCENARIOS
+
         for s in STRUCTURED_SCENARIOS:
-            assert "Schema:" in s.user_message, (
-                f"{s.id} user message should embed the schema"
-            )
-            assert '"type"' in s.user_message, (
-                f"{s.id} user message should contain schema body"
-            )
+            assert "Schema:" in s.user_message, f"{s.id} user message should embed the schema"
+            assert '"type"' in s.user_message, f"{s.id} user message should contain schema body"
 
 
 # ===========================================================================
 # Version consistency
 # ===========================================================================
 
+
 class TestVersionConsistency:
     """Ensure version strings are consistent across the project."""
 
     def test_init_version(self) -> None:
         from tool_eval_bench import __version__
+
         # Should be a valid PEP 440 version (X.Y.Z or X.Y.Z.N)
         parts = __version__.split(".")
         assert len(parts) in (3, 4), f"Version should be X.Y.Z or X.Y.Z.N, got {__version__}"

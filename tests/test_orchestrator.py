@@ -44,6 +44,7 @@ class MockAdapter(BackendAdapter):
     async def chat_completion(self, **kwargs: Any) -> ChatCompletionResult:
         # Deep-copy messages to capture state at call time (orchestrator mutates in-place)
         import copy
+
         captured = dict(kwargs)
         if "messages" in captured:
             captured["messages"] = copy.deepcopy(captured["messages"])
@@ -60,11 +61,13 @@ class MockAdapter(BackendAdapter):
         # Auto-convert dict shorthand
         tool_calls = []
         for tc in resp.get("tool_calls", []):
-            tool_calls.append(ProviderToolCall(
-                id=tc.get("id", f"tc_{len(tool_calls)}"),
-                name=tc["name"],
-                arguments_str=json.dumps(tc.get("arguments", {})),
-            ))
+            tool_calls.append(
+                ProviderToolCall(
+                    id=tc.get("id", f"tc_{len(tool_calls)}"),
+                    name=tc["name"],
+                    arguments_str=json.dumps(tc.get("arguments", {})),
+                )
+            )
 
         return ChatCompletionResult(
             content=resp.get("content", ""),
@@ -122,13 +125,18 @@ MOCK_SCENARIO = ScenarioDefinition(
 @pytest.mark.asyncio
 async def test_single_turn_no_tools() -> None:
     """Model responds directly without calling any tools."""
-    adapter = MockAdapter([
-        {"content": "It's probably cold in Berlin."},
-    ])
+    adapter = MockAdapter(
+        [
+            {"content": "It's probably cold in Berlin."},
+        ]
+    )
 
     result = await run_scenario(
-        adapter, model="test", base_url="http://localhost:8000",
-        api_key=None, scenario=MOCK_SCENARIO,
+        adapter,
+        model="test",
+        base_url="http://localhost:8000",
+        api_key=None,
+        scenario=MOCK_SCENARIO,
     )
 
     assert result.scenario_id == "TEST-01"
@@ -142,22 +150,27 @@ async def test_single_turn_no_tools() -> None:
 @pytest.mark.asyncio
 async def test_tool_call_pass() -> None:
     """Model calls get_weather → mock returns data → model summarizes → PASS."""
-    adapter = MockAdapter([
-        # Turn 1: model calls get_weather
-        {
-            "content": "",
-            "tool_calls": [
-                {"name": "get_weather", "arguments": {"location": "Berlin"}},
-            ],
-            "ttft_ms": 50.0,
-        },
-        # Turn 2: model summarizes the tool result
-        {"content": "Berlin is 22C and sunny."},
-    ])
+    adapter = MockAdapter(
+        [
+            # Turn 1: model calls get_weather
+            {
+                "content": "",
+                "tool_calls": [
+                    {"name": "get_weather", "arguments": {"location": "Berlin"}},
+                ],
+                "ttft_ms": 50.0,
+            },
+            # Turn 2: model summarizes the tool result
+            {"content": "Berlin is 22C and sunny."},
+        ]
+    )
 
     result = await run_scenario(
-        adapter, model="test", base_url="http://localhost:8000",
-        api_key=None, scenario=MOCK_SCENARIO,
+        adapter,
+        model="test",
+        base_url="http://localhost:8000",
+        api_key=None,
+        scenario=MOCK_SCENARIO,
     )
 
     assert result.status == ScenarioStatus.PASS
@@ -173,6 +186,7 @@ async def test_tool_call_pass() -> None:
 @pytest.mark.asyncio
 async def test_multi_turn_tool_chain() -> None:
     """Model makes two sequential tool calls across turns."""
+
     def chain_evaluator(state: ScenarioState) -> ScenarioEvaluation:
         names = [tc.name for tc in state.tool_calls]
         if names == ["get_weather", "calculator"]:
@@ -180,22 +194,35 @@ async def test_multi_turn_tool_chain() -> None:
         return ScenarioEvaluation(status=ScenarioStatus.FAIL, points=0, summary="Wrong chain")
 
     chain_scenario = ScenarioDefinition(
-        id="TEST-02", title="Chain test", category=Category.C,
+        id="TEST-02",
+        title="Chain test",
+        category=Category.C,
         user_message="Get weather then calculate something",
         description="Should chain two tools",
         handle_tool_call=_simple_handler,
         evaluate=chain_evaluator,
     )
 
-    adapter = MockAdapter([
-        {"content": "", "tool_calls": [{"name": "get_weather", "arguments": {"location": "NYC"}}]},
-        {"content": "", "tool_calls": [{"name": "calculator", "arguments": {"expression": "1+1"}}]},
-        {"content": "Done! Weather is 22C, calculation is 42."},
-    ])
+    adapter = MockAdapter(
+        [
+            {
+                "content": "",
+                "tool_calls": [{"name": "get_weather", "arguments": {"location": "NYC"}}],
+            },
+            {
+                "content": "",
+                "tool_calls": [{"name": "calculator", "arguments": {"expression": "1+1"}}],
+            },
+            {"content": "Done! Weather is 22C, calculation is 42."},
+        ]
+    )
 
     result = await run_scenario(
-        adapter, model="test", base_url="http://localhost:8000",
-        api_key=None, scenario=chain_scenario,
+        adapter,
+        model="test",
+        base_url="http://localhost:8000",
+        api_key=None,
+        scenario=chain_scenario,
     )
 
     assert result.status == ScenarioStatus.PASS
@@ -214,8 +241,11 @@ async def test_max_turns_exceeded() -> None:
     adapter = MockAdapter(responses)
 
     result = await run_scenario(
-        adapter, model="test", base_url="http://localhost:8000",
-        api_key=None, scenario=MOCK_SCENARIO,
+        adapter,
+        model="test",
+        base_url="http://localhost:8000",
+        api_key=None,
+        scenario=MOCK_SCENARIO,
         max_turns=3,
     )
 
@@ -228,13 +258,17 @@ async def test_max_turns_exceeded() -> None:
 @pytest.mark.asyncio
 async def test_adapter_exception_produces_fail() -> None:
     """If the adapter raises an exception, the scenario should FAIL gracefully."""
+
     class FailingAdapter(BackendAdapter):
         async def chat_completion(self, **kwargs: Any) -> ChatCompletionResult:
             raise ConnectionError("Server down")
 
     result = await run_scenario(
-        FailingAdapter(), model="test", base_url="http://localhost:8000",
-        api_key=None, scenario=MOCK_SCENARIO,
+        FailingAdapter(),
+        model="test",
+        base_url="http://localhost:8000",
+        api_key=None,
+        scenario=MOCK_SCENARIO,
     )
 
     assert result.status == ScenarioStatus.FAIL
@@ -246,14 +280,22 @@ async def test_adapter_exception_produces_fail() -> None:
 @pytest.mark.asyncio
 async def test_messages_threaded_correctly() -> None:
     """Verify the adapter receives properly threaded messages across turns."""
-    adapter = MockAdapter([
-        {"content": "", "tool_calls": [{"name": "get_weather", "arguments": {"location": "Berlin"}}]},
-        {"content": "Berlin is sunny."},
-    ])
+    adapter = MockAdapter(
+        [
+            {
+                "content": "",
+                "tool_calls": [{"name": "get_weather", "arguments": {"location": "Berlin"}}],
+            },
+            {"content": "Berlin is sunny."},
+        ]
+    )
 
     await run_scenario(
-        adapter, model="test", base_url="http://localhost:8000",
-        api_key=None, scenario=MOCK_SCENARIO,
+        adapter,
+        model="test",
+        base_url="http://localhost:8000",
+        api_key=None,
+        scenario=MOCK_SCENARIO,
     )
 
     # Verify we got exactly 2 adapter calls (turn 1: tool call, turn 2: final answer)
@@ -285,13 +327,18 @@ async def test_messages_threaded_correctly() -> None:
 @pytest.mark.asyncio
 async def test_scenario_timing_fields() -> None:
     """Result should include timing fields even for fast mock runs."""
-    adapter = MockAdapter([
-        {"content": "Direct answer.", "elapsed_ms": 25.0, "ttft_ms": 5.0},
-    ])
+    adapter = MockAdapter(
+        [
+            {"content": "Direct answer.", "elapsed_ms": 25.0, "ttft_ms": 5.0},
+        ]
+    )
 
     result = await run_scenario(
-        adapter, model="test", base_url="http://localhost:8000",
-        api_key=None, scenario=MOCK_SCENARIO,
+        adapter,
+        model="test",
+        base_url="http://localhost:8000",
+        api_key=None,
+        scenario=MOCK_SCENARIO,
     )
 
     assert result.duration_seconds > 0
@@ -308,22 +355,27 @@ async def test_follow_up_messages() -> None:
     -- orchestrator injects follow-up user message --
     Turn 3: model answers the follow-up.
     """
+
     def follow_up_evaluator(state: ScenarioState) -> ScenarioEvaluation:
         """Pass if model created the event AND answered the follow-up."""
         created = any(tc.name == "create_calendar_event" for tc in state.tool_calls)
         # The final answer should be the response to the follow-up question
         if created and "no attendee" in state.final_answer.lower():
             return ScenarioEvaluation(
-                status=ScenarioStatus.PASS, points=2,
+                status=ScenarioStatus.PASS,
+                points=2,
                 summary="Created event and answered follow-up correctly",
             )
         if created:
             return ScenarioEvaluation(
-                status=ScenarioStatus.PARTIAL, points=1,
+                status=ScenarioStatus.PARTIAL,
+                points=1,
                 summary="Created event but follow-up answer unclear",
             )
         return ScenarioEvaluation(
-            status=ScenarioStatus.FAIL, points=0, summary="Did not create event",
+            status=ScenarioStatus.FAIL,
+            points=0,
+            summary="Did not create event",
         )
 
     follow_up_scenario = ScenarioDefinition(
@@ -345,25 +397,35 @@ async def test_follow_up_messages() -> None:
 
     follow_up_scenario.handle_tool_call = _fu_handler
 
-    adapter = MockAdapter([
-        # Turn 1: model calls create_calendar_event
-        {
-            "content": "",
-            "tool_calls": [
-                {"name": "create_calendar_event", "arguments": {
-                    "title": "Design Review", "date": "2026-03-21", "time": "15:00",
-                }},
-            ],
-        },
-        # Turn 2: model responds to user about the created event
-        {"content": "I've created the Design Review meeting for 3pm tomorrow."},
-        # Turn 3: model answers the follow-up question (injected by orchestrator)
-        {"content": "No attendees have been added to the Design Review yet."},
-    ])
+    adapter = MockAdapter(
+        [
+            # Turn 1: model calls create_calendar_event
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "name": "create_calendar_event",
+                        "arguments": {
+                            "title": "Design Review",
+                            "date": "2026-03-21",
+                            "time": "15:00",
+                        },
+                    },
+                ],
+            },
+            # Turn 2: model responds to user about the created event
+            {"content": "I've created the Design Review meeting for 3pm tomorrow."},
+            # Turn 3: model answers the follow-up question (injected by orchestrator)
+            {"content": "No attendees have been added to the Design Review yet."},
+        ]
+    )
 
     result = await run_scenario(
-        adapter, model="test", base_url="http://localhost:8000",
-        api_key=None, scenario=follow_up_scenario,
+        adapter,
+        model="test",
+        base_url="http://localhost:8000",
+        api_key=None,
+        scenario=follow_up_scenario,
     )
 
     # Should pass — model created event and answered the follow-up
@@ -385,17 +447,25 @@ async def test_follow_up_messages() -> None:
 
 @pytest.mark.asyncio
 async def test_parallel_tool_turns_records_same_turn_batch() -> None:
-    adapter = MockAdapter([
-        {"content": "", "tool_calls": [
-            {"name": "get_weather", "arguments": {"location": "Berlin"}},
-            {"name": "calculator", "arguments": {"expression": "1+1"}},
-        ]},
-        {"content": "Done."},
-    ])
+    adapter = MockAdapter(
+        [
+            {
+                "content": "",
+                "tool_calls": [
+                    {"name": "get_weather", "arguments": {"location": "Berlin"}},
+                    {"name": "calculator", "arguments": {"expression": "1+1"}},
+                ],
+            },
+            {"content": "Done."},
+        ]
+    )
 
     result = await run_scenario(
-        adapter, model="test", base_url="http://localhost:8000",
-        api_key=None, scenario=MOCK_SCENARIO,
+        adapter,
+        model="test",
+        base_url="http://localhost:8000",
+        api_key=None,
+        scenario=MOCK_SCENARIO,
     )
 
     assert result.parallel_tool_turns == [1]
@@ -412,22 +482,34 @@ async def test_checkpoint_runs_after_each_tool_call() -> None:
         return None
 
     scenario = ScenarioDefinition(
-        id="TEST-CP", title="Checkpoint test", category=Category.P,
-        user_message="Call two tools", description="Checkpoint after each call",
-        handle_tool_call=_simple_handler, evaluate=_simple_evaluator,
+        id="TEST-CP",
+        title="Checkpoint test",
+        category=Category.P,
+        user_message="Call two tools",
+        description="Checkpoint after each call",
+        handle_tool_call=_simple_handler,
+        evaluate=_simple_evaluator,
         checkpoint=checkpoint,
     )
-    adapter = MockAdapter([
-        {"content": "", "tool_calls": [
-            {"name": "get_weather", "arguments": {"location": "Berlin"}},
-            {"name": "calculator", "arguments": {"expression": "1+1"}},
-        ]},
-        {"content": "Done."},
-    ])
+    adapter = MockAdapter(
+        [
+            {
+                "content": "",
+                "tool_calls": [
+                    {"name": "get_weather", "arguments": {"location": "Berlin"}},
+                    {"name": "calculator", "arguments": {"expression": "1+1"}},
+                ],
+            },
+            {"content": "Done."},
+        ]
+    )
 
     result = await run_scenario(
-        adapter, model="test", base_url="http://localhost:8000",
-        api_key=None, scenario=scenario,
+        adapter,
+        model="test",
+        base_url="http://localhost:8000",
+        api_key=None,
+        scenario=scenario,
     )
 
     assert seen == ["get_weather", "calculator"]

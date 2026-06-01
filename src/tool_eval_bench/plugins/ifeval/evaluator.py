@@ -58,18 +58,22 @@ def evaluate_prompt(
 
         try:
             passed = check_instruction(inst_id, response, kw)
-            results.append(InstructionResult(
-                instruction_id=inst_id,
-                passed=passed,
-            ))
+            results.append(
+                InstructionResult(
+                    instruction_id=inst_id,
+                    passed=passed,
+                )
+            )
         except KeyError:
             # Unknown instruction — treat as pass (don't penalize for
             # constraint types we haven't implemented yet)
-            results.append(InstructionResult(
-                instruction_id=inst_id,
-                passed=True,
-                error=f"Unknown instruction: {inst_id}",
-            ))
+            results.append(
+                InstructionResult(
+                    instruction_id=inst_id,
+                    passed=True,
+                    error=f"Unknown instruction: {inst_id}",
+                )
+            )
 
     all_passed = all(r.passed for r in results)
     return PromptResult(prompt_pass=all_passed, instruction_results=results)

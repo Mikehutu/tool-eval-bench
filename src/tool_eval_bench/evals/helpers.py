@@ -23,6 +23,7 @@ from tool_eval_bench.domain.scenarios import (
 # String helpers
 # ---------------------------------------------------------------------------
 
+
 def as_str(value: Any) -> str:
     """Coerce a value to string, treating None as empty."""
     return str(value) if value is not None else ""
@@ -86,6 +87,7 @@ def answer_contains_number(answer: str, value: str) -> bool:
 # State inspection helpers
 # ---------------------------------------------------------------------------
 
+
 def full_assistant_transcript(state: ScenarioState) -> str:
     """Join all assistant messages into a single transcript."""
     return "\n".join(state.assistant_messages)
@@ -135,50 +137,94 @@ def contains_refusal(answer: str) -> bool:
         phrase in low
         for phrase in (
             # Explicit inability
-            "cannot", "can't", "can not", "couldn't", "could not",
-            "not able", "unable to",
-            "won't", "will not",
+            "cannot",
+            "can't",
+            "can not",
+            "couldn't",
+            "could not",
+            "not able",
+            "unable to",
+            "won't",
+            "will not",
             # Possession-denial
-            "do not have", "don't have",
-            "don't have access", "do not have access",
-            "don't have the ability", "do not have the ability",
-            "don't have the capability", "lack the",
+            "do not have",
+            "don't have",
+            "don't have access",
+            "do not have access",
+            "don't have the ability",
+            "do not have the ability",
+            "don't have the capability",
+            "lack the",
             # Apology-based
-            "unfortunately", "i'm sorry", "i am sorry", "i apologize",
-            "i'm afraid", "i am afraid", "regrettably",
+            "unfortunately",
+            "i'm sorry",
+            "i am sorry",
+            "i apologize",
+            "i'm afraid",
+            "i am afraid",
+            "regrettably",
             # Boundary-stating
-            "not possible", "no way to", "there is no way",
-            "not supported", "not available",
-            "no tool", "no capability",
-            "no such tool", "no function",
+            "not possible",
+            "no way to",
+            "there is no way",
+            "not supported",
+            "not available",
+            "no tool",
+            "no capability",
+            "no such tool",
+            "no function",
             # Capability framing (Qwen / Mistral style)
-            "beyond my", "outside my", "out of scope",
-            "beyond the scope", "outside the scope",
-            "that's not something i", "that is not something i",
-            "isn't something i", "is not something i",
-            "isn't part of", "is not part of",
-            "isn't within", "is not within",
+            "beyond my",
+            "outside my",
+            "out of scope",
+            "beyond the scope",
+            "outside the scope",
+            "that's not something i",
+            "that is not something i",
+            "isn't something i",
+            "is not something i",
+            "isn't part of",
+            "is not part of",
+            "isn't within",
+            "is not within",
             # Toolkit limitation
-            "no appropriate tool", "no suitable tool",
-            "doesn't exist", "does not exist",
-            "isn't available", "is not available",
-            "not in my toolset", "not in the available",
+            "no appropriate tool",
+            "no suitable tool",
+            "doesn't exist",
+            "does not exist",
+            "isn't available",
+            "is not available",
+            "not in my toolset",
+            "not in the available",
             "no matching tool",
             # Command-R / Phi patterns
-            "i must decline", "i need to decline",
-            "not something i'm able", "not something i am able",
-            "i'm not equipped", "i am not equipped",
-            "falls outside", "goes beyond",
-            "not within my capabilities", "exceeds my",
+            "i must decline",
+            "i need to decline",
+            "not something i'm able",
+            "not something i am able",
+            "i'm not equipped",
+            "i am not equipped",
+            "falls outside",
+            "goes beyond",
+            "not within my capabilities",
+            "exceeds my",
             # Qwen3 / Gemma patterns
-            "i lack the", "this exceeds", "i'm not designed",
-            "i am not designed", "not designed to",
-            "i don't support", "i do not support",
-            "no mechanism", "no means to",
-            "i must refrain", "i should not",
+            "i lack the",
+            "this exceeds",
+            "i'm not designed",
+            "i am not designed",
+            "not designed to",
+            "i don't support",
+            "i do not support",
+            "no mechanism",
+            "no means to",
+            "i must refrain",
+            "i should not",
             # Refusal-with-alternative
-            "instead, i can", "however, i can",
-            "what i can do", "alternatively",
+            "instead, i can",
+            "however, i can",
+            "what i can do",
+            "alternatively",
         )
     )
 
@@ -195,35 +241,58 @@ def asks_for_clarification(answer: str) -> bool:
         word in low
         for word in (
             # Direct question forms
-            "which", "clarify", "could you",
-            "can you tell me", "what is the",
-            "who should", "where should",
-            "did you mean", "do you mean",
+            "which",
+            "clarify",
+            "could you",
+            "can you tell me",
+            "what is the",
+            "who should",
+            "where should",
+            "did you mean",
+            "do you mean",
             # Request forms
-            "please provide", "please specify",
-            "please confirm", "please let me know",
-            "need more information", "more details",
-            "can you clarify", "would you mind",
+            "please provide",
+            "please specify",
+            "please confirm",
+            "please let me know",
+            "need more information",
+            "more details",
+            "can you clarify",
+            "would you mind",
             "help me understand",
             # Polite conditional (Qwen / Gemma style)
-            "could you specify", "could you provide",
-            "would you like me to", "would you prefer",
-            "i'd need to know", "i would need to know",
+            "could you specify",
+            "could you provide",
+            "would you like me to",
+            "would you prefer",
+            "i'd need to know",
+            "i would need to know",
             # Confirmation-seeking
-            "is that correct", "am i right",
-            "just to confirm", "to make sure",
-            "before i proceed", "before proceeding",
+            "is that correct",
+            "am i right",
+            "just to confirm",
+            "to make sure",
+            "before i proceed",
+            "before proceeding",
             # Ambiguity flagging (Mistral style)
-            "ambiguous", "multiple options",
-            "not sure which", "unclear which",
+            "ambiguous",
+            "multiple options",
+            "not sure which",
+            "unclear which",
             "several possibilities",
             # Command-R / Phi additional patterns
-            "can you elaborate", "what do you mean",
-            "could you be more specific", "specify which",
-            "to clarify", "for clarity",
-            "i want to make sure", "i need to confirm",
-            "a few options", "a couple of options",
-            "which one", "what kind of",
+            "can you elaborate",
+            "what do you mean",
+            "could you be more specific",
+            "specify which",
+            "to clarify",
+            "for clarity",
+            "i want to make sure",
+            "i need to confirm",
+            "a few options",
+            "a couple of options",
+            "which one",
+            "what kind of",
         )
     )
 
@@ -243,13 +312,40 @@ def contains_german_text(answer: str) -> bool:
         return True
     # Common German function words (less ambiguous than content words)
     german_words = (
-        " und ", " ist ", " der ", " die ", " das ",
-        " ein ", " eine ", " den ", " dem ", " des ",
-        " für ", " mit ", " auf ", " von ", " bei ",
-        " nach ", " über ", " oder ", " aber ", " wenn ",
-        " wird ", " sind ", " dass ", " nicht ", " auch ",
-        " wie ", " wir ", " sich ", " noch ", " kann ",
-        " ich ", " wird ", " haben ", " werden ",
+        " und ",
+        " ist ",
+        " der ",
+        " die ",
+        " das ",
+        " ein ",
+        " eine ",
+        " den ",
+        " dem ",
+        " des ",
+        " für ",
+        " mit ",
+        " auf ",
+        " von ",
+        " bei ",
+        " nach ",
+        " über ",
+        " oder ",
+        " aber ",
+        " wenn ",
+        " wird ",
+        " sind ",
+        " dass ",
+        " nicht ",
+        " auch ",
+        " wie ",
+        " wir ",
+        " sich ",
+        " noch ",
+        " kann ",
+        " ich ",
+        " wird ",
+        " haben ",
+        " werden ",
     )
     german_count = sum(1 for w in german_words if w in f" {low} ")
     # Need at least 2 German function words to be confident
@@ -294,7 +390,7 @@ def parse_math_expression(expression: str) -> float | None:
     with parentheses and numeric literals.
     """
     sanitized = expression.replace(",", "").strip()
-    if not re.match(r'^[\d\s()+\-*/.%]+$', sanitized):
+    if not re.match(r"^[\d\s()+\-*/.%]+$", sanitized):
         return None
     try:
         tree = ast.parse(sanitized, mode="eval")
@@ -308,6 +404,7 @@ def parse_math_expression(expression: str) -> float | None:
 # Mock tool fallback
 # ---------------------------------------------------------------------------
 
+
 def generic_tool_fallback(call: ToolCallRecord) -> Any:
     """Default mock response for tools not relevant to a scenario."""
     if call.name == "calculator":
@@ -316,7 +413,11 @@ def generic_tool_fallback(call: ToolCallRecord) -> Any:
         return with_noise(payload, call.name)
     if call.name == "web_search":
         return with_noise(
-            {"results": [{"snippet": f"Search results for {as_str(call.arguments.get('query', ''))}"}]},
+            {
+                "results": [
+                    {"snippet": f"Search results for {as_str(call.arguments.get('query', ''))}"}
+                ]
+            },
             call.name,
         )
     if call.name == "run_code":
@@ -342,6 +443,7 @@ def with_noise(payload: Any, tool_name: str) -> Any:
     with extra metadata fields, timestamps, and nested objects.
     """
     from tool_eval_bench.evals.noise import enrich_payload
+
     if not isinstance(payload, dict):
         return payload
     return enrich_payload(tool_name, payload)
@@ -350,6 +452,7 @@ def with_noise(payload: Any, tool_name: str) -> Any:
 # ---------------------------------------------------------------------------
 # Pass / Partial / Fail constructors
 # ---------------------------------------------------------------------------
+
 
 def pass_eval(summary: str, note: str | None = None) -> ScenarioEvaluation:
     """Create a PASS evaluation (2 points)."""

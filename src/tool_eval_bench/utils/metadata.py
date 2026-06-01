@@ -30,9 +30,12 @@ _PROBE_TIMEOUT = 5  # seconds — tight timeout for engine probes
 # Tier 1: local environment
 # ---------------------------------------------------------------------------
 
+
 def _git_sha() -> str | None:
     try:
-        out = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL)
+        out = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
+        )
         return out.decode().strip()
     except Exception:
         logger.debug("git rev-parse failed (not in a git repo?)")
@@ -41,6 +44,7 @@ def _git_sha() -> str | None:
 
 def _tool_version() -> str:
     from tool_eval_bench import __version__
+
     return __version__
 
 
@@ -48,8 +52,10 @@ def _tool_version() -> str:
 # Tier 3: inference engine probing (best-effort)
 # ---------------------------------------------------------------------------
 
+
 async def _probe_models(
-    base_url: str, api_key: str | None,
+    base_url: str,
+    api_key: str | None,
 ) -> dict[str, Any]:
     """Probe /v1/models for model metadata."""
     headers: dict[str, str] = {}
@@ -161,14 +167,28 @@ def _guess_quantization(model_name: str | None) -> str | None:
     if gguf_match:
         return gguf_match.group(1)
     # Simple keyword match
-    for q in ["AWQ", "GPTQ", "GGUF", "EXL2", "BNBQ4", "BNB4", "INT8", "INT4", "FP8", "FP16", "BF16"]:
+    for q in [
+        "AWQ",
+        "GPTQ",
+        "GGUF",
+        "EXL2",
+        "BNBQ4",
+        "BNB4",
+        "INT8",
+        "INT4",
+        "FP8",
+        "FP16",
+        "BF16",
+    ]:
         if q in upper:
             return q
     return None
 
 
 async def _probe_engine(
-    base_url: str, api_key: str | None, backend: str,
+    base_url: str,
+    api_key: str | None,
+    backend: str,
 ) -> dict[str, Any]:
     """Run all engine probes and merge results. Best-effort."""
     result: dict[str, Any] = {}
@@ -214,6 +234,7 @@ async def _probe_engine(
 # Public API
 # ---------------------------------------------------------------------------
 
+
 async def collect_run_context(
     *,
     model: str,
@@ -240,6 +261,7 @@ async def collect_run_context(
     display_url = base_url
     if redact_url:
         from tool_eval_bench.utils.urls import redact_url as _redact
+
         display_url = _redact(base_url)
 
     # Tier 3: probe engine (best-effort, can be disabled)
@@ -285,6 +307,7 @@ async def collect_run_context(
 
 
 # -- Legacy API (kept for backward compatibility) --
+
 
 async def collect_run_metadata(config: BenchmarkConfig) -> dict[str, Any]:
     """Collect run metadata (legacy interface).

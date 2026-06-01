@@ -31,9 +31,7 @@ def make_state(
     """
     state = ScenarioState()
     state.final_answer = final_answer
-    state.assistant_messages = assistant_messages or (
-        [final_answer] if final_answer else []
-    )
+    state.assistant_messages = assistant_messages or ([final_answer] if final_answer else [])
     state.meta = meta or {}
 
     if tool_calls:

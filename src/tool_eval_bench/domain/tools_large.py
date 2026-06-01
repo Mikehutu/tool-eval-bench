@@ -192,7 +192,10 @@ _DOMAIN_TOOLS: list[dict[str, Any]] = [
                 "properties": {
                     "invoice_id": {"type": "string"},
                     "amount": {"type": "number"},
-                    "method": {"type": "string", "enum": ["credit_card", "bank_transfer", "crypto"]},
+                    "method": {
+                        "type": "string",
+                        "enum": ["credit_card", "bank_transfer", "crypto"],
+                    },
                 },
                 "required": ["invoice_id", "amount"],
                 "additionalProperties": False,
@@ -240,7 +243,10 @@ _DOMAIN_TOOLS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "report_type": {"type": "string", "enum": ["income", "balance_sheet", "cash_flow"]},
+                    "report_type": {
+                        "type": "string",
+                        "enum": ["income", "balance_sheet", "cash_flow"],
+                    },
                     "start_date": {"type": "string"},
                     "end_date": {"type": "string"},
                 },

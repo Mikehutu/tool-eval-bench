@@ -127,10 +127,13 @@ class TestPrintDiff:
             repo = _make_repo_mock(prev_runs)
             MockRepo.return_value = repo
 
-
             current_results = [
-                ScenarioResult(scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="pass"),
-                ScenarioResult(scenario_id="TC-02", status=ScenarioStatus.PASS, points=2, summary="improved"),
+                ScenarioResult(
+                    scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="pass"
+                ),
+                ScenarioResult(
+                    scenario_id="TC-02", status=ScenarioStatus.PASS, points=2, summary="improved"
+                ),
             ]
 
             console = Console(file=StringIO(), width=200, no_color=True)
@@ -144,9 +147,10 @@ class TestPrintDiff:
             repo = _make_repo_mock([])
             MockRepo.return_value = repo
 
-
             current_results = [
-                ScenarioResult(scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="pass"),
+                ScenarioResult(
+                    scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="pass"
+                ),
             ]
 
             console = Console(file=StringIO(), width=200, no_color=True)
@@ -162,9 +166,10 @@ class TestPrintDiff:
             repo.get_scenario_results.return_value = None
             MockRepo.return_value = repo
 
-
             current_results = [
-                ScenarioResult(scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="pass"),
+                ScenarioResult(
+                    scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="pass"
+                ),
             ]
 
             console = Console(file=StringIO(), width=200, no_color=True)
@@ -190,9 +195,10 @@ class TestPrintDiff:
             repo = _make_repo_mock(prev_runs)
             MockRepo.return_value = repo
 
-
             current_results = [
-                ScenarioResult(scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="pass"),
+                ScenarioResult(
+                    scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="pass"
+                ),
             ]
 
             console = Console(file=StringIO(), width=200, no_color=True)
@@ -218,9 +224,10 @@ class TestPrintDiff:
             repo = _make_repo_mock(prev_runs)
             MockRepo.return_value = repo
 
-
             current_results = [
-                ScenarioResult(scenario_id="TC-01", status=ScenarioStatus.FAIL, points=0, summary="fail"),
+                ScenarioResult(
+                    scenario_id="TC-01", status=ScenarioStatus.FAIL, points=0, summary="fail"
+                ),
             ]
 
             console = Console(file=StringIO(), width=200, no_color=True)
@@ -246,9 +253,10 @@ class TestPrintDiff:
             repo = _make_repo_mock(prev_runs)
             MockRepo.return_value = repo
 
-
             current_results = [
-                ScenarioResult(scenario_id="TC-01", status=ScenarioStatus.PARTIAL, points=1, summary="partial"),
+                ScenarioResult(
+                    scenario_id="TC-01", status=ScenarioStatus.PARTIAL, points=1, summary="partial"
+                ),
             ]
 
             console = Console(file=StringIO(), width=200, no_color=True)
@@ -274,10 +282,16 @@ class TestPrintDiff:
             repo = _make_repo_mock(prev_runs)
             MockRepo.return_value = repo
 
-
             current_results = [
-                ScenarioResult(scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="pass"),
-                ScenarioResult(scenario_id="TC-99", status=ScenarioStatus.PASS, points=2, summary="new scenario"),
+                ScenarioResult(
+                    scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="pass"
+                ),
+                ScenarioResult(
+                    scenario_id="TC-99",
+                    status=ScenarioStatus.PASS,
+                    points=2,
+                    summary="new scenario",
+                ),
             ]
 
             console = Console(file=StringIO(), width=200, no_color=True)
@@ -303,9 +317,10 @@ class TestPrintDiff:
             repo = _make_repo_mock(prev_runs)
             MockRepo.return_value = repo
 
-
             current_results = [
-                ScenarioResult(scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="pass"),
+                ScenarioResult(
+                    scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="pass"
+                ),
             ]
 
             console = Console(file=StringIO(), width=200, no_color=True)
@@ -356,7 +371,6 @@ class TestCompareRuns:
             repo.get_latest.return_value = None
             MockRepo.return_value = repo
 
-
             console = Console(file=StringIO(), width=200, no_color=True)
             compare_runs(console, "run_a_id", "run_b_id")
 
@@ -376,7 +390,6 @@ class TestCompareRuns:
             repo.get_latest.return_value = None
             MockRepo.return_value = repo
 
-
             console = Console(file=StringIO(), width=200, no_color=True)
             # Should call sys.exit(1)
             with patch("sys.exit", side_effect=SystemExit) as mock_exit:
@@ -394,7 +407,6 @@ class TestCompareRuns:
             ]
             repo.get_latest.return_value = None
             MockRepo.return_value = repo
-
 
             console = Console(file=StringIO(), width=200, no_color=True)
             with patch("sys.exit", side_effect=SystemExit) as mock_exit:
@@ -415,9 +427,10 @@ class TestCompareRuns:
         with patch("tool_eval_bench.storage.db.RunRepository") as MockRepo:
             repo = MagicMock()
             repo.get_latest.return_value = latest_run
-            repo.get.side_effect = lambda rid: {"run_id": rid, "config": {}, "scores": {}} if rid == "run_b_id" else None
+            repo.get.side_effect = lambda rid: (
+                {"run_id": rid, "config": {}, "scores": {}} if rid == "run_b_id" else None
+            )
             MockRepo.return_value = repo
-
 
             console = Console(file=StringIO(), width=200, no_color=True)
             with patch("sys.exit"):
@@ -438,9 +451,10 @@ class TestCompareRuns:
         with patch("tool_eval_bench.storage.db.RunRepository") as MockRepo:
             repo = MagicMock()
             repo.get_latest.return_value = latest_run
-            repo.get.side_effect = lambda rid: {"run_id": rid, "config": {}, "scores": {}} if rid == "run_a_id" else None
+            repo.get.side_effect = lambda rid: (
+                {"run_id": rid, "config": {}, "scores": {}} if rid == "run_a_id" else None
+            )
             MockRepo.return_value = repo
-
 
             console = Console(file=StringIO(), width=200, no_color=True)
             with patch("sys.exit"):
@@ -458,7 +472,6 @@ class TestCompareRuns:
             repo.get.side_effect = lambda rid: run_a if rid == "a" else run_b
             repo.get_latest.return_value = None
             MockRepo.return_value = repo
-
 
             console = Console(file=StringIO(), width=200, no_color=True)
             compare_runs(console, "a", "b")
@@ -493,7 +506,6 @@ class TestCompareRuns:
             repo.get_latest.return_value = None
             MockRepo.return_value = repo
 
-
             console = Console(file=StringIO(), width=200, no_color=True)
             compare_runs(console, "a", "b")
 
@@ -526,7 +538,6 @@ class TestCompareRuns:
             repo.get.side_effect = lambda rid: run_a if rid == "a" else run_b
             repo.get_latest.return_value = None
             MockRepo.return_value = repo
-
 
             console = Console(file=StringIO(), width=200, no_color=True)
             compare_runs(console, "a", "b")
@@ -562,7 +573,6 @@ class TestCompareRuns:
             repo.get.side_effect = lambda rid: run_a if rid == "a" else run_b
             repo.get_latest.return_value = None
             MockRepo.return_value = repo
-
 
             console = Console(file=StringIO(), width=200, no_color=True)
             compare_runs(console, "a", "b")
@@ -618,12 +628,16 @@ class TestMcNemarSignificance:
 
         # 2 improve, 2 regress → not significant
         map_a = {
-            "TC-01": {"status": "fail"}, "TC-02": {"status": "fail"},
-            "TC-03": {"status": "pass"}, "TC-04": {"status": "pass"},
+            "TC-01": {"status": "fail"},
+            "TC-02": {"status": "fail"},
+            "TC-03": {"status": "pass"},
+            "TC-04": {"status": "pass"},
         }
         map_b = {
-            "TC-01": {"status": "pass"}, "TC-02": {"status": "pass"},
-            "TC-03": {"status": "fail"}, "TC-04": {"status": "fail"},
+            "TC-01": {"status": "pass"},
+            "TC-02": {"status": "pass"},
+            "TC-03": {"status": "fail"},
+            "TC-04": {"status": "fail"},
         }
         all_ids = ["TC-01", "TC-02", "TC-03", "TC-04"]
 

@@ -9,6 +9,7 @@ from typing import Any, TypedDict
 @dataclass(slots=True)
 class BenchmarkConfig:
     """Server connection and run configuration."""
+
     model: str
     backend: str
     base_url: str
@@ -40,12 +41,12 @@ class RunContext:
     # -- Tier 2: CLI parameters --
     model: str
     backend: str
-    base_url: str                       # redacted for reports
+    base_url: str  # redacted for reports
     temperature: float = 0.0
     max_turns: int = 8
     timeout_seconds: float = 60.0
     seed: int | None = None
-    scenario_selector: str = "all"      # "all (69)" / "short (15)" / "TC-01,TC-07"
+    scenario_selector: str = "all"  # "all (69)" / "short (15)" / "TC-01,TC-07"
     trials: int = 1
     parallel: int = 1
     error_rate: float = 0.0
@@ -56,8 +57,8 @@ class RunContext:
     # -- Tier 3: inference engine (best-effort) --
     server_model_id: str | None = None
     server_model_root: str | None = None
-    engine_name: str | None = None      # "vLLM" / "llama.cpp" / "LiteLLM"
-    engine_version: str | None = None   # e.g. "0.8.5"
+    engine_name: str | None = None  # "vLLM" / "llama.cpp" / "LiteLLM"
+    engine_version: str | None = None  # e.g. "0.8.5"
     max_model_len: int | None = None
     quantization: str | None = None
     gpu_count: int | None = None
@@ -72,9 +73,9 @@ class RunContext:
 
 class ChatMessage(TypedDict, total=False):
     """Structured representation of a message in a conversation loop."""
+
     role: str
     content: str | None
     tool_calls: list[dict[str, Any]] | None
     tool_call_id: str | None
     name: str | None
-

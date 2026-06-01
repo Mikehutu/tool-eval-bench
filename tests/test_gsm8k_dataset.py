@@ -58,7 +58,9 @@ class TestCacheRoundTrip:
         items = [
             GSM8KItem(index=0, question="Q1?", raw_answer="A1\n#### 5", ground_truth=5.0),
             GSM8KItem(index=1, question="Q2?", raw_answer="A2\n#### 10", ground_truth=10.0),
-            GSM8KItem(index=2, question="Q3 with émojis 🎉?", raw_answer="A3\n#### 42", ground_truth=42.0),
+            GSM8KItem(
+                index=2, question="Q3 with émojis 🎉?", raw_answer="A3\n#### 42", ground_truth=42.0
+            ),
         ]
         cache_file = tmp_path / "test.jsonl"
         _save_to_cache(cache_file, items)
@@ -105,7 +107,9 @@ class TestCacheRoundTrip:
 
 class TestGSM8KItem:
     def test_to_dict(self):
-        item = GSM8KItem(index=5, question="How many?", raw_answer="Steps\n#### 7", ground_truth=7.0)
+        item = GSM8KItem(
+            index=5, question="How many?", raw_answer="Steps\n#### 7", ground_truth=7.0
+        )
         d = item.to_dict()
         assert d == {"index": 5, "question": "How many?", "ground_truth": 7.0}
         # raw_answer should NOT be in to_dict (it's verbose)
@@ -221,14 +225,16 @@ class TestReportRendering:
         items = []
         for i in range(total):
             is_correct = i < correct
-            items.append({
-                "index": i,
-                "correct": is_correct,
-                "ground_truth": float(i + 1),
-                "extracted_answer": float(i + 1) if is_correct else None,
-                "extraction_method": "marker" if is_correct else "none",
-                "model_response": f"Some response for {i}",
-            })
+            items.append(
+                {
+                    "index": i,
+                    "correct": is_correct,
+                    "ground_truth": float(i + 1),
+                    "extracted_answer": float(i + 1) if is_correct else None,
+                    "extraction_method": "marker" if is_correct else "none",
+                    "model_response": f"Some response for {i}",
+                }
+            )
         return BenchmarkResult(
             plugin_name="gsm8k",
             score=accuracy,

@@ -46,29 +46,32 @@ def build_messages(
         Number of few-shot examples to include.
     """
     subject_name = _subject_display_name(question.subject)
-    system = (
-        f"{SYSTEM_PROMPT}\n\n"
-        f"The following are multiple choice questions about {subject_name}."
-    )
+    system = f"{SYSTEM_PROMPT}\n\nThe following are multiple choice questions about {subject_name}."
 
     messages: list[dict[str, str]] = [{"role": "system", "content": system}]
 
     # Add few-shot examples
     if few_shot_examples and n_shots > 0:
         for ex in few_shot_examples[:n_shots]:
-            messages.append({
-                "role": "user",
-                "content": _format_question(ex),
-            })
-            messages.append({
-                "role": "assistant",
-                "content": ex.answer_letter,
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": _format_question(ex),
+                }
+            )
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": ex.answer_letter,
+                }
+            )
 
     # Add the actual question
-    messages.append({
-        "role": "user",
-        "content": _format_question(question),
-    })
+    messages.append(
+        {
+            "role": "user",
+            "content": _format_question(question),
+        }
+    )
 
     return messages

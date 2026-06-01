@@ -237,6 +237,7 @@ async def test_error_response_raises() -> None:
 @pytest.mark.asyncio
 async def test_api_key_sent_in_header() -> None:
     """When api_key is provided, Authorization header must be present."""
+
     def check_auth(request: httpx.Request) -> httpx.Response:
         assert "Authorization" in request.headers
         assert request.headers["Authorization"] == "Bearer test-key-123"
@@ -246,8 +247,10 @@ async def test_api_key_sent_in_header() -> None:
     adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(check_auth))
 
     await adapter.chat_completion(
-        model="m", messages=[{"role": "user", "content": "hi"}],
-        base_url="http://localhost:8000", api_key="test-key-123",
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
+        base_url="http://localhost:8000",
+        api_key="test-key-123",
     )
     await adapter.aclose()
 
@@ -255,6 +258,7 @@ async def test_api_key_sent_in_header() -> None:
 @pytest.mark.asyncio
 async def test_no_auth_header_without_key() -> None:
     """Without api_key, no Authorization header should be sent."""
+
     def check_no_auth(request: httpx.Request) -> httpx.Response:
         assert "Authorization" not in request.headers
         return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
@@ -263,7 +267,8 @@ async def test_no_auth_header_without_key() -> None:
     adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(check_no_auth))
 
     await adapter.chat_completion(
-        model="m", messages=[{"role": "user", "content": "hi"}],
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
         base_url="http://localhost:8000",
     )
     await adapter.aclose()
@@ -272,6 +277,7 @@ async def test_no_auth_header_without_key() -> None:
 @pytest.mark.asyncio
 async def test_tools_included_in_payload() -> None:
     """When tools are provided, payload must include tools, tool_choice, parallel_tool_calls."""
+
     def check_tools(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         assert "tools" in body
@@ -285,8 +291,10 @@ async def test_tools_included_in_payload() -> None:
 
     tools = [{"type": "function", "function": {"name": "test_tool"}}]
     await adapter.chat_completion(
-        model="m", messages=[{"role": "user", "content": "hi"}],
-        base_url="http://localhost:8000", tools=tools,
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
+        base_url="http://localhost:8000",
+        tools=tools,
     )
     await adapter.aclose()
 
@@ -351,6 +359,7 @@ async def test_4xx_returns_graceful_result() -> None:
 @pytest.mark.asyncio
 async def test_response_format_included_in_payload() -> None:
     """When response_format is provided, it must appear in the payload."""
+
     def check_format(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         assert "response_format" in body
@@ -361,7 +370,8 @@ async def test_response_format_included_in_payload() -> None:
     adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(check_format))
 
     await adapter.chat_completion(
-        model="m", messages=[{"role": "user", "content": "hi"}],
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
         base_url="http://localhost:8000",
         response_format={"type": "json_object"},
     )
@@ -371,6 +381,7 @@ async def test_response_format_included_in_payload() -> None:
 @pytest.mark.asyncio
 async def test_extra_params_merged_into_payload() -> None:
     """Extra params should be merged into the request payload."""
+
     def check_extra(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         assert body["seed"] == 42
@@ -381,7 +392,8 @@ async def test_extra_params_merged_into_payload() -> None:
     adapter._client = httpx.AsyncClient(transport=httpx.MockTransport(check_extra))
 
     await adapter.chat_completion(
-        model="m", messages=[{"role": "user", "content": "hi"}],
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
         base_url="http://localhost:8000",
         extra_params={"seed": 42, "top_p": 0.9},
     )
@@ -405,12 +417,14 @@ def _sse_lines(*events: str, done: bool = True) -> str:
 
 def _mock_stream_transport(sse_body: str, status: int = 200):
     """Create a mock transport that returns an SSE stream."""
+
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             status,
             content=sse_body.encode(),
             headers={"content-type": "text/event-stream"},
         )
+
     return httpx.MockTransport(handler)
 
 
@@ -428,8 +442,10 @@ async def test_stream_basic_content() -> None:
     adapter._client = httpx.AsyncClient(transport=_mock_stream_transport(body))
 
     result = await adapter.chat_completion(
-        model="m", messages=[{"role": "user", "content": "hi"}],
-        base_url="http://localhost:8000", stream=True,
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
+        base_url="http://localhost:8000",
+        stream=True,
     )
 
     assert result.content == "Hello world!"
@@ -444,12 +460,36 @@ async def test_stream_basic_content() -> None:
 async def test_stream_tool_calls() -> None:
     """Streaming should accumulate tool calls from delta chunks."""
     chunks = [
-        json.dumps({"choices": [{"delta": {"tool_calls": [
-            {"index": 0, "id": "tc_1", "function": {"name": "get_weather", "arguments": '{"loc'}}
-        ]}}]}),
-        json.dumps({"choices": [{"delta": {"tool_calls": [
-            {"index": 0, "function": {"arguments": 'ation": "NYC"}'}}
-        ]}}]}),
+        json.dumps(
+            {
+                "choices": [
+                    {
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "tc_1",
+                                    "function": {"name": "get_weather", "arguments": '{"loc'},
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ),
+        json.dumps(
+            {
+                "choices": [
+                    {
+                        "delta": {
+                            "tool_calls": [
+                                {"index": 0, "function": {"arguments": 'ation": "NYC"}'}}
+                            ]
+                        }
+                    }
+                ]
+            }
+        ),
     ]
     body = _sse_lines(*chunks)
 
@@ -457,8 +497,10 @@ async def test_stream_tool_calls() -> None:
     adapter._client = httpx.AsyncClient(transport=_mock_stream_transport(body))
 
     result = await adapter.chat_completion(
-        model="m", messages=[{"role": "user", "content": "hi"}],
-        base_url="http://localhost:8000", stream=True,
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
+        base_url="http://localhost:8000",
+        stream=True,
     )
 
     assert len(result.tool_calls) == 1
@@ -482,8 +524,10 @@ async def test_stream_reasoning_content() -> None:
     adapter._client = httpx.AsyncClient(transport=_mock_stream_transport(body))
 
     result = await adapter.chat_completion(
-        model="m", messages=[{"role": "user", "content": "hi"}],
-        base_url="http://localhost:8000", stream=True,
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
+        base_url="http://localhost:8000",
+        stream=True,
     )
 
     assert result.content == "The answer is 42"
@@ -504,8 +548,10 @@ async def test_stream_usage_extraction() -> None:
     adapter._client = httpx.AsyncClient(transport=_mock_stream_transport(body))
 
     result = await adapter.chat_completion(
-        model="m", messages=[{"role": "user", "content": "hi"}],
-        base_url="http://localhost:8000", stream=True,
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
+        base_url="http://localhost:8000",
+        stream=True,
     )
 
     assert result.prompt_tokens == 10
@@ -525,8 +571,10 @@ async def test_stream_malformed_json_skipped() -> None:
     adapter._client = httpx.AsyncClient(transport=_mock_stream_transport(body))
 
     result = await adapter.chat_completion(
-        model="m", messages=[{"role": "user", "content": "hi"}],
-        base_url="http://localhost:8000", stream=True,
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
+        base_url="http://localhost:8000",
+        stream=True,
     )
 
     assert result.content == "ok"
@@ -545,8 +593,10 @@ async def test_stream_empty_choices_skipped() -> None:
     adapter._client = httpx.AsyncClient(transport=_mock_stream_transport(body))
 
     result = await adapter.chat_completion(
-        model="m", messages=[{"role": "user", "content": "hi"}],
-        base_url="http://localhost:8000", stream=True,
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
+        base_url="http://localhost:8000",
+        stream=True,
     )
 
     assert result.content == "data"
@@ -557,14 +607,14 @@ async def test_stream_empty_choices_skipped() -> None:
 async def test_stream_5xx_raises() -> None:
     """HTTP 500 on a stream should raise HTTPStatusError."""
     adapter = OpenAICompatibleAdapter()
-    adapter._client = httpx.AsyncClient(
-        transport=_mock_stream_transport("", status=500)
-    )
+    adapter._client = httpx.AsyncClient(transport=_mock_stream_transport("", status=500))
 
     with pytest.raises(httpx.HTTPStatusError):
         await adapter.chat_completion(
-            model="m", messages=[{"role": "user", "content": "hi"}],
-            base_url="http://localhost:8000", stream=True,
+            model="m",
+            messages=[{"role": "user", "content": "hi"}],
+            base_url="http://localhost:8000",
+            stream=True,
         )
     await adapter.aclose()
 
@@ -573,13 +623,13 @@ async def test_stream_5xx_raises() -> None:
 async def test_stream_4xx_returns_graceful_result() -> None:
     """HTTP 4xx on a stream should be handled gracefully."""
     adapter = OpenAICompatibleAdapter()
-    adapter._client = httpx.AsyncClient(
-        transport=_mock_stream_transport("", status=422)
-    )
+    adapter._client = httpx.AsyncClient(transport=_mock_stream_transport("", status=422))
 
     result = await adapter.chat_completion(
-        model="m", messages=[{"role": "user", "content": "hi"}],
-        base_url="http://localhost:8000", stream=True,
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
+        base_url="http://localhost:8000",
+        stream=True,
     )
 
     assert "[server error 422]" in result.content
@@ -591,12 +641,40 @@ async def test_stream_4xx_returns_graceful_result() -> None:
 async def test_stream_multiple_tool_calls() -> None:
     """Streaming should handle multiple concurrent tool calls via index."""
     chunks = [
-        json.dumps({"choices": [{"delta": {"tool_calls": [
-            {"index": 0, "id": "tc_a", "function": {"name": "func_a", "arguments": "{}"}}
-        ]}}]}),
-        json.dumps({"choices": [{"delta": {"tool_calls": [
-            {"index": 1, "id": "tc_b", "function": {"name": "func_b", "arguments": "{}"}}
-        ]}}]}),
+        json.dumps(
+            {
+                "choices": [
+                    {
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "tc_a",
+                                    "function": {"name": "func_a", "arguments": "{}"},
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ),
+        json.dumps(
+            {
+                "choices": [
+                    {
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "index": 1,
+                                    "id": "tc_b",
+                                    "function": {"name": "func_b", "arguments": "{}"},
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ),
     ]
     body = _sse_lines(*chunks)
 
@@ -604,8 +682,10 @@ async def test_stream_multiple_tool_calls() -> None:
     adapter._client = httpx.AsyncClient(transport=_mock_stream_transport(body))
 
     result = await adapter.chat_completion(
-        model="m", messages=[{"role": "user", "content": "hi"}],
-        base_url="http://localhost:8000", stream=True,
+        model="m",
+        messages=[{"role": "user", "content": "hi"}],
+        base_url="http://localhost:8000",
+        stream=True,
     )
 
     assert len(result.tool_calls) == 2

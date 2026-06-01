@@ -148,8 +148,13 @@ class TestThroughputSample:
         """With >1s of data, sliding window picks the densest second."""
         # 5 tokens in first second, then gap, then 2 tokens
         ts = [
-            100.0, 100.2, 100.4, 100.6, 100.8,   # 5 tokens in 0.8s
-            102.0, 102.5,                           # 2 tokens much later
+            100.0,
+            100.2,
+            100.4,
+            100.6,
+            100.8,  # 5 tokens in 0.8s
+            102.0,
+            102.5,  # 2 tokens much later
         ]
         s = ThroughputSample(token_timestamps=ts)
         peak = s.peak_tg_tps
@@ -172,30 +177,36 @@ class TestCountChunkTokens:
 
     def test_with_token_ids(self) -> None:
         from tool_eval_bench.runner.throughput import _count_chunk_tokens
+
         choices = [{"token_ids": [101, 202, 303]}]
         assert _count_chunk_tokens(choices, "hello") == 3
 
     def test_single_token_id(self) -> None:
         from tool_eval_bench.runner.throughput import _count_chunk_tokens
+
         choices = [{"token_ids": [42]}]
         assert _count_chunk_tokens(choices, "x") == 1
 
     def test_no_token_ids(self) -> None:
         from tool_eval_bench.runner.throughput import _count_chunk_tokens
+
         choices = [{"delta": {"content": "hello"}}]
         assert _count_chunk_tokens(choices, "hello") == 1
 
     def test_empty_token_ids(self) -> None:
         from tool_eval_bench.runner.throughput import _count_chunk_tokens
+
         choices = [{"token_ids": []}]
         assert _count_chunk_tokens(choices, "hello") == 1
 
     def test_empty_choices(self) -> None:
         from tool_eval_bench.runner.throughput import _count_chunk_tokens
+
         assert _count_chunk_tokens([], "hello") == 1
 
     def test_token_ids_not_list(self) -> None:
         from tool_eval_bench.runner.throughput import _count_chunk_tokens
+
         choices = [{"token_ids": "not_a_list"}]
         assert _count_chunk_tokens(choices, "hello") == 1
 
@@ -224,10 +235,12 @@ def _build_mtp_mock(tokens_per_chunk: int = 2, num_chunks: int = 5):
         for i in range(num_chunks):
             ids = list(range(i * tokens_per_chunk, (i + 1) * tokens_per_chunk))
             chunk = {
-                "choices": [{
-                    "delta": {"content": f"tok{i}"},
-                    "token_ids": ids,
-                }],
+                "choices": [
+                    {
+                        "delta": {"content": f"tok{i}"},
+                        "token_ids": ids,
+                    }
+                ],
             }
             lines.append(_make_sse_line(chunk))
 
@@ -258,8 +271,12 @@ async def test_stream_one_mtp_token_counting() -> None:
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         sample = await _stream_one(
-            client, "http://localhost:8000/v1", "test-model",
-            [{"role": "user", "content": "hi"}], 12, None,
+            client,
+            "http://localhost:8000/v1",
+            "test-model",
+            [{"role": "user", "content": "hi"}],
+            12,
+            None,
         )
 
     assert sample.error is None
@@ -279,8 +296,12 @@ async def test_stream_one_standard_ar() -> None:
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         sample = await _stream_one(
-            client, "http://localhost:8000/v1", "test-model",
-            [{"role": "user", "content": "hi"}], 8, None,
+            client,
+            "http://localhost:8000/v1",
+            "test-model",
+            [{"role": "user", "content": "hi"}],
+            8,
+            None,
         )
 
     assert sample.error is None
@@ -308,14 +329,19 @@ async def test_stream_one_no_token_ids() -> None:
         lines.append("data: [DONE]\n\n")
 
         return httpx.Response(
-            200, content="".join(lines).encode(),
+            200,
+            content="".join(lines).encode(),
             headers={"content-type": "text/event-stream"},
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         sample = await _stream_one(
-            client, "http://localhost:8000/v1", "test-model",
-            [{"role": "user", "content": "hi"}], 5, None,
+            client,
+            "http://localhost:8000/v1",
+            "test-model",
+            [{"role": "user", "content": "hi"}],
+            5,
+            None,
         )
 
     assert sample.error is None
@@ -359,10 +385,13 @@ async def test_calibrate_fallback_to_probe() -> None:
         if "/tokenize" in str(request.url):
             return httpx.Response(404)
         if "/chat/completions" in str(request.url):
-            return httpx.Response(200, json={
-                "choices": [{"message": {"content": "hi"}}],
-                "usage": {"prompt_tokens": 200, "completion_tokens": 1},
-            })
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [{"message": {"content": "hi"}}],
+                    "usage": {"prompt_tokens": 200, "completion_tokens": 1},
+                },
+            )
         return httpx.Response(404)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(mock_handler)) as client:

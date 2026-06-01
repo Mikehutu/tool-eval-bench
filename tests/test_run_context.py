@@ -8,6 +8,7 @@ import json
 # RunContext dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestRunContext:
     """Tests for the RunContext dataclass."""
 
@@ -97,9 +98,14 @@ class TestRunContext:
         from tool_eval_bench.domain.models import RunContext
 
         ctx = RunContext(
-            tool_version="1.0", git_sha=None, hostname="h",
-            platform_info="p", python_version="3.12",
-            model="m", backend="vllm", base_url="http://localhost",
+            tool_version="1.0",
+            git_sha=None,
+            hostname="h",
+            platform_info="p",
+            python_version="3.12",
+            model="m",
+            backend="vllm",
+            base_url="http://localhost",
         )
         assert ctx.temperature == 0.0
         assert ctx.max_turns == 8
@@ -113,6 +119,7 @@ class TestRunContext:
 # ---------------------------------------------------------------------------
 # URL redaction
 # ---------------------------------------------------------------------------
+
 
 class TestRedactUrl:
     """Tests for the shared redact_url utility."""
@@ -149,6 +156,7 @@ class TestRedactUrl:
 # ---------------------------------------------------------------------------
 # Quantization guessing
 # ---------------------------------------------------------------------------
+
 
 class TestGuessQuantization:
     """Tests for the quantization inference heuristic."""
@@ -194,6 +202,7 @@ class TestGuessQuantization:
 # ---------------------------------------------------------------------------
 # Report rendering
 # ---------------------------------------------------------------------------
+
 
 class TestRenderRunContext:
     """Tests for the Markdown report rendering of RunContext."""
@@ -247,8 +256,10 @@ class TestRenderRunContext:
         from tool_eval_bench.storage.reports import _render_run_context
 
         ctx = self._make_context(
-            engine_name="vLLM", engine_version="0.8.5",
-            max_model_len=65536, quantization="AWQ",
+            engine_name="vLLM",
+            engine_version="0.8.5",
+            max_model_len=65536,
+            quantization="AWQ",
         )
         lines = _render_run_context(ctx)
         md = "\n".join(lines)
@@ -318,6 +329,7 @@ class TestRenderRunContext:
 # ---------------------------------------------------------------------------
 # History context extraction
 # ---------------------------------------------------------------------------
+
 
 class TestHistoryContextExtraction:
     """Tests for the history context summary helpers."""
@@ -406,6 +418,7 @@ class TestHistoryContextExtraction:
 # JSON repair for malformed tool-call arguments
 # ---------------------------------------------------------------------------
 
+
 class TestRepairJsonStr:
     """Tests for _repair_json_str (vLLM 400 resilience)."""
 
@@ -492,4 +505,3 @@ class TestRepairJsonStr:
         # Must be valid JSON
         parsed = json.loads(args_str)
         assert isinstance(parsed, dict)
-

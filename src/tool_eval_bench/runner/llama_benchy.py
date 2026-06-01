@@ -37,9 +37,11 @@ logger = logging.getLogger(__name__)
 # Result container
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class LlamaBenchyResult:
     """Parsed results from a llama-benchy JSON report."""
+
     version: str = ""
     timestamp: str = ""
     latency_mode: str = ""
@@ -52,6 +54,7 @@ class LlamaBenchyResult:
 # ---------------------------------------------------------------------------
 # Availability check
 # ---------------------------------------------------------------------------
+
 
 def _find_llama_benchy() -> str | None:
     """Find the llama-benchy executable.
@@ -77,6 +80,7 @@ def is_available() -> bool:
 # ---------------------------------------------------------------------------
 # Build command
 # ---------------------------------------------------------------------------
+
 
 def _build_command(
     base_url: str,
@@ -162,6 +166,7 @@ def _build_command(
 # Parse JSON output → ThroughputSample
 # ---------------------------------------------------------------------------
 
+
 def _parse_benchmark_entry(entry: dict[str, Any]) -> ThroughputSample:
     """Convert a single llama-benchy benchmark entry to a ThroughputSample."""
     concurrency = entry.get("concurrency", 1)
@@ -242,6 +247,7 @@ def parse_json_output(data: dict[str, Any]) -> LlamaBenchyResult:
 # Run llama-benchy
 # ---------------------------------------------------------------------------
 
+
 async def run_llama_benchy(
     base_url: str,
     model: str,
@@ -287,9 +293,11 @@ async def run_llama_benchy(
 
     try:
         cmd = _build_command(
-            base_url, model,
+            base_url,
+            model,
             tokenizer=tokenizer,
-            pp=pp, tg=tg,
+            pp=pp,
+            tg=tg,
             depths=depths,
             concurrency_levels=concurrency_levels,
             runs=runs,
@@ -348,9 +356,7 @@ async def run_llama_benchy(
 
         if returncode != 0:
             output_text = "\n".join(output_lines[-20:])  # last 20 lines
-            raise RuntimeError(
-                f"llama-benchy exited with code {returncode}:\n{output_text}"
-            )
+            raise RuntimeError(f"llama-benchy exited with code {returncode}:\n{output_text}")
 
         # Parse the JSON output file
         output_path = Path(output_file)
@@ -374,6 +380,7 @@ async def run_llama_benchy(
 # ---------------------------------------------------------------------------
 # Synchronous convenience wrapper
 # ---------------------------------------------------------------------------
+
 
 def run_llama_benchy_sync(
     base_url: str,

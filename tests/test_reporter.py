@@ -19,6 +19,7 @@ from tool_eval_bench.storage.reports import MarkdownReporter
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _make_summary(
     *,
     score: int = 75,
@@ -28,13 +29,15 @@ def _make_summary(
     """Build a ModelScoreSummary with predictable test data."""
     results = []
     for i in range(num_results):
-        results.append(ScenarioResult(
-            scenario_id=f"TC-{i + 1:02d}",
-            status=[ScenarioStatus.PASS, ScenarioStatus.PARTIAL, ScenarioStatus.FAIL][i % 3],
-            points=[2, 1, 0][i % 3],
-            summary=f"Scenario {i + 1} summary.",
-            raw_log=f"[Turn 1] User: test\\n[Turn 1] Model: response for TC-{i + 1:02d}",
-        ))
+        results.append(
+            ScenarioResult(
+                scenario_id=f"TC-{i + 1:02d}",
+                status=[ScenarioStatus.PASS, ScenarioStatus.PARTIAL, ScenarioStatus.FAIL][i % 3],
+                points=[2, 1, 0][i % 3],
+                summary=f"Scenario {i + 1} summary.",
+                raw_log=f"[Turn 1] User: test\\n[Turn 1] Model: response for TC-{i + 1:02d}",
+            )
+        )
     return ModelScoreSummary(
         scenario_results=results,
         category_scores=[
@@ -52,6 +55,7 @@ def _make_summary(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestMarkdownReporter:
     def test_basic_report_structure(self, tmp_path):
@@ -267,40 +271,45 @@ class TestSummaryReport:
             results = []
             for i in range(5):
                 # Make TC-03 flaky (fail on trial 2)
-                if f"TC-{i+1:02d}" == "TC-03" and trial == 1:
+                if f"TC-{i + 1:02d}" == "TC-03" and trial == 1:
                     status = ScenarioStatus.FAIL
                     pts = 0
                 # Make TC-05 consistently partial
-                elif f"TC-{i+1:02d}" == "TC-05":
+                elif f"TC-{i + 1:02d}" == "TC-05":
                     status = ScenarioStatus.PARTIAL
                     pts = 1
                 else:
                     status = [ScenarioStatus.PASS, ScenarioStatus.PASS, ScenarioStatus.PASS][i % 3]
                     pts = [2, 2, 2][i % 3]
-                results.append(ScenarioResult(
-                    scenario_id=f"TC-{i+1:02d}",
-                    status=status,
-                    points=pts,
-                    summary=f"Scenario {i+1} summary.",
-                    raw_log=f"trace for TC-{i+1:02d}",
-                ))
-            summaries.append(ModelScoreSummary(
-                scenario_results=results,
-                category_scores=[
-                    CategoryScore(Category.A, "A Tool Selection", 4, 6, 66.7 + trial),
-                    CategoryScore(Category.B, "B Parameter Precision", 5, 6, 83.3),
-                ],
-                final_score=80 + trial,
-                total_points=sum(r.points for r in results),
-                max_points=10,
-                rating="★★★★ Good",
-                safety_warnings=["TC-99 warning"] if trial == 0 else [],
-            ))
+                results.append(
+                    ScenarioResult(
+                        scenario_id=f"TC-{i + 1:02d}",
+                        status=status,
+                        points=pts,
+                        summary=f"Scenario {i + 1} summary.",
+                        raw_log=f"trace for TC-{i + 1:02d}",
+                    )
+                )
+            summaries.append(
+                ModelScoreSummary(
+                    scenario_results=results,
+                    category_scores=[
+                        CategoryScore(Category.A, "A Tool Selection", 4, 6, 66.7 + trial),
+                        CategoryScore(Category.B, "B Parameter Precision", 5, 6, 83.3),
+                    ],
+                    final_score=80 + trial,
+                    total_points=sum(r.points for r in results),
+                    max_points=10,
+                    rating="★★★★ Good",
+                    safety_warnings=["TC-99 warning"] if trial == 0 else [],
+                )
+            )
         return summaries
 
     def _make_agg(self, summaries) -> dict:
         """Minimal aggregation dict matching _aggregate_trials output."""
         from statistics import mean, stdev
+
         scores = [s.final_score for s in summaries]
         points = [s.total_points for s in summaries]
         n = len(summaries)
@@ -433,7 +442,10 @@ class TestSummaryReport:
         agg = self._make_agg(summaries)
 
         path = reporter.write_summary_report(
-            "run_links", "model", summaries, agg,
+            "run_links",
+            "model",
+            summaries,
+            agg,
             report_paths=["/runs/2026/04/trial1.md", "/runs/2026/04/trial2.md"],
         )
         content = path.read_text()

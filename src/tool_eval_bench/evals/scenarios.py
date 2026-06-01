@@ -91,16 +91,30 @@ from tool_eval_bench.evals.helpers import (
 # TC-01: Direct Specialist Match
 # ===================================================================
 
+
 def _tc01_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_weather":
-        return _noise({"location": "Berlin", "temperature": 8, "units": "celsius", "condition": "Overcast", "humidity": 72}, "get_weather")
+        return _noise(
+            {
+                "location": "Berlin",
+                "temperature": 8,
+                "units": "celsius",
+                "condition": "Overcast",
+                "humidity": 72,
+            },
+            "get_weather",
+        )
     if call.name == "web_search":
-        return _noise({"results": [{"snippet": "Berlin weather right now: 8C and overcast."}]}, "web_search")
+        return _noise(
+            {"results": [{"snippet": "Berlin weather right now: 8C and overcast."}]}, "web_search"
+        )
     return _generic_tool_fallback(call)
 
 
 def _tc01_eval(state: ScenarioState) -> ScenarioEvaluation:
-    used_weather = _has_tool_call(state, "get_weather", lambda c: _includes_text(c.arguments.get("location"), "berlin"))
+    used_weather = _has_tool_call(
+        state, "get_weather", lambda c: _includes_text(c.arguments.get("location"), "berlin")
+    )
     used_web = _has_tool_call(state, "web_search")
     if used_weather and not used_web and len(state.tool_calls) == 1:
         return _pass("Used get_weather with Berlin only.")
@@ -113,16 +127,28 @@ def _tc01_eval(state: ScenarioState) -> ScenarioEvaluation:
 # TC-02: Distractor Resistance
 # ===================================================================
 
+
 def _tc02_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_stock_price":
-        return _noise({"ticker": "AAPL", "price": 187.42, "currency": "USD", "change": "+1.23", "change_percent": "+0.66%"}, "get_stock_price")
+        return _noise(
+            {
+                "ticker": "AAPL",
+                "price": 187.42,
+                "currency": "USD",
+                "change": "+1.23",
+                "change_percent": "+0.66%",
+            },
+            "get_stock_price",
+        )
     if call.name == "web_search":
         return _noise({"results": [{"snippet": "AAPL is trading around $187.42."}]}, "web_search")
     return _generic_tool_fallback(call)
 
 
 def _tc02_eval(state: ScenarioState) -> ScenarioEvaluation:
-    stock = _has_tool_call(state, "get_stock_price", lambda c: _normalize(_as_str(c.arguments.get("ticker"))) == "aapl")
+    stock = _has_tool_call(
+        state, "get_stock_price", lambda c: _normalize(_as_str(c.arguments.get("ticker"))) == "aapl"
+    )
     web = _has_tool_call(state, "web_search")
     if stock and not web and len(state.tool_calls) == 1:
         return _pass("Used only get_stock_price for AAPL.")
@@ -135,9 +161,12 @@ def _tc02_eval(state: ScenarioState) -> ScenarioEvaluation:
 # TC-03: Implicit Tool Need
 # ===================================================================
 
+
 def _tc03_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_contacts":
-        return _noise({"results": [{"name": "Sarah Chen", "email": "sarah.chen@company.com"}]}, "get_contacts")
+        return _noise(
+            {"results": [{"name": "Sarah Chen", "email": "sarah.chen@company.com"}]}, "get_contacts"
+        )
     if call.name == "send_email":
         return _noise({"status": "sent", "message_id": "msg_8821"}, "send_email")
     return _generic_tool_fallback(call)
@@ -168,12 +197,24 @@ def _tc03_eval(state: ScenarioState) -> ScenarioEvaluation:
 # TC-04: Unit Handling
 # ===================================================================
 
+
 def _tc04_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_weather":
         units = _normalize(_as_str(call.arguments.get("units"))) or "celsius"
         if units == "fahrenheit":
-            return _noise({"location": "Tokyo", "temperature": 64, "units": "fahrenheit", "condition": "Clear"}, "get_weather")
-        return _noise({"location": "Tokyo", "temperature": 18, "units": "celsius", "condition": "Clear"}, "get_weather")
+            return _noise(
+                {
+                    "location": "Tokyo",
+                    "temperature": 64,
+                    "units": "fahrenheit",
+                    "condition": "Clear",
+                },
+                "get_weather",
+            )
+        return _noise(
+            {"location": "Tokyo", "temperature": 18, "units": "celsius", "condition": "Clear"},
+            "get_weather",
+        )
     return _generic_tool_fallback(call)
 
 
@@ -189,7 +230,10 @@ def _tc04_eval(state: ScenarioState) -> ScenarioEvaluation:
         weather
         and _includes_text(weather.arguments.get("location"), "tokyo")
         and not _as_str(weather.arguments.get("units"))
-        and ("fahrenheit" in state.final_answer.lower() or _answer_contains_number(state.final_answer, "64"))
+        and (
+            "fahrenheit" in state.final_answer.lower()
+            or _answer_contains_number(state.final_answer, "64")
+        )
     ):
         return _partial("Omitted the units parameter and converted manually.")
     return _fail("Did not preserve the Fahrenheit instruction.")
@@ -199,21 +243,28 @@ def _tc04_eval(state: ScenarioState) -> ScenarioEvaluation:
 # TC-05: Date and Time Parsing
 # ===================================================================
 
+
 def _tc05_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_contacts":
-        return _noise({
-            "results": [
-                {"name": "Alex Stone", "email": "alex.stone@company.com"},
-                {"name": "Jamie Liu", "email": "jamie.liu@company.com"},
-            ]
-        }, "get_contacts")
+        return _noise(
+            {
+                "results": [
+                    {"name": "Alex Stone", "email": "alex.stone@company.com"},
+                    {"name": "Jamie Liu", "email": "jamie.liu@company.com"},
+                ]
+            },
+            "get_contacts",
+        )
     if call.name == "create_calendar_event":
-        return _noise({
-            "event_id": "evt_4412",
-            "status": "created",
-            "title": _as_str(call.arguments.get("title")) or "Team Standup",
-            "date": _as_str(call.arguments.get("date")),
-        }, "create_calendar_event")
+        return _noise(
+            {
+                "event_id": "evt_4412",
+                "status": "created",
+                "title": _as_str(call.arguments.get("title")) or "Team Standup",
+                "date": _as_str(call.arguments.get("date")),
+            },
+            "create_calendar_event",
+        )
     return _generic_tool_fallback(call)
 
 
@@ -223,16 +274,14 @@ def _tc05_eval(state: ScenarioState) -> ScenarioEvaluation:
         return _fail("Did not create the calendar event.")
     attendees = _as_str_list(event.arguments.get("attendees"))
     has_duration = event.arguments.get("duration_minutes") == 30
-    has_attendees = (
-        any(_includes_text(a, "alex") for a in attendees)
-        and any(_includes_text(a, "jamie") for a in attendees)
+    has_attendees = any(_includes_text(a, "alex") for a in attendees) and any(
+        _includes_text(a, "jamie") for a in attendees
     )
     # Use flexible date matching — accept any ISO 8601 date representation
     correct_date = _date_matches(event.arguments.get("date"), "2026-03-23")
     # Time: accept "09:30" with any seconds/offset
     correct_time = _datetime_matches(
-        f"2026-03-23T{_as_str(event.arguments.get('time', ''))}:00",
-        "2026-03-23", "09:30"
+        f"2026-03-23T{_as_str(event.arguments.get('time', ''))}:00", "2026-03-23", "09:30"
     ) or _as_str(event.arguments.get("time", "")).startswith("09:30")
     if correct_date and correct_time and has_duration and has_attendees:
         return _pass("Parsed next Monday and included the requested meeting details.")
@@ -244,6 +293,7 @@ def _tc05_eval(state: ScenarioState) -> ScenarioEvaluation:
 # ===================================================================
 # TC-06: Multi-Value Extraction
 # ===================================================================
+
 
 def _tc06_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "translate_text":
@@ -271,7 +321,11 @@ def _tc06_eval(state: ScenarioState) -> ScenarioEvaluation:
         for c in calls
     )
     invalid_bundled = any(
-        re.search(r"spanish.*japanese|japanese.*spanish", _as_str(c.arguments.get("target_language")), re.IGNORECASE)
+        re.search(
+            r"spanish.*japanese|japanese.*spanish",
+            _as_str(c.arguments.get("target_language")),
+            re.IGNORECASE,
+        )
         for c in calls
     )
     if len(calls) >= 2 and has_spanish and has_japanese and not invalid_bundled:
@@ -283,13 +337,29 @@ def _tc06_eval(state: ScenarioState) -> ScenarioEvaluation:
 # TC-07: Search → Read → Act
 # ===================================================================
 
+
 def _tc07_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "search_files":
-        return _noise({"results": [{"file_id": "file_091", "name": "Q3_Budget_Report_2025.xlsx"}]}, "search_files")
+        return _noise(
+            {"results": [{"file_id": "file_091", "name": "Q3_Budget_Report_2025.xlsx"}]},
+            "search_files",
+        )
     if call.name == "read_file":
-        return _noise({"content": "Department budgets: Engineering $2.1M, Marketing $800K, Sales $1.5M. Total: $4.4M"}, "read_file")
+        return _noise(
+            {
+                "content": "Department budgets: Engineering $2.1M, Marketing $800K, Sales $1.5M. Total: $4.4M"
+            },
+            "read_file",
+        )
     if call.name == "get_contacts":
-        return _noise({"results": [{"name": "Jordan Park", "email": "jordan.park@company.com", "role": "manager"}]}, "get_contacts")
+        return _noise(
+            {
+                "results": [
+                    {"name": "Jordan Park", "email": "jordan.park@company.com", "role": "manager"}
+                ]
+            },
+            "get_contacts",
+        )
     if call.name == "send_email":
         return _noise({"status": "sent"}, "send_email")
     return _generic_tool_fallback(call)
@@ -297,18 +367,29 @@ def _tc07_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
 
 def _tc07_eval(state: ScenarioState) -> ScenarioEvaluation:
     steps = 0
-    if _has_tool_call(state, "search_files", lambda c: _includes_text(c.arguments.get("query"), "q3 budget report")):
+    if _has_tool_call(
+        state,
+        "search_files",
+        lambda c: _includes_text(c.arguments.get("query"), "q3 budget report"),
+    ):
         steps += 1
-    if _has_tool_call(state, "read_file", lambda c: _normalize(_as_str(c.arguments.get("file_id"))) == "file_091"):
+    if _has_tool_call(
+        state, "read_file", lambda c: _normalize(_as_str(c.arguments.get("file_id"))) == "file_091"
+    ):
         steps += 1
-    if _has_tool_call(state, "get_contacts", lambda c: _includes_text(c.arguments.get("query"), "manager")):
+    if _has_tool_call(
+        state, "get_contacts", lambda c: _includes_text(c.arguments.get("query"), "manager")
+    ):
         steps += 1
     if _has_tool_call(
         state,
         "send_email",
         lambda c: (
             _normalize(_as_str(c.arguments.get("to"))) == "jordan.park@company.com"
-            and (_includes_text(c.arguments.get("body"), "4.4m") or _includes_text(c.arguments.get("body"), "$4.4m"))
+            and (
+                _includes_text(c.arguments.get("body"), "4.4m")
+                or _includes_text(c.arguments.get("body"), "$4.4m")
+            )
         ),
     ):
         steps += 1
@@ -323,9 +404,13 @@ def _tc07_eval(state: ScenarioState) -> ScenarioEvaluation:
 # TC-08: Conditional Branching
 # ===================================================================
 
+
 def _tc08_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_weather":
-        return _noise({"location": "Paris", "temperature": 11, "condition": "Light rain", "humidity": 89}, "get_weather")
+        return _noise(
+            {"location": "Paris", "temperature": 11, "condition": "Light rain", "humidity": 89},
+            "get_weather",
+        )
     if call.name == "set_reminder":
         return _noise({"reminder_id": "rem_553", "status": "set"}, "set_reminder")
     return _generic_tool_fallback(call)
@@ -352,23 +437,32 @@ def _tc08_eval(state: ScenarioState) -> ScenarioEvaluation:
 # TC-09: Parallel Independence
 # ===================================================================
 
+
 def _tc09_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_weather":
-        return _noise({"location": "London", "temperature": 12, "condition": "Cloudy"}, "get_weather")
+        return _noise(
+            {"location": "London", "temperature": 12, "condition": "Cloudy"}, "get_weather"
+        )
     if call.name == "get_stock_price":
         return _noise({"ticker": "MSFT", "price": 412.78, "currency": "USD"}, "get_stock_price")
     if call.name == "web_search":
-        return _noise({"results": [{"snippet": "London is cloudy at 12C and MSFT is around $412.78."}]}, "web_search")
+        return _noise(
+            {"results": [{"snippet": "London is cloudy at 12C and MSFT is around $412.78."}]},
+            "web_search",
+        )
     return _generic_tool_fallback(call)
 
 
 def _tc09_eval(state: ScenarioState) -> ScenarioEvaluation:
-    weather = _has_tool_call(state, "get_weather", lambda c: _includes_text(c.arguments.get("location"), "london"))
-    stock = _has_tool_call(state, "get_stock_price", lambda c: _normalize(_as_str(c.arguments.get("ticker"))) == "msft")
+    weather = _has_tool_call(
+        state, "get_weather", lambda c: _includes_text(c.arguments.get("location"), "london")
+    )
+    stock = _has_tool_call(
+        state, "get_stock_price", lambda c: _normalize(_as_str(c.arguments.get("ticker"))) == "msft"
+    )
     first_batch = [c for c in state.tool_calls if c.turn == 1]
-    parallel = (
-        any(c.name == "get_weather" for c in first_batch)
-        and any(c.name == "get_stock_price" for c in first_batch)
+    parallel = any(c.name == "get_weather" for c in first_batch) and any(
+        c.name == "get_stock_price" for c in first_batch
     )
     if weather and stock:
         note = "Both tools were called in the same assistant turn." if parallel else None
@@ -381,6 +475,7 @@ def _tc09_eval(state: ScenarioState) -> ScenarioEvaluation:
 # ===================================================================
 # TC-10: Trivial Knowledge
 # ===================================================================
+
 
 def _tc10_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     return _generic_tool_fallback(call)
@@ -396,6 +491,7 @@ def _tc10_eval(state: ScenarioState) -> ScenarioEvaluation:
 # TC-11: Simple Math
 # ===================================================================
 
+
 def _tc11_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     return _generic_tool_fallback(call)
 
@@ -405,13 +501,18 @@ def _tc11_eval(state: ScenarioState) -> ScenarioEvaluation:
     if len(state.tool_calls) == 0 and correct:
         return _pass("Did the math directly — good restraint.")
     if _has_tool_call(state, "calculator") and correct and not _has_tool_call(state, "web_search"):
-        return _partial("Reached for calculator on 15%×200 — correct answer but mental math was sufficient.")
-    return _fail("Did not demonstrate arithmetic restraint — 15% of 200 should be answered without tools.")
+        return _partial(
+            "Reached for calculator on 15%×200 — correct answer but mental math was sufficient."
+        )
+    return _fail(
+        "Did not demonstrate arithmetic restraint — 15% of 200 should be answered without tools."
+    )
 
 
 # ===================================================================
 # TC-12: Impossible Request
 # ===================================================================
+
 
 def _tc12_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     return _generic_tool_fallback(call)
@@ -434,6 +535,7 @@ def _tc12_eval(state: ScenarioState) -> ScenarioEvaluation:
 # TC-13: Empty Results
 # ===================================================================
 
+
 def _tc13_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "search_files":
         query = _normalize(_as_str(call.arguments.get("query")))
@@ -442,7 +544,10 @@ def _tc13_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
         if "johnson proposal" in query and attempts == 1:
             return _noise({"results": []}, "search_files")
         if "johnson" in query:
-            return _noise({"results": [{"file_id": "file_117", "name": "Johnson_Project_Proposal_v2.docx"}]}, "search_files")
+            return _noise(
+                {"results": [{"file_id": "file_117", "name": "Johnson_Project_Proposal_v2.docx"}]},
+                "search_files",
+            )
     return _generic_tool_fallback(call)
 
 
@@ -465,11 +570,16 @@ def _tc13_eval(state: ScenarioState) -> ScenarioEvaluation:
 # TC-14: Malformed Response
 # ===================================================================
 
+
 def _tc14_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_stock_price":
-        return _noise({"error": "Service temporarily unavailable. Rate limit exceeded."}, "get_stock_price")
+        return _noise(
+            {"error": "Service temporarily unavailable. Rate limit exceeded."}, "get_stock_price"
+        )
     if call.name == "web_search":
-        return _noise({"results": [{"snippet": "Apple (AAPL) is trading around $187.42."}]}, "web_search")
+        return _noise(
+            {"results": [{"snippet": "Apple (AAPL) is trading around $187.42."}]}, "web_search"
+        )
     return _generic_tool_fallback(call)
 
 
@@ -493,15 +603,19 @@ def _tc14_eval(state: ScenarioState) -> ScenarioEvaluation:
     # received. A model that called web_search before the stock call (or in the same turn)
     # gets no recovery credit — it didn't actually recover, it just happened to search.
     stock_error_turn = stock_calls[0].turn if stock_calls else None
-    search_after_error = any(
-        c.turn > stock_error_turn for c in search_calls
-    ) if stock_error_turn is not None else False
+    search_after_error = (
+        any(c.turn > stock_error_turn for c in search_calls)
+        if stock_error_turn is not None
+        else False
+    )
     used_search_as_fallback = search_after_error
 
     if len(stock_calls) >= 1 and acknowledged and (used_search_as_fallback or offered_alt):
         return _pass("Acknowledged the stock tool failure and handled it gracefully.")
     if len(stock_calls) >= 1 and used_search_as_fallback and not acknowledged:
-        return _partial("Recovered with web_search after the error, but did not clearly acknowledge it.")
+        return _partial(
+            "Recovered with web_search after the error, but did not clearly acknowledge it."
+        )
     if len(stock_calls) >= 1 and acknowledged and not (used_search_as_fallback or offered_alt):
         return _partial("Acknowledged the error but did not attempt an alternative source.")
     return _fail("Did not handle the tool error with enough integrity.")
@@ -511,9 +625,17 @@ def _tc14_eval(state: ScenarioState) -> ScenarioEvaluation:
 # TC-15: Conflicting Information
 # ===================================================================
 
+
 def _tc15_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "web_search":
-        return _noise({"results": [{"snippet": "Iceland has a population of approximately 372,520 as of 2025."}]}, "web_search")
+        return _noise(
+            {
+                "results": [
+                    {"snippet": "Iceland has a population of approximately 372,520 as of 2025."}
+                ]
+            },
+            "web_search",
+        )
     if call.name == "calculator":
         result = _parse_math_expression(_as_str(call.arguments.get("expression", "")))
         payload = {"error": "Invalid expression."} if result is None else {"result": result}
@@ -528,9 +650,8 @@ def _tc15_eval(state: ScenarioState) -> ScenarioEvaluation:
     # Check if the search tool actually returned data or was error-injected
     search_results = [r for r in state.tool_results if r.name == "web_search"]
     search_got_error = any(
-        "error" in str(r.result).lower() and (
-            "429" in str(r.result) or "500" in str(r.result) or "503" in str(r.result)
-        )
+        "error" in str(r.result).lower()
+        and ("429" in str(r.result) or "500" in str(r.result) or "503" in str(r.result))
         for r in search_results
     )
 
@@ -566,108 +687,153 @@ def _tc15_eval(state: ScenarioState) -> ScenarioEvaluation:
 
 SCENARIOS: list[ScenarioDefinition] = [
     ScenarioDefinition(
-        id="TC-01", title="Direct Specialist Match", category=Category.A,
+        id="TC-01",
+        title="Direct Specialist Match",
+        category=Category.A,
         user_message="What's the weather like in Berlin right now?",
         description="Use get_weather instead of falling back to web_search.",
-        handle_tool_call=_tc01_handle, evaluate=_tc01_eval,
+        handle_tool_call=_tc01_handle,
+        evaluate=_tc01_eval,
         difficulty=1,
     ),
     ScenarioDefinition(
-        id="TC-02", title="Distractor Resistance", category=Category.A,
+        id="TC-02",
+        title="Distractor Resistance",
+        category=Category.A,
         user_message="What is the current price of AAPL stock?",
         description="Use get_stock_price without extra tools.",
-        handle_tool_call=_tc02_handle, evaluate=_tc02_eval,
+        handle_tool_call=_tc02_handle,
+        evaluate=_tc02_eval,
         difficulty=1,
     ),
     ScenarioDefinition(
-        id="TC-03", title="Implicit Tool Need", category=Category.A,
+        id="TC-03",
+        title="Implicit Tool Need",
+        category=Category.A,
         user_message="I need to let Sarah know the meeting moved to 3pm.",
         description="Infer get_contacts followed by send_email.",
-        handle_tool_call=_tc03_handle, evaluate=_tc03_eval,
+        handle_tool_call=_tc03_handle,
+        evaluate=_tc03_eval,
         difficulty=2,
     ),
     ScenarioDefinition(
-        id="TC-04", title="Unit Handling", category=Category.B,
+        id="TC-04",
+        title="Unit Handling",
+        category=Category.B,
         user_message="What's the temperature in Tokyo in Fahrenheit?",
         description="Pass the requested units parameter instead of ignoring it.",
-        handle_tool_call=_tc04_handle, evaluate=_tc04_eval,
+        handle_tool_call=_tc04_handle,
+        evaluate=_tc04_eval,
         difficulty=2,
     ),
     ScenarioDefinition(
-        id="TC-05", title="Date and Time Parsing", category=Category.B,
+        id="TC-05",
+        title="Date and Time Parsing",
+        category=Category.B,
         user_message="Schedule a team standup for next Monday at 9:30am, 30 minutes, with Alex and Jamie.",
         description="Parse relative date and structured event parameters correctly.",
-        handle_tool_call=_tc05_handle, evaluate=_tc05_eval,
+        handle_tool_call=_tc05_handle,
+        evaluate=_tc05_eval,
         difficulty=2,
     ),
     ScenarioDefinition(
-        id="TC-06", title="Multi-Value Extraction", category=Category.B,
+        id="TC-06",
+        title="Multi-Value Extraction",
+        category=Category.B,
         user_message="Translate 'Where is the nearest hospital?' from English to both Spanish and Japanese.",
         description="Split a one-to-many translation request into two tool calls.",
-        handle_tool_call=_tc06_handle, evaluate=_tc06_eval,
+        handle_tool_call=_tc06_handle,
+        evaluate=_tc06_eval,
         difficulty=2,
     ),
     ScenarioDefinition(
-        id="TC-07", title="Search → Read → Act", category=Category.C,
+        id="TC-07",
+        title="Search → Read → Act",
+        category=Category.C,
         user_message="Find the Q3 budget report and email the total to my manager.",
         description="Thread file search, file read, contact lookup, and send_email end to end.",
-        handle_tool_call=_tc07_handle, evaluate=_tc07_eval,
+        handle_tool_call=_tc07_handle,
+        evaluate=_tc07_eval,
         difficulty=3,
     ),
     ScenarioDefinition(
-        id="TC-08", title="Conditional Branching", category=Category.C,
+        id="TC-08",
+        title="Conditional Branching",
+        category=Category.C,
         user_message="Check the weather in Paris. If it's raining, remind me to bring an umbrella tomorrow at 8am.",
         description="Branch off the weather result instead of setting the reminder blindly.",
-        handle_tool_call=_tc08_handle, evaluate=_tc08_eval,
+        handle_tool_call=_tc08_handle,
+        evaluate=_tc08_eval,
         difficulty=3,
     ),
     ScenarioDefinition(
-        id="TC-09", title="Parallel Independence", category=Category.C,
+        id="TC-09",
+        title="Parallel Independence",
+        category=Category.C,
         user_message="What's the weather in London and the stock price of MSFT?",
         description="Handle two independent requests without missing either one.",
-        handle_tool_call=_tc09_handle, evaluate=_tc09_eval,
+        handle_tool_call=_tc09_handle,
+        evaluate=_tc09_eval,
         difficulty=2,
     ),
     ScenarioDefinition(
-        id="TC-10", title="Trivial Knowledge", category=Category.D,
+        id="TC-10",
+        title="Trivial Knowledge",
+        category=Category.D,
         user_message="What year did World War II end?",
         description="Avoid tools for basic knowledge.",
-        handle_tool_call=_tc10_handle, evaluate=_tc10_eval,
+        handle_tool_call=_tc10_handle,
+        evaluate=_tc10_eval,
         difficulty=1,
     ),
     ScenarioDefinition(
-        id="TC-11", title="Simple Math", category=Category.D,
+        id="TC-11",
+        title="Simple Math",
+        category=Category.D,
         user_message="What is 15% of 200?",
         description="Avoid calculator for easy arithmetic.",
-        handle_tool_call=_tc11_handle, evaluate=_tc11_eval,
+        handle_tool_call=_tc11_handle,
+        evaluate=_tc11_eval,
         difficulty=1,
     ),
     ScenarioDefinition(
-        id="TC-12", title="Impossible Request", category=Category.D,
+        id="TC-12",
+        title="Impossible Request",
+        category=Category.D,
         user_message="Delete all my emails from last month.",
         description="Refuse cleanly when no suitable tool exists.",
-        handle_tool_call=_tc12_handle, evaluate=_tc12_eval,
+        handle_tool_call=_tc12_handle,
+        evaluate=_tc12_eval,
         difficulty=2,
     ),
     ScenarioDefinition(
-        id="TC-13", title="Empty Results", category=Category.E,
+        id="TC-13",
+        title="Empty Results",
+        category=Category.E,
         user_message="Find the Johnson proposal document.",
         description="Retry or ask for clarification when the first search returns nothing.",
-        handle_tool_call=_tc13_handle, evaluate=_tc13_eval,
+        handle_tool_call=_tc13_handle,
+        evaluate=_tc13_eval,
         difficulty=3,
     ),
     ScenarioDefinition(
-        id="TC-14", title="Malformed Response", category=Category.E,
+        id="TC-14",
+        title="Malformed Response",
+        category=Category.E,
         user_message="What's Apple's stock price?",
         description="Surface tool errors instead of hallucinating a price.",
-        handle_tool_call=_tc14_handle, evaluate=_tc14_eval,
+        handle_tool_call=_tc14_handle,
+        evaluate=_tc14_eval,
         difficulty=3,
     ),
     ScenarioDefinition(
-        id="TC-15", title="Conflicting Information", category=Category.E,
+        id="TC-15",
+        title="Conflicting Information",
+        category=Category.E,
         user_message="Search for the population of Iceland and calculate what 2% of it would be.",
         description="Carry the exact searched value into the calculator.",
-        handle_tool_call=_tc15_handle, evaluate=_tc15_eval,
+        handle_tool_call=_tc15_handle,
+        evaluate=_tc15_eval,
         difficulty=3,
     ),
 ]
@@ -770,8 +936,13 @@ from tool_eval_bench.evals.scenarios_structured import (  # noqa: E402
 )
 
 ALL_SCENARIOS: list[ScenarioDefinition] = sorted(
-    SCENARIOS + EXTENDED_SCENARIOS + AGENTIC_SCENARIOS + LARGE_TOOLSET_SCENARIOS
-    + PLANNING_SCENARIOS + ADVERSARIAL_SCENARIOS + STRUCTURED_SCENARIOS,
+    SCENARIOS
+    + EXTENDED_SCENARIOS
+    + AGENTIC_SCENARIOS
+    + LARGE_TOOLSET_SCENARIOS
+    + PLANNING_SCENARIOS
+    + ADVERSARIAL_SCENARIOS
+    + STRUCTURED_SCENARIOS,
     key=lambda s: int(s.id.split("-")[1]),
 )
 

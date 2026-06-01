@@ -42,9 +42,7 @@ class BenchmarkService:
         # Distinguish "not provided" (create defaults) from "explicitly None"
         # (skip persistence).  The previous ``repo or RunRepository()`` pattern
         # silently defeated ``persist=False`` by replacing None with a default.
-        self.repo: RunRepository | None = (
-            RunRepository() if repo is self._SENTINEL else repo
-        )
+        self.repo: RunRepository | None = RunRepository() if repo is self._SENTINEL else repo
         self.reporter: MarkdownReporter | None = (
             MarkdownReporter() if reporter is self._SENTINEL else reporter
         )
@@ -184,9 +182,9 @@ class BenchmarkService:
                     "Cannot resume unknown scenarios: " + ", ".join(sorted(missing_ids))
                 )
             result_by_id = {r.scenario_id: r for r in merged_results}
-            ordered_ids = list(dict.fromkeys(
-                s.id for s in [*ALL_SCENARIOS, *resolved] if s.id in result_by_id
-            ))
+            ordered_ids = list(
+                dict.fromkeys(s.id for s in [*ALL_SCENARIOS, *resolved] if s.id in result_by_id)
+            )
             merged_results = [result_by_id[scenario_id] for scenario_id in ordered_ids]
             merged_scenarios = [scenario_by_id[scenario_id] for scenario_id in ordered_ids]
             summary = score_results(
@@ -234,7 +232,9 @@ class BenchmarkService:
             self.repo.upsert_scenario_run(run_data)
         if self.reporter is not None:
             report_path = self.reporter.write_scenario_report(
-                run_id, model, summary,
+                run_id,
+                model,
+                summary,
                 throughput_samples=throughput_samples or [],
                 context_pressure_config=context_pressure_config,
                 run_context=run_context,
@@ -298,11 +298,14 @@ def _build_run_config(
     }
     fingerprint_config = {**config, "scenario_ids": sorted(config["scenario_ids"])}
     from tool_eval_bench import __version__
-    config["config_fingerprint"] = build_config_fingerprint({
-        "config": fingerprint_config,
-        "deployment": comparison_context,
-        "tool_version": __version__,
-    })
+
+    config["config_fingerprint"] = build_config_fingerprint(
+        {
+            "config": fingerprint_config,
+            "deployment": comparison_context,
+            "tool_version": __version__,
+        }
+    )
     return config
 
 

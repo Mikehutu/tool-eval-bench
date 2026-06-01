@@ -88,6 +88,7 @@ SAMPLE_JSON_OUTPUT = {
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestStatMean:
     def test_extracts_mean(self):
         assert _stat_mean({"mean": 42.5, "std": 1.0}) == 42.5
@@ -249,6 +250,7 @@ class TestBuildCommand:
             if name == "uvx":
                 return "/usr/bin/uvx"
             return None
+
         monkeypatch.setattr(
             "tool_eval_bench.runner.llama_benchy.shutil.which",
             mock_which,
@@ -293,7 +295,8 @@ class TestBuildCommand:
             lambda name: "/usr/bin/llama-benchy" if name == "llama-benchy" else None,
         )
         cmd = _build_command(
-            "http://localhost:8888/v1", "test-model",
+            "http://localhost:8888/v1",
+            "test-model",
             no_cache=False,
         )
         assert "--no-cache" not in cmd
@@ -305,7 +308,8 @@ class TestBuildCommand:
             lambda name: "/usr/bin/llama-benchy" if name == "llama-benchy" else None,
         )
         cmd = _build_command(
-            "http://localhost:8888/v1", "test-model",
+            "http://localhost:8888/v1",
+            "test-model",
             skip_coherence=True,
         )
         assert "--skip-coherence" in cmd
@@ -317,7 +321,8 @@ class TestBuildCommand:
             lambda name: "/usr/bin/llama-benchy" if name == "llama-benchy" else None,
         )
         cmd = _build_command(
-            "http://localhost:8888/v1", "test-model",
+            "http://localhost:8888/v1",
+            "test-model",
         )
         assert "--skip-coherence" not in cmd
 
@@ -327,7 +332,8 @@ class TestBuildCommand:
             lambda name: "/usr/bin/llama-benchy" if name == "llama-benchy" else None,
         )
         cmd = _build_command(
-            "http://localhost:8888/v1", "test-model",
+            "http://localhost:8888/v1",
+            "test-model",
             output_file="/tmp/results.json",
         )
         assert "--save-result" in cmd
@@ -341,7 +347,8 @@ class TestBuildCommand:
             lambda name: "/usr/bin/llama-benchy" if name == "llama-benchy" else None,
         )
         cmd = _build_command(
-            "http://localhost:8888/v1", "Qwen3.6-35B",
+            "http://localhost:8888/v1",
+            "Qwen3.6-35B",
             tokenizer="Qwen/Qwen3.6-35B-A3B-FP8",
         )
         assert "--tokenizer" in cmd
@@ -355,7 +362,8 @@ class TestBuildCommand:
             lambda name: "/usr/bin/llama-benchy" if name == "llama-benchy" else None,
         )
         cmd = _build_command(
-            "http://localhost:8888/v1", "Qwen/Qwen3.6-35B-A3B-FP8",
+            "http://localhost:8888/v1",
+            "Qwen/Qwen3.6-35B-A3B-FP8",
             tokenizer="Qwen/Qwen3.6-35B-A3B-FP8",
         )
         assert "--tokenizer" not in cmd
@@ -367,7 +375,8 @@ class TestBuildCommand:
             lambda name: "/usr/bin/llama-benchy" if name == "llama-benchy" else None,
         )
         cmd = _build_command(
-            "http://localhost:8888/v1", "test-model",
+            "http://localhost:8888/v1",
+            "test-model",
             tokenizer=None,
         )
         assert "--tokenizer" not in cmd
@@ -376,6 +385,7 @@ class TestBuildCommand:
 class TestIsAvailable:
     def test_available_via_direct_binary(self, monkeypatch):
         from tool_eval_bench.runner.llama_benchy import is_available
+
         monkeypatch.setattr(
             "tool_eval_bench.runner.llama_benchy.shutil.which",
             lambda name: "/usr/bin/llama-benchy" if name == "llama-benchy" else None,
@@ -384,6 +394,7 @@ class TestIsAvailable:
 
     def test_available_via_uvx(self, monkeypatch):
         from tool_eval_bench.runner.llama_benchy import is_available
+
         monkeypatch.setattr(
             "tool_eval_bench.runner.llama_benchy.shutil.which",
             lambda name: "/usr/bin/uvx" if name == "uvx" else None,
@@ -392,6 +403,7 @@ class TestIsAvailable:
 
     def test_not_available(self, monkeypatch):
         from tool_eval_bench.runner.llama_benchy import is_available
+
         monkeypatch.setattr(
             "tool_eval_bench.runner.llama_benchy.shutil.which",
             lambda name: None,
@@ -546,9 +558,7 @@ class TestRunLlamaBenchy:
 
             async def wait(self):
                 # Write valid JSON to the output file
-                Path(self._output_file).write_text(
-                    json.dumps(SAMPLE_JSON_OUTPUT), encoding="utf-8"
-                )
+                Path(self._output_file).write_text(json.dumps(SAMPLE_JSON_OUTPUT), encoding="utf-8")
                 return 0
 
         output_file_ref: list[str] = []
@@ -563,9 +573,7 @@ class TestRunLlamaBenchy:
                 output_file_ref.append(cmd[idx])
             return cmd
 
-        monkeypatch.setattr(
-            "tool_eval_bench.runner.llama_benchy._build_command", mock_build
-        )
+        monkeypatch.setattr("tool_eval_bench.runner.llama_benchy._build_command", mock_build)
 
         async def mock_create_subprocess_exec(*args, **kwargs):
             assert output_file_ref, "output file should be set by _build_command"
@@ -695,9 +703,7 @@ class TestRunLlamaBenchy:
                 output_file_ref.append(cmd[idx])
             return cmd
 
-        monkeypatch.setattr(
-            "tool_eval_bench.runner.llama_benchy._build_command", mock_build
-        )
+        monkeypatch.setattr("tool_eval_bench.runner.llama_benchy._build_command", mock_build)
 
         class MockProcess:
             def __init__(self):
@@ -769,9 +775,7 @@ class TestRunLlamaBenchy:
                 output_file_ref.append(cmd[idx])
             return cmd
 
-        monkeypatch.setattr(
-            "tool_eval_bench.runner.llama_benchy._build_command", mock_build
-        )
+        monkeypatch.setattr("tool_eval_bench.runner.llama_benchy._build_command", mock_build)
 
         class MockProcess:
             def __init__(self):
@@ -852,6 +856,7 @@ class TestRunLlamaBenchy:
 # Display logic tests: Weakest category
 # ---------------------------------------------------------------------------
 
+
 class TestWeakestCategoryDisplay:
     """Tests for the 'Weakest' category logic in the final panel."""
 
@@ -862,11 +867,14 @@ class TestWeakestCategoryDisplay:
             ScenarioResult,
             ScenarioStatus,
         )
+
         return ModelScoreSummary(
             scenario_results=[
                 ScenarioResult(
-                    scenario_id="TC-01", status=ScenarioStatus.PASS,
-                    points=2, summary="ok",
+                    scenario_id="TC-01",
+                    status=ScenarioStatus.PASS,
+                    points=2,
+                    summary="ok",
                 ),
             ],
             category_scores=[],
@@ -929,6 +937,7 @@ class TestWeakestCategoryDisplay:
 # Progress bar output parsing tests
 # ---------------------------------------------------------------------------
 
+
 class TestProgressBarParsing:
     """Test that llama-benchy output lines are correctly classified for progress tracking."""
 
@@ -942,6 +951,7 @@ class TestProgressBarParsing:
     def test_run_progress_line_detected(self):
         """'Run X/Y' lines should match the run-progress regex."""
         import re
+
         for line in [
             "  Run 1/3 (batch size 1)...",
             "Run 2/5 (batch size 4)...",
@@ -952,6 +962,7 @@ class TestProgressBarParsing:
     def test_non_run_lines_dont_match(self):
         """Non-run lines should NOT match the run regex."""
         import re
+
         for line in [
             "Warming up...",
             "Running test: pp=2048",
@@ -1000,6 +1011,7 @@ class TestProgressBarParsing:
 # CLI flag registration tests
 # ---------------------------------------------------------------------------
 
+
 class TestCLIFlags:
     """Verify that CLI flags are registered correctly after the refactoring."""
 
@@ -1012,9 +1024,11 @@ class TestCLIFlags:
         from tool_eval_bench.cli.bench import main
 
         buf = StringIO()
-        with patch("sys.argv", ["tool-eval-bench", "--help"]), \
-             patch("sys.stdout", buf), \
-             pytest.raises(SystemExit):
+        with (
+            patch("sys.argv", ["tool-eval-bench", "--help"]),
+            patch("sys.stdout", buf),
+            pytest.raises(SystemExit),
+        ):
             main()
         return buf.getvalue()
 

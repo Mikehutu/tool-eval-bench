@@ -55,6 +55,7 @@ class TokenizerConfig:
     Encapsulates per-model tokenizer data so the module is reentrant
     (safe for multi-model comparison without recalibration bugs).
     """
+
     chars_per_token: float = _DEFAULT_CHARS_PER_TOKEN
     has_tokenize_endpoint: bool = False
     _filler_pool: str = ""
@@ -96,6 +97,7 @@ def _headers(api_key: str | None) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 # Exact prompt building via /tokenize
 # ---------------------------------------------------------------------------
+
 
 async def _tokenize_text(
     client: httpx.AsyncClient,
@@ -182,6 +184,7 @@ def _build_filler_heuristic(target_tokens: int, tok_cfg: TokenizerConfig | None 
 # Calibration
 # ---------------------------------------------------------------------------
 
+
 async def calibrate(
     client: httpx.AsyncClient,
     base_url: str,
@@ -206,7 +209,9 @@ async def calibrate(
         cfg.chars_per_token = len(probe_text) / token_count
         logger.info(
             "Calibrated via /tokenize: %.2f chars/token (%d chars → %d tokens)",
-            cfg.chars_per_token, len(probe_text), token_count,
+            cfg.chars_per_token,
+            len(probe_text),
+            token_count,
         )
         return cfg
 
@@ -220,7 +225,9 @@ async def calibrate(
     }
     try:
         resp = await client.post(
-            _chat_url(base_url), json=payload, headers=_headers(api_key),
+            _chat_url(base_url),
+            json=payload,
+            headers=_headers(api_key),
         )
         resp.raise_for_status()
         data = resp.json()
@@ -231,7 +238,9 @@ async def calibrate(
             cfg.calibration_confidence = "probe"
             logger.info(
                 "Calibrated via probe: %.2f chars/token (%d chars → %d pt)",
-                cfg.chars_per_token, len(probe_text), prompt_tokens,
+                cfg.chars_per_token,
+                len(probe_text),
+                prompt_tokens,
             )
             return cfg
     except Exception as exc:
@@ -249,20 +258,22 @@ async def calibrate(
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ThroughputSample:
     """Result of a single streaming throughput measurement."""
-    pp_tokens: int = 0              # prompt tokens (from server usage)
-    tg_tokens: int = 0              # generated tokens (counted from stream)
-    depth: int = 0                  # context depth (system-message tokens)
-    concurrency: int = 1            # concurrent requests
-    ttft_ms: float = 0.0            # time to first content token (ms)
-    total_ms: float = 0.0           # total request time (ms)
-    pp_tps: float = 0.0             # prefill tokens/sec
-    tg_tps: float = 0.0             # token generation tokens/sec
-    error: str | None = None        # error message if failed
-    requested_pp: int = 0           # user-requested pp (for clean labels)
-    requested_depth: int = 0        # user-requested depth (for clean labels)
+
+    pp_tokens: int = 0  # prompt tokens (from server usage)
+    tg_tokens: int = 0  # generated tokens (counted from stream)
+    depth: int = 0  # context depth (system-message tokens)
+    concurrency: int = 1  # concurrent requests
+    ttft_ms: float = 0.0  # time to first content token (ms)
+    total_ms: float = 0.0  # total request time (ms)
+    pp_tps: float = 0.0  # prefill tokens/sec
+    tg_tps: float = 0.0  # token generation tokens/sec
+    error: str | None = None  # error message if failed
+    requested_pp: int = 0  # user-requested pp (for clean labels)
+    requested_depth: int = 0  # user-requested depth (for clean labels)
     # Calibration confidence — propagated from TokenizerConfig so reports can warn
     # when token counts are heuristic estimates rather than exact measurements.
     calibration_confidence: str = "heuristic"  # "tokenize" | "probe" | "heuristic"
@@ -275,8 +286,8 @@ class ThroughputSample:
     # Per-request speculative decoding stats from llama.cpp timings object.
     # llama.cpp doesn't expose spec decode counters in Prometheus /metrics;
     # instead it embeds draft_n/draft_n_accepted in the response timings.
-    draft_n: int | None = None             # tokens drafted (llama.cpp timings)
-    draft_n_accepted: int | None = None    # tokens accepted (llama.cpp timings)
+    draft_n: int | None = None  # tokens drafted (llama.cpp timings)
+    draft_n_accepted: int | None = None  # tokens accepted (llama.cpp timings)
 
     @property
     def effective_tg_tps(self) -> float:
@@ -335,16 +346,17 @@ class ThroughputSample:
 @dataclass
 class ThroughputMatrixResult:
     """Full matrix sweep result."""
+
     model: str = ""
     backend: str = ""
     base_url: str = ""
     warmup_ms: float = 0.0
-    latency_ms: float = 0.0        # network/server latency estimate
+    latency_ms: float = 0.0  # network/server latency estimate
     samples: list[ThroughputSample] = field(default_factory=list)
     # Set to True if speculative decoding was detected on the server during
     # this run. When True, the CLI will suggest running --spec-bench.
     spec_decoding_detected: bool = False
-    spec_decoding_method: str = ""   # e.g. "mtp", "ngram", "eagle", or ""
+    spec_decoding_method: str = ""  # e.g. "mtp", "ngram", "eagle", or ""
 
 
 # Callback type for throughput sample events
@@ -355,6 +367,7 @@ OnThroughputSample = Callable[[ThroughputSample, int, int], Awaitable[None]]
 # ---------------------------------------------------------------------------
 # Latency estimation
 # ---------------------------------------------------------------------------
+
 
 async def estimate_latency(
     client: httpx.AsyncClient,
@@ -390,6 +403,7 @@ async def estimate_latency(
 # Warm-up
 # ---------------------------------------------------------------------------
 
+
 async def warmup(
     base_url: str,
     model: str,
@@ -421,7 +435,9 @@ async def warmup(
     t0 = time.perf_counter()
     async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.post(
-            _chat_url(base_url), json=payload, headers=_headers(api_key),
+            _chat_url(base_url),
+            json=payload,
+            headers=_headers(api_key),
         )
         resp.raise_for_status()
     return (time.perf_counter() - t0) * 1000
@@ -458,6 +474,7 @@ def _count_chunk_tokens(
 # ---------------------------------------------------------------------------
 # Single streaming measurement
 # ---------------------------------------------------------------------------
+
 
 async def _stream_one(
     client: httpx.AsyncClient,
@@ -518,8 +535,10 @@ async def _stream_one(
 
     try:
         async with client.stream(
-            "POST", _chat_url(base_url),
-            json=payload, headers=_headers(api_key),
+            "POST",
+            _chat_url(base_url),
+            json=payload,
+            headers=_headers(api_key),
         ) as response:
             response.raise_for_status()
             # HTTP headers have arrived — server has finished prefill
@@ -581,7 +600,9 @@ async def _stream_one(
                     if chunk_tokens == 1:
                         token_timestamps.append(now)
                     else:
-                        prev_ts = token_timestamps[-1] if token_timestamps else (first_content_time or t0)
+                        prev_ts = (
+                            token_timestamps[-1] if token_timestamps else (first_content_time or t0)
+                        )
                         time_window = now - prev_ts
                         for i in range(chunk_tokens):
                             ts = prev_ts + (time_window * (i + 1) / chunk_tokens)
@@ -616,7 +637,9 @@ async def _stream_one(
 
     # Use server-reported count when available, fall back to stream-counted
     # tokens (now MTP-aware — counts actual token_ids per chunk).
-    generated_tokens = server_completion_tokens if server_completion_tokens > 0 else stream_token_count
+    generated_tokens = (
+        server_completion_tokens if server_completion_tokens > 0 else stream_token_count
+    )
 
     # Generation time: prefer inter-content-chunk timing (most precise when
     # the server streams one token per SSE event).  When MTP is active, we
@@ -665,20 +688,34 @@ async def _build_messages(
     if depth > 0:
         if tok_cfg.has_tokenize_endpoint:
             system_text = await _build_exact_prompt(
-                client, base_url, model, depth, api_key, tok_cfg, "system",
+                client,
+                base_url,
+                model,
+                depth,
+                api_key,
+                tok_cfg,
+                "system",
             )
         else:
             system_text = _build_filler_heuristic(depth, tok_cfg)
         messages.append({"role": "system", "content": system_text})
     else:
-        messages.append({
-            "role": "system",
-            "content": "You are a helpful assistant. Continue the text provided by the user.",
-        })
+        messages.append(
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Continue the text provided by the user.",
+            }
+        )
 
     if tok_cfg.has_tokenize_endpoint:
         user_text = await _build_exact_prompt(
-            client, base_url, model, pp, api_key, tok_cfg, "user",
+            client,
+            base_url,
+            model,
+            pp,
+            api_key,
+            tok_cfg,
+            "user",
         )
     else:
         user_text = _build_filler_heuristic(pp, tok_cfg)
@@ -725,8 +762,14 @@ async def measure_concurrent(
     tok_cfg = tok_cfg or TokenizerConfig()
     if concurrency <= 1:
         return await measure_single(
-            client, base_url, model, pp=pp, tg=tg, depth=depth,
-            api_key=api_key, tok_cfg=tok_cfg,
+            client,
+            base_url,
+            model,
+            pp=pp,
+            tg=tg,
+            depth=depth,
+            api_key=api_key,
+            tok_cfg=tok_cfg,
         )
 
     # Build shared messages (exact token count)
@@ -741,7 +784,8 @@ async def measure_concurrent(
     results = await asyncio.gather(*tasks, return_exceptions=True)
     # Convert any bare exceptions to error samples
     results = [
-        r if isinstance(r, ThroughputSample)
+        r
+        if isinstance(r, ThroughputSample)
         else ThroughputSample(error=str(r), concurrency=concurrency)
         for r in results
     ]
@@ -781,6 +825,7 @@ async def measure_concurrent(
 # Matrix sweep
 # ---------------------------------------------------------------------------
 
+
 async def run_throughput_matrix(
     base_url: str,
     model: str,
@@ -818,13 +863,16 @@ async def run_throughput_matrix(
         # Calibrate tokenizer ratio + detect /tokenize
         tok_cfg = await calibrate(client, base_url, model, api_key)
         method = "/tokenize" if tok_cfg.has_tokenize_endpoint else "probe"
-        logger.info("Using %.2f chars/token (%s) for prompt building", tok_cfg.chars_per_token, method)
+        logger.info(
+            "Using %.2f chars/token (%s) for prompt building", tok_cfg.chars_per_token, method
+        )
 
         # Probe for speculative decoding (async, non-blocking — best effort)
         spec_detected = False
         spec_method_name = ""
         try:
             from tool_eval_bench.runner.speculative import detect_spec_decoding
+
             spec_info = await detect_spec_decoding(client, base_url, api_key)
             if spec_info.active:
                 spec_detected = True
@@ -864,9 +912,15 @@ async def run_throughput_matrix(
 
         for idx, (depth, conc) in enumerate(combos):
             sample = await measure_concurrent(
-                client, base_url, model,
-                pp=pp, tg=tg, depth=depth, concurrency=conc,
-                api_key=api_key, tok_cfg=tok_cfg,
+                client,
+                base_url,
+                model,
+                pp=pp,
+                tg=tg,
+                depth=depth,
+                concurrency=conc,
+                api_key=api_key,
+                tok_cfg=tok_cfg,
             )
             sample.calibration_confidence = tok_cfg.calibration_confidence
             result.samples.append(sample)

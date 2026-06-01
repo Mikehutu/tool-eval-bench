@@ -41,6 +41,7 @@ _ACTIVITY_FRAMES = ["◆", "◇", "◈", "◇"]
 # Color / format helpers
 # ---------------------------------------------------------------------------
 
+
 def _ar_color(rate: float) -> str:
     """Return a Rich color for an acceptance rate value."""
     color = "bright_green"
@@ -200,7 +201,7 @@ def _position_bars_horizontal(
 
     # Build cells and add rows
     for row_start in range(0, len(positions), per_row):
-        row_positions = positions[row_start:row_start + per_row]
+        row_positions = positions[row_start : row_start + per_row]
         cells = []
         for pos in row_positions:
             rate = rates[pos]
@@ -287,8 +288,7 @@ def _efficiency_insight(delta: SpecLiveDelta) -> Text:
             nst = delta.num_spec_tokens
             current_label = f"(current: {nst})" if nst else f"(current window ≈{win:.0f})"
             text.append(
-                f"\n  💡 Consider reducing num_speculative_tokens to ~{optimal} "
-                f"{current_label}",
+                f"\n  💡 Consider reducing num_speculative_tokens to ~{optimal} {current_label}",
                 style="dim yellow",
             )
         # Method-specific guidance
@@ -298,7 +298,9 @@ def _efficiency_insight(delta: SpecLiveDelta) -> Text:
                 f"acceptance at {ar * 100:.0f}% is typical for MTP",
                 style="dim cyan",
             )
-        elif method == "dflash" and utilization < 0.5 and (nst := delta.num_spec_tokens) and nst > 3:
+        elif (
+            method == "dflash" and utilization < 0.5 and (nst := delta.num_spec_tokens) and nst > 3
+        ):
             text.append(
                 f"\n  ℹ dflash with {nst} draft tokens — "
                 f"try reducing for better latency/throughput balance",
@@ -337,7 +339,13 @@ def _per_position_decay_summary(rates: dict[int, float]) -> Text | None:
                 break
 
     text.append("  ", style="")
-    eff_color = "bright_green" if effective >= total * 0.6 else "yellow" if effective >= total * 0.3 else "bright_red"
+    eff_color = (
+        "bright_green"
+        if effective >= total * 0.6
+        else "yellow"
+        if effective >= total * 0.3
+        else "bright_red"
+    )
     text.append(f"{effective}/{total}", style=f"bold {eff_color}")
     text.append(" effective positions (>20%)", style="dim")
 
@@ -349,6 +357,7 @@ def _per_position_decay_summary(rates: dict[int, float]) -> Text | None:
     last_rate = rates[last_pos]
     if p0_rate > 0 and last_rate > 0 and last_pos > 0:
         import math
+
         decay_per_pos = math.exp(math.log(last_rate / p0_rate) / last_pos)
         text.append(f"  │  γ={decay_per_pos:.2f}/pos", style="dim")
 

@@ -60,6 +60,7 @@ class MarkdownReporter:
         elif not run_context:
             try:
                 from tool_eval_bench import __version__
+
                 version_str = f" (v{__version__})"
             except ImportError:
                 pass
@@ -75,7 +76,9 @@ class MarkdownReporter:
             f"- **Rating**: {summary.rating}",
         ]
         if summary.weighted_score is not None:
-            md.append(f"- **Weighted Score**: **{summary.weighted_score}** / 100 _(difficulty-weighted)_")
+            md.append(
+                f"- **Weighted Score**: **{summary.weighted_score}** / 100 _(difficulty-weighted)_"
+            )
         # Filter empty lines from conditional version stamp
         md = [line for line in md if line is not None and line != ""] + [""]
 
@@ -83,35 +86,43 @@ class MarkdownReporter:
         # Check if any category-L (Toolset Scale) scenarios were included —
         # those use the large toolset instead of UNIVERSAL_TOOLS.
         from tool_eval_bench.evals.scenarios import ALL_SCENARIOS_WITH_HARDMODE
+
         _scenario_cat = {s.id: s.category for s in ALL_SCENARIOS_WITH_HARDMODE}
         _scenario_diff = {s.id: s.difficulty for s in ALL_SCENARIOS_WITH_HARDMODE}
         has_large_toolset = any(
-            _scenario_cat.get(r.scenario_id) == Category.L
-            for r in summary.scenario_results
+            _scenario_cat.get(r.scenario_id) == Category.L for r in summary.scenario_results
         )
         if has_large_toolset:
             import json as _json
 
             from tool_eval_bench.domain.tools_large import LARGE_TOOLSET
+
             tool_json_chars = len(_json.dumps(LARGE_TOOLSET))
             est_tokens = tool_json_chars // 4  # ~4 chars per token heuristic
-            md.append(f"- **Tool Definition Overhead**: ~{est_tokens:,} tokens ({len(LARGE_TOOLSET)} tools, {tool_json_chars:,} chars)")
+            md.append(
+                f"- **Tool Definition Overhead**: ~{est_tokens:,} tokens ({len(LARGE_TOOLSET)} tools, {tool_json_chars:,} chars)"
+            )
         else:
             import json as _json
 
             from tool_eval_bench.domain.tools import UNIVERSAL_TOOLS
+
             tool_json_chars = len(_json.dumps(UNIVERSAL_TOOLS))
             est_tokens = tool_json_chars // 4
-            md.append(f"- **Tool Definition Overhead**: ~{est_tokens:,} tokens ({len(UNIVERSAL_TOOLS)} tools, {tool_json_chars:,} chars)")
+            md.append(
+                f"- **Tool Definition Overhead**: ~{est_tokens:,} tokens ({len(UNIVERSAL_TOOLS)} tools, {tool_json_chars:,} chars)"
+            )
 
         # Deployability composite (only when latency data is present)
         if summary.deployability is not None:
             med_s = (summary.median_turn_ms or 0) / 1000
-            md.extend([
-                f"- **Deployability**: **{summary.deployability}** / 100 (α={summary.alpha})",
-                f"- **Quality**: {summary.final_score} / 100",
-                f"- **Responsiveness**: {summary.responsiveness} / 100 (median turn: {med_s:.1f}s)",
-            ])
+            md.extend(
+                [
+                    f"- **Deployability**: **{summary.deployability}** / 100 (α={summary.alpha})",
+                    f"- **Quality**: {summary.final_score} / 100",
+                    f"- **Responsiveness**: {summary.responsiveness} / 100 (median turn: {med_s:.1f}s)",
+                ]
+            )
 
         md.append("")
 
@@ -121,14 +132,19 @@ class MarkdownReporter:
             fill_tokens = context_pressure_config.get("fill_tokens", 0)
             ctx_size = context_pressure_config.get("context_size", 0)
             pct = int(ratio * 100)
-            md.insert(-1, f"- **Context Pressure**: {pct}% (~{fill_tokens:,} tokens prefilled of {ctx_size:,} context)")
+            md.insert(
+                -1,
+                f"- **Context Pressure**: {pct}% (~{fill_tokens:,} tokens prefilled of {ctx_size:,} context)",
+            )
 
         # Safety warnings
         if summary.safety_warnings:
-            md.extend([
-                "> [!WARNING]",
-                f"> **{len(summary.safety_warnings)} safety-critical failure(s) detected:**",
-            ])
+            md.extend(
+                [
+                    "> [!WARNING]",
+                    f"> **{len(summary.safety_warnings)} safety-critical failure(s) detected:**",
+                ]
+            )
             for w in summary.safety_warnings:
                 md.append(f"> - {w}")
             md.append("")
@@ -137,12 +153,14 @@ class MarkdownReporter:
         if run_context:
             md.extend(_render_run_context(run_context))
 
-        md.extend([
-            "## Category Scores",
-            "",
-            "| Category | Earned | Max | Percent |",
-            "|---|---|---|---|",
-        ])
+        md.extend(
+            [
+                "## Category Scores",
+                "",
+                "| Category | Earned | Max | Percent |",
+                "|---|---|---|---|",
+            ]
+        )
 
         for cs in summary.category_scores:
             md.append(f"| {cs.label} | {cs.earned} | {cs.max_points} | {cs.percent}% |")
@@ -158,10 +176,13 @@ class MarkdownReporter:
             note = f" ({r.note})" if r.note else ""
             diff = _scenario_diff.get(r.scenario_id)
             diff_str = _diff_labels.get(diff, "?") if diff else "?"
-            md.append(f"| {r.scenario_id} | {r.summary.split('.')[0]} | {diff_str} | {emoji} {r.status.value} | {r.points}/2 | {r.summary}{note} |")
+            md.append(
+                f"| {r.scenario_id} | {r.summary.split('.')[0]} | {diff_str} | {emoji} {r.status.value} | {r.points}/2 | {r.summary}{note} |"
+            )
 
         # Difficulty distribution summary
         from collections import Counter
+
         diff_pass: Counter[int] = Counter()
         diff_total: Counter[int] = Counter()
         for r in summary.scenario_results:
@@ -197,8 +218,7 @@ class MarkdownReporter:
                 )
 
         diagnostic_results = [
-            r for r in summary.scenario_results
-            if r.parallel_tool_turns or r.state_checkpoints
+            r for r in summary.scenario_results if r.parallel_tool_turns or r.state_checkpoints
         ]
         if diagnostic_results:
             md.extend(["", "## Hard Mode Diagnostics", ""])
@@ -336,22 +356,26 @@ class MarkdownReporter:
         ]
         if version_line:
             md.append(version_line)
-        md.extend([
-            f"- **Trials**: {n}",
-            "",
-        ])
+        md.extend(
+            [
+                f"- **Trials**: {n}",
+                "",
+            ]
+        )
 
         # Run Context section (issue #6)
         if run_context:
             md.extend(_render_run_context(run_context))
 
         # ── Headline numbers ──
-        md.extend([
-            "## Headline Scores",
-            "",
-            "| Metric | " + " | ".join(f"Trial {i+1}" for i in range(n)) + " | Mean ± σ |",
-            "|---|" + "".join(":---:|" for _ in range(n)) + ":---:|",
-        ])
+        md.extend(
+            [
+                "## Headline Scores",
+                "",
+                "| Metric | " + " | ".join(f"Trial {i + 1}" for i in range(n)) + " | Mean ± σ |",
+                "|---|" + "".join(":---:|" for _ in range(n)) + ":---:|",
+            ]
+        )
 
         scores = [s.final_score for s in summaries]
         points = [s.total_points for s in summaries]
@@ -367,17 +391,9 @@ class MarkdownReporter:
             + " | ".join(f"{p}/{summaries[0].max_points}" for p in points)
             + f" | **{agg['total_points_mean']:.1f} ± {agg['total_points_stddev']:.1f}** |"
         )
-        md.append(
-            "| **Rating** | "
-            + " | ".join(ratings)
-            + f" | {ratings[0]} |"
-        )
+        md.append("| **Rating** | " + " | ".join(ratings) + f" | {ratings[0]} |")
         num_warnings = [len(s.safety_warnings) for s in summaries]
-        md.append(
-            "| **Safety Warnings** | "
-            + " | ".join(str(w) for w in num_warnings)
-            + " | — |"
-        )
+        md.append("| **Safety Warnings** | " + " | ".join(str(w) for w in num_warnings) + " | — |")
         md.append("")
 
         # ── Reliability metrics ──
@@ -386,42 +402,52 @@ class MarkdownReporter:
         gap = agg.get("reliability_gap", 0)
         ci_lo, ci_hi = agg.get("final_score_ci95", (0, 0))
 
-        md.extend([
-            "## Reliability Metrics",
-            "",
-            "| Metric | Value |",
-            "|---|---|",
-            f"| **Pass@{n}** (capability ceiling) | {pass_at:.1f}% |",
-            f"| **Pass^{n}** (reliability floor) | {pass_hat:.1f}% |",
-            f"| **Reliability Gap** | {gap:.1f}pp |",
-            f"| **95% CI** | [{ci_lo:.1f}, {ci_hi:.1f}] |",
-            "",
-        ])
+        md.extend(
+            [
+                "## Reliability Metrics",
+                "",
+                "| Metric | Value |",
+                "|---|---|",
+                f"| **Pass@{n}** (capability ceiling) | {pass_at:.1f}% |",
+                f"| **Pass^{n}** (reliability floor) | {pass_hat:.1f}% |",
+                f"| **Reliability Gap** | {gap:.1f}pp |",
+                f"| **95% CI** | [{ci_lo:.1f}, {ci_hi:.1f}] |",
+                "",
+            ]
+        )
 
         if gap > 20:
-            md.extend([
-                "> [!WARNING]",
-                f"> **{gap:.0f}pp reliability gap is very high.** The model *can* solve "
-                f"{pass_at:.0f}% of scenarios but only *reliably* solves {pass_hat:.0f}%.",
-                "",
-            ])
+            md.extend(
+                [
+                    "> [!WARNING]",
+                    f"> **{gap:.0f}pp reliability gap is very high.** The model *can* solve "
+                    f"{pass_at:.0f}% of scenarios but only *reliably* solves {pass_hat:.0f}%.",
+                    "",
+                ]
+            )
         elif gap > 5:
-            md.extend([
-                "> [!NOTE]",
-                f"> **{gap:.0f}pp reliability gap** — moderate consistency variance across trials.",
-                "",
-            ])
+            md.extend(
+                [
+                    "> [!NOTE]",
+                    f"> **{gap:.0f}pp reliability gap** — moderate consistency variance across trials.",
+                    "",
+                ]
+            )
 
         # ── Per-scenario cross-trial table ──
         scenario_ids = [r.scenario_id for r in summaries[0].scenario_results]
         per_scenario = agg.get("per_scenario", {})
 
-        md.extend([
-            "## Per-Scenario Results",
-            "",
-            "| Scenario | " + " | ".join(f"T{i+1}" for i in range(n)) + " | Pass@k | Pass^k |",
-            "|---|" + "".join(":---:|" for _ in range(n)) + ":---:|:---:|",
-        ])
+        md.extend(
+            [
+                "## Per-Scenario Results",
+                "",
+                "| Scenario | "
+                + " | ".join(f"T{i + 1}" for i in range(n))
+                + " | Pass@k | Pass^k |",
+                "|---|" + "".join(":---:|" for _ in range(n)) + ":---:|:---:|",
+            ]
+        )
 
         never_pass = []
         flaky = []
@@ -447,12 +473,18 @@ class MarkdownReporter:
 
             # Classify scenarios
             if all(st == ScenarioStatus.FAIL for st in statuses):
-                summary_t1 = next((r.summary for r in summaries[0].scenario_results if r.scenario_id == sid), "")
+                summary_t1 = next(
+                    (r.summary for r in summaries[0].scenario_results if r.scenario_id == sid), ""
+                )
                 never_pass.append((sid, summary_t1))
-            elif any(st == ScenarioStatus.FAIL for st in statuses) and any(st != ScenarioStatus.FAIL for st in statuses):
+            elif any(st == ScenarioStatus.FAIL for st in statuses) and any(
+                st != ScenarioStatus.FAIL for st in statuses
+            ):
                 flaky.append((sid, [status_short.get(st, "?") for st in statuses]))
             elif all(st == ScenarioStatus.PARTIAL for st in statuses):
-                summary_t1 = next((r.summary for r in summaries[0].scenario_results if r.scenario_id == sid), "")
+                summary_t1 = next(
+                    (r.summary for r in summaries[0].scenario_results if r.scenario_id == sid), ""
+                )
                 consistent_partial.append((sid, summary_t1))
 
         md.append("")
@@ -460,12 +492,14 @@ class MarkdownReporter:
         # ── Category variance ──
         cat_stats = agg.get("per_category", {})
         if cat_stats:
-            md.extend([
-                "## Category Variance",
-                "",
-                "| Category | " + " | ".join(f"T{i+1}" for i in range(n)) + " | Variance |",
-                "|---|" + "".join(":---:|" for _ in range(n)) + ":---|",
-            ])
+            md.extend(
+                [
+                    "## Category Variance",
+                    "",
+                    "| Category | " + " | ".join(f"T{i + 1}" for i in range(n)) + " | Variance |",
+                    "|---|" + "".join(":---:|" for _ in range(n)) + ":---|",
+                ]
+            )
 
             for cs in summaries[0].category_scores:
                 cat_key = cs.category.value
@@ -483,7 +517,11 @@ class MarkdownReporter:
                 else:
                     variance = f"{stddev:.1f}pp"
 
-                md.append(f"| {stats.get('label', cat_key)} | " + " | ".join(percents) + f" | {variance} |")
+                md.append(
+                    f"| {stats.get('label', cat_key)} | "
+                    + " | ".join(percents)
+                    + f" | {variance} |"
+                )
 
             md.append("")
 
@@ -492,35 +530,41 @@ class MarkdownReporter:
             md.extend(["## Failure Analysis", ""])
 
         if never_pass:
-            md.extend([
-                "### ❌ Never Passes (0/N trials)",
-                "",
-                "| Scenario | Issue |",
-                "|---|---|",
-            ])
+            md.extend(
+                [
+                    "### ❌ Never Passes (0/N trials)",
+                    "",
+                    "| Scenario | Issue |",
+                    "|---|---|",
+                ]
+            )
             for sid, summary in never_pass:
                 md.append(f"| **{sid}** | {summary} |")
             md.append("")
 
         if flaky:
-            md.extend([
-                "### 🔀 Flaky (passes in some trials, fails in others)",
-                "",
-                "| Scenario | Results |",
-                "|---|---|",
-            ])
+            md.extend(
+                [
+                    "### 🔀 Flaky (passes in some trials, fails in others)",
+                    "",
+                    "| Scenario | Results |",
+                    "|---|---|",
+                ]
+            )
             for sid, statuses_list in flaky:
                 results_str = ", ".join(statuses_list)
                 md.append(f"| **{sid}** | {results_str} |")
             md.append("")
 
         if consistent_partial:
-            md.extend([
-                "### ⚠️ Consistently Partial",
-                "",
-                "| Scenario | Issue |",
-                "|---|---|",
-            ])
+            md.extend(
+                [
+                    "### ⚠️ Consistently Partial",
+                    "",
+                    "| Scenario | Issue |",
+                    "|---|---|",
+                ]
+            )
             for sid, summary in consistent_partial:
                 md.append(f"| {sid} | {summary} |")
             md.append("")
@@ -528,17 +572,19 @@ class MarkdownReporter:
         # ── Deployability (from first summary with data) ──
         deploy_summary = next((s for s in summaries if s.deployability is not None), None)
         if deploy_summary:
-            md.extend([
-                "## Deployability",
-                "",
-                "| Metric | Value |",
-                "|---|---|",
-                f"| Quality | {deploy_summary.final_score} / 100 |",
-                f"| Responsiveness | {deploy_summary.responsiveness} / 100 |",
-                f"| Deployability | **{deploy_summary.deployability}** / 100 (α={deploy_summary.alpha}) |",
-                f"| Median Turn | {(deploy_summary.median_turn_ms or 0) / 1000:.1f}s |",
-                "",
-            ])
+            md.extend(
+                [
+                    "## Deployability",
+                    "",
+                    "| Metric | Value |",
+                    "|---|---|",
+                    f"| Quality | {deploy_summary.final_score} / 100 |",
+                    f"| Responsiveness | {deploy_summary.responsiveness} / 100 |",
+                    f"| Deployability | **{deploy_summary.deployability}** / 100 (α={deploy_summary.alpha}) |",
+                    f"| Median Turn | {(deploy_summary.median_turn_ms or 0) / 1000:.1f}s |",
+                    "",
+                ]
+            )
 
         # ── Throughput ──
         ok_samples = [s for s in (throughput_samples or []) if not getattr(s, "error", None)]
@@ -560,7 +606,7 @@ class MarkdownReporter:
         if report_paths:
             md.extend(["## Individual Trial Reports", ""])
             for i, rp in enumerate(report_paths):
-                md.append(f"- Trial {i+1}: `{rp}`")
+                md.append(f"- Trial {i + 1}: `{rp}`")
             md.append("")
 
         path.write_text("\n".join(md), encoding="utf-8")
@@ -592,26 +638,24 @@ class MarkdownReporter:
         md.append(f"- **Spec Method**: {method_str}")
 
         # Check if acceptance rate is available
-        has_ar = any(
-            getattr(s, "acceptance_rate", None) is not None for s in spec_samples
-        )
+        has_ar = any(getattr(s, "acceptance_rate", None) is not None for s in spec_samples)
         if not has_ar:
-            md.extend([
-                "",
-                "> [!NOTE]",
-                "> Acceptance rate metrics were not available from the server.",
-                "> Effective t/s (wall-clock based) still captures the real benefit",
-                "> of MTP / speculative decoding.",
-            ])
+            md.extend(
+                [
+                    "",
+                    "> [!NOTE]",
+                    "> Acceptance rate metrics were not available from the server.",
+                    "> Effective t/s (wall-clock based) still captures the real benefit",
+                    "> of MTP / speculative decoding.",
+                ]
+            )
 
         md.append("")
 
         # Results table
         md.extend(["## Results", ""])
 
-        has_draft = any(
-            getattr(s, "draft_tps", None) is not None for s in spec_samples
-        )
+        has_draft = any(getattr(s, "draft_tps", None) is not None for s in spec_samples)
 
         if has_ar and has_draft:
             md.append(
@@ -704,7 +748,9 @@ class MarkdownReporter:
         if len(prompt_groups) > 1:
             md.extend(["## Per-Prompt-Type Summary", ""])
             if has_draft:
-                md.append("| Prompt Type | Avg Eff t/s | Avg Stream t/s | Avg α | Avg Waste | Avg Draft t/s |")
+                md.append(
+                    "| Prompt Type | Avg Eff t/s | Avg Stream t/s | Avg α | Avg Waste | Avg Draft t/s |"
+                )
                 md.append("|---|---:|---:|---:|---:|---:|")
             else:
                 md.append("| Prompt Type | Avg Eff t/s | Avg Stream t/s | Avg α | Avg Waste |")
@@ -715,12 +761,14 @@ class MarkdownReporter:
                 avg_tg = sum(s.tg_tps for s in group) / len(group)
                 ars = [s.acceptance_rate for s in group if s.acceptance_rate is not None]
                 avg_ar = f"{sum(ars) / len(ars) * 100:.1f}%" if ars else "—"
-                wrs = [s.waste_ratio for s in group if getattr(s, 'waste_ratio', None) is not None]
+                wrs = [s.waste_ratio for s in group if getattr(s, "waste_ratio", None) is not None]
                 avg_wr = f"{sum(wrs) / len(wrs) * 100:.0f}%" if wrs else "—"
                 if has_draft:
-                    dts = [s.draft_tps for s in group if getattr(s, 'draft_tps', None) is not None]
+                    dts = [s.draft_tps for s in group if getattr(s, "draft_tps", None) is not None]
                     avg_dt = f"{sum(dts) / len(dts):,.1f}" if dts else "—"
-                    md.append(f"| {pt} | {avg_eff:,.1f} | {avg_tg:,.1f} | {avg_ar} | {avg_wr} | {avg_dt} |")
+                    md.append(
+                        f"| {pt} | {avg_eff:,.1f} | {avg_tg:,.1f} | {avg_ar} | {avg_wr} | {avg_dt} |"
+                    )
                 else:
                     md.append(f"| {pt} | {avg_eff:,.1f} | {avg_tg:,.1f} | {avg_ar} | {avg_wr} |")
 
@@ -728,7 +776,8 @@ class MarkdownReporter:
 
         # Draft efficiency section (when window data is available)
         with_window = [
-            s for s in spec_samples
+            s
+            for s in spec_samples
             if getattr(s, "draft_window", None) is not None
             and getattr(s, "acceptance_length", None) is not None
         ]
@@ -736,59 +785,71 @@ class MarkdownReporter:
             avg_window = sum(s.draft_window for s in with_window) / len(with_window)
             avg_tau = sum(s.acceptance_length for s in with_window) / len(with_window)
             utilization = (avg_tau / avg_window * 100) if avg_window > 0 else 0
-            avg_waste = sum(
-                s.waste_ratio for s in with_window if getattr(s, "waste_ratio", None) is not None
-            ) / len(with_window) * 100
+            avg_waste = (
+                sum(
+                    s.waste_ratio
+                    for s in with_window
+                    if getattr(s, "waste_ratio", None) is not None
+                )
+                / len(with_window)
+                * 100
+            )
 
-            md.extend([
-                "## Draft Efficiency",
-                "",
-                "| Metric | Value |",
-                "|---|---|",
-                f"| Avg Draft Window | {avg_window:.0f} tokens/step |",
-                f"| Avg Acceptance Length (τ) | {avg_tau:.1f} tokens/step |",
-                f"| Window Utilization | {utilization:.0f}% |",
-                f"| Avg Waste | {avg_waste:.0f}% |",
-            ])
+            md.extend(
+                [
+                    "## Draft Efficiency",
+                    "",
+                    "| Metric | Value |",
+                    "|---|---|",
+                    f"| Avg Draft Window | {avg_window:.0f} tokens/step |",
+                    f"| Avg Acceptance Length (τ) | {avg_tau:.1f} tokens/step |",
+                    f"| Window Utilization | {utilization:.0f}% |",
+                    f"| Avg Waste | {avg_waste:.0f}% |",
+                ]
+            )
             if utilization < 50:
                 optimal = max(int(avg_tau * 1.5), 2)
-                md.extend([
-                    "",
-                    "> [!WARNING]",
-                    f"> Window utilization is low ({utilization:.0f}%). "
-                    f"Only {avg_tau:.1f} of {avg_window:.0f} drafted positions are accepted on average.",
-                    f"> Consider reducing `num_speculative_tokens` to ~{optimal} for better GPU efficiency.",
-                ])
+                md.extend(
+                    [
+                        "",
+                        "> [!WARNING]",
+                        f"> Window utilization is low ({utilization:.0f}%). "
+                        f"Only {avg_tau:.1f} of {avg_window:.0f} drafted positions are accepted on average.",
+                        f"> Consider reducing `num_speculative_tokens` to ~{optimal} for better GPU efficiency.",
+                    ]
+                )
             md.append("")
 
         # Interpretation guide
-        md.extend([
-            "## Interpretation Guide",
-            "",
-            "- **Eff t/s** (Effective t/s): Output tokens ÷ wall-clock generation time. "
-            "This is what users experience. Higher is better.",
-            "- **Stream t/s**: Token generation rate measured from SSE stream timing. "
-            "For standard decoding, this matches Eff t/s. For spec decode, Eff t/s "
-            "is typically higher.",
-            "- **α (accept)**: Acceptance rate — % of draft tokens accepted by the verifier. "
-            "Higher means the draft model/MTP heads predict well for this workload.",
-            "- **Waste**: Fraction of drafted tokens rejected (1 − α). Lower is better. "
-            "High waste means the draft model is poorly aligned with the target.",
-            "- **τ (length)**: Average acceptance length — tokens accepted per speculative step. "
-            "Higher means more tokens generated per verification pass.",
-            "- **Window**: Average tokens drafted per speculative step (the configured draft window). "
-            "Compare with τ to see window utilization.",
-            "- **Draft t/s**: Rate at which draft tokens are generated, regardless of acceptance. "
-            "Compare with Eff t/s to see draft overhead.",
-            "- **Speedup**: Effective t/s ÷ baseline t/s. Values > 1.0x indicate spec decode "
-            "is providing a benefit.",
-            "",
-            "> [!TIP]",
-            "> Acceptance rates vary significantly by prompt type. Code and structured tasks",
-            "> typically show higher acceptance rates than creative/open-ended generation",
-            "> because future tokens are more predictable.",
-            "",
-        ])
+        md.extend(
+            [
+                "## Interpretation Guide",
+                "",
+                "- **Eff t/s** (Effective t/s): Output tokens ÷ wall-clock generation time. "
+                "This is what users experience. Higher is better.",
+                "- **Stream t/s**: Token generation rate measured from SSE stream timing. "
+                "For standard decoding, this matches Eff t/s. For spec decode, Eff t/s "
+                "is typically higher.",
+                "- **α (accept)**: Acceptance rate — % of draft tokens accepted by the verifier. "
+                "Higher means the draft model/MTP heads predict well for this workload.",
+                "- **Waste**: Fraction of drafted tokens rejected (1 − α). Lower is better. "
+                "High waste means the draft model is poorly aligned with the target.",
+                "- **τ (length)**: Average acceptance length — tokens accepted per speculative step. "
+                "Higher means more tokens generated per verification pass.",
+                "- **Window**: Average tokens drafted per speculative step (the configured draft window). "
+                "Compare with τ to see window utilization.",
+                "- **Draft t/s**: Rate at which draft tokens are generated, regardless of acceptance. "
+                "Compare with Eff t/s to see draft overhead.",
+                "- **Speedup**: Effective t/s ÷ baseline t/s. Values > 1.0x indicate spec decode "
+                "is providing a benefit.",
+                "",
+                "> [!TIP]",
+                "> Acceptance rates vary significantly by prompt type. Code and structured tasks",
+                "> typically show higher acceptance rates than creative/open-ended generation",
+                "> because future tokens are more predictable.",
+                "",
+            ]
+        )
 
         path.write_text("\n".join(md), encoding="utf-8")
         return path
@@ -798,51 +859,65 @@ class MarkdownReporter:
 # Run context rendering (shared by all report types)
 # ---------------------------------------------------------------------------
 
+
 def _render_run_context(ctx: RunContext) -> list[str]:
     """Render RunContext as Markdown tables for embedding in reports."""
     md: list[str] = []
 
     # -- Run Context table (Tier 2: CLI parameters) --
-    md.extend([
-        "## Run Context",
-        "",
-        "| Parameter | Value |",
-        "|---|---|",
-        f"| Backend | {ctx.backend} |",
-        f"| Server | `{ctx.base_url}` |",
-        f"| Model (API) | `{ctx.model}` |",
-    ])
+    md.extend(
+        [
+            "## Run Context",
+            "",
+            "| Parameter | Value |",
+            "|---|---|",
+            f"| Backend | {ctx.backend} |",
+            f"| Server | `{ctx.base_url}` |",
+            f"| Model (API) | `{ctx.model}` |",
+        ]
+    )
     if ctx.server_model_root and ctx.server_model_root != ctx.model:
         md.append(f"| Model (Root) | `{ctx.server_model_root}` |")
-    md.extend([
-        f"| Temperature | {ctx.temperature} |",
-        f"| Seed | {ctx.seed if ctx.seed is not None else '—'} |",
-        f"| Max Turns | {ctx.max_turns} |",
-        f"| Timeout | {ctx.timeout_seconds}s |",
-        f"| Scenarios | {ctx.scenario_selector} |",
-        f"| Parallel | {ctx.parallel} {'(sequential)' if ctx.parallel <= 1 else ''} |",
-        f"| Error Rate | {ctx.error_rate} |",
-        f"| Thinking | {'enabled' if ctx.thinking_enabled else 'disabled'} |",
-    ])
+    md.extend(
+        [
+            f"| Temperature | {ctx.temperature} |",
+            f"| Seed | {ctx.seed if ctx.seed is not None else '—'} |",
+            f"| Max Turns | {ctx.max_turns} |",
+            f"| Timeout | {ctx.timeout_seconds}s |",
+            f"| Scenarios | {ctx.scenario_selector} |",
+            f"| Parallel | {ctx.parallel} {'(sequential)' if ctx.parallel <= 1 else ''} |",
+            f"| Error Rate | {ctx.error_rate} |",
+            f"| Thinking | {'enabled' if ctx.thinking_enabled else 'disabled'} |",
+        ]
+    )
     if ctx.context_pressure is not None:
         md.append(f"| Context Pressure | {ctx.context_pressure:.0%} |")
     if ctx.extra_params:
         import json as _json
+
         md.append(f"| Extra Params | `{_json.dumps(ctx.extra_params)}` |")
     md.append("")
 
     # -- Inference Engine table (Tier 3: best-effort) --
-    has_engine_info = any([
-        ctx.engine_name, ctx.engine_version, ctx.max_model_len,
-        ctx.quantization, ctx.gpu_count, ctx.spec_decoding,
-    ])
+    has_engine_info = any(
+        [
+            ctx.engine_name,
+            ctx.engine_version,
+            ctx.max_model_len,
+            ctx.quantization,
+            ctx.gpu_count,
+            ctx.spec_decoding,
+        ]
+    )
     if has_engine_info:
-        md.extend([
-            "## Inference Engine",
-            "",
-            "| Property | Value |",
-            "|---|---|",
-        ])
+        md.extend(
+            [
+                "## Inference Engine",
+                "",
+                "| Property | Value |",
+                "|---|---|",
+            ]
+        )
         if ctx.engine_name:
             version_str = f" {ctx.engine_version}" if ctx.engine_version else ""
             md.append(f"| Engine | {ctx.engine_name}{version_str} |")
@@ -854,23 +929,27 @@ def _render_run_context(ctx: RunContext) -> list[str]:
             md.append(f"| GPU Count | {ctx.gpu_count} |")
         if ctx.spec_decoding:
             md.append(f"| Spec Decoding | {ctx.spec_decoding} |")
-        md.extend([
-            f"| Host | `{ctx.hostname}` |",
-            f"| Platform | `{ctx.platform_info}` |",
-            f"| Python | {ctx.python_version} |",
-            "",
-        ])
+        md.extend(
+            [
+                f"| Host | `{ctx.hostname}` |",
+                f"| Platform | `{ctx.platform_info}` |",
+                f"| Python | {ctx.python_version} |",
+                "",
+            ]
+        )
     else:
         # Minimal environment info even without engine probes
-        md.extend([
-            "## Environment",
-            "",
-            "| Property | Value |",
-            "|---|---|",
-            f"| Host | `{ctx.hostname}` |",
-            f"| Platform | `{ctx.platform_info}` |",
-            f"| Python | {ctx.python_version} |",
-            "",
-        ])
+        md.extend(
+            [
+                "## Environment",
+                "",
+                "| Property | Value |",
+                "|---|---|",
+                f"| Host | `{ctx.hostname}` |",
+                f"| Platform | `{ctx.platform_info}` |",
+                f"| Python | {ctx.python_version} |",
+                "",
+            ]
+        )
 
     return md

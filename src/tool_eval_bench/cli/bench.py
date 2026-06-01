@@ -117,6 +117,7 @@ def _resolve_all_scenarios_for_ids(
 # Load .env
 # ---------------------------------------------------------------------------
 
+
 def _load_dotenv() -> None:
     """Load .env file into os.environ (does not overwrite existing vars)."""
     load_dotenv(override=False)
@@ -125,6 +126,7 @@ def _load_dotenv() -> None:
 def _redact_url(url: str) -> str:
     """Mask the host in a URL for display.  e.g. http://192.168.10.5:8080 → http://***:8080"""
     from tool_eval_bench.utils.urls import redact_url
+
     return redact_url(url)
 
 
@@ -136,12 +138,14 @@ def _metadata_for_storage(run_context: Any | None) -> dict[str, Any]:
 def _with_config_fingerprint(config: dict[str, Any]) -> dict[str, Any]:
     """Attach a deterministic comparison fingerprint to plugin config."""
     from tool_eval_bench.utils.ids import build_config_fingerprint
+
     return {**config, "config_fingerprint": build_config_fingerprint(config)}
 
 
 def _persist_plugin_run(run_data: dict[str, Any]) -> None:
     """Persist a plugin result, surfacing mandatory-storage failures."""
     from tool_eval_bench.storage.db import RunRepository
+
     with RunRepository() as repo:
         repo.upsert_scenario_run(run_data)
 
@@ -157,9 +161,9 @@ def _persist_plugin_run(run_data: dict[str, Any]) -> None:
 _DISCOVERY_PORTS: list[tuple[int, str, str]] = [
     # (port, backend_hint, human_label)
     (8000, "vllm", "vLLM"),
-    (8080, "vllm", "inference server"),       # vLLM, llama.cpp, or custom
-    (8081, "vllm", "inference server"),       # common alt port
-    (8082, "vllm", "inference server"),       # common alt port
+    (8080, "vllm", "inference server"),  # vLLM, llama.cpp, or custom
+    (8081, "vllm", "inference server"),  # common alt port
+    (8082, "vllm", "inference server"),  # common alt port
     (30000, "vllm", "SGLang"),
     (4000, "litellm", "LiteLLM"),
     (3000, "litellm", "LiteLLM"),
@@ -193,7 +197,9 @@ def _detect_backend_from_response(resp: Any, port: int) -> tuple[str, str]:
 
 
 def _discover_server(
-    *, headless: bool = False, console: Console | None = None,
+    *,
+    headless: bool = False,
+    console: Console | None = None,
 ) -> tuple[str, str] | None:
     """Probe localhost on common inference server ports.
 
@@ -240,8 +246,7 @@ def _discover_server(
             sys.stderr.flush()
         elif console:
             console.print(
-                f"  [bold green]✓[/] Auto-discovered [bold]{server_name}[/] "
-                f"at [cyan]{base_url}[/]"
+                f"  [bold green]✓[/] Auto-discovered [bold]{server_name}[/] at [cyan]{base_url}[/]"
             )
         return base_url, backend
     return None
@@ -251,9 +256,14 @@ def _discover_server(
 # Model auto-detection
 # ---------------------------------------------------------------------------
 
+
 def _detect_model(
-    base_url: str, api_key: str | None, console: Console,
-    *, display_url: str | None = None, headless: bool = False,
+    base_url: str,
+    api_key: str | None,
+    console: Console,
+    *,
+    display_url: str | None = None,
+    headless: bool = False,
 ) -> tuple[str, str]:
     """Query /v1/models and auto-select or let the user pick.
 
@@ -302,19 +312,25 @@ def _detect_model(
         resp.raise_for_status()
     except httpx.ConnectError:
         if headless:
-            _headless_error(CONNECTION_FAILED,
-                            f"Could not connect to {show_url}. Is the server running?",
-                            exit_code=2)
+            _headless_error(
+                CONNECTION_FAILED,
+                f"Could not connect to {show_url}. Is the server running?",
+                exit_code=2,
+            )
         console.print("[bold red]✗ cannot connect[/]")
         console.print(f"\n[red]Could not connect to {show_url}. Is the server running?[/]")
         sys.exit(1)
     except httpx.HTTPStatusError as exc:
         if headless:
-            _headless_error(HTTP_ERROR,
-                            f"Server returned {exc.response.status_code}. Check the URL and API key.",
-                            exit_code=2)
+            _headless_error(
+                HTTP_ERROR,
+                f"Server returned {exc.response.status_code}. Check the URL and API key.",
+                exit_code=2,
+            )
         console.print(f"[bold red]✗ HTTP {exc.response.status_code}[/]")
-        console.print(f"\n[red]Server returned {exc.response.status_code}. Check the URL and API key.[/]")
+        console.print(
+            f"\n[red]Server returned {exc.response.status_code}. Check the URL and API key.[/]"
+        )
         sys.exit(1)
     except Exception as exc:
         if headless:
@@ -324,8 +340,10 @@ def _detect_model(
 
     if used_fallback:
         if not headless:
-            console.print("\n  [yellow]⚠ /v1/models returned 404, used /models fallback. "
-                           "Check your server configuration.[/]")
+            console.print(
+                "\n  [yellow]⚠ /v1/models returned 404, used /models fallback. "
+                "Check your server configuration.[/]"
+            )
 
     try:
         data = resp.json()
@@ -359,8 +377,7 @@ def _detect_model(
 
     if not models:
         if headless:
-            _headless_error(NO_MODELS, "The server returned an empty model list.",
-                            exit_code=3)
+            _headless_error(NO_MODELS, "The server returned an empty model list.", exit_code=3)
         console.print("[bold red]✗ no models found[/]")
         console.print("[red]The server returned an empty model list.[/]")
         sys.exit(1)
@@ -428,8 +445,11 @@ def _headless_error(error_code: str, message: str, *, exit_code: int = 1) -> Non
 
 
 def _probe_server(
-    console: Console, base_url: str, api_key: str | None,
-    *, headless: bool = False,
+    console: Console,
+    base_url: str,
+    api_key: str | None,
+    *,
+    headless: bool = False,
 ) -> None:
     """Check if a server is reachable and responsive, then exit.
 
@@ -507,7 +527,9 @@ STATUS_STYLE = {
 
 
 async def _plain_on_start(scenario: ScenarioDefinition, idx: int, total: int) -> None:
-    print(f"  {DIM}[{idx + 1}/{total}]{RESET} {scenario.id} {scenario.title}... ", end="", flush=True)
+    print(
+        f"  {DIM}[{idx + 1}/{total}]{RESET} {scenario.id} {scenario.title}... ", end="", flush=True
+    )
 
 
 async def _plain_on_result(
@@ -520,6 +542,7 @@ async def _plain_on_result(
 # ---------------------------------------------------------------------------
 # Server warm-up
 # ---------------------------------------------------------------------------
+
 
 def _do_warmup(console: Console, base_url: str, model: str, api_key: str | None) -> None:
     """Send a trivial request to prime the server before benchmarking.
@@ -553,6 +576,7 @@ def _do_warmup(console: Console, base_url: str, model: str, api_key: str | None)
 # ---------------------------------------------------------------------------
 # Throughput benchmark (--perf / --perf-only)
 # ---------------------------------------------------------------------------
+
 
 def _run_throughput(
     console: Console,
@@ -604,8 +628,10 @@ def _run_throughput(
 
     async def run() -> None:
         result = await run_throughput_matrix(
-            base_url, model,
-            pp=pp, tg=tg,
+            base_url,
+            model,
+            pp=pp,
+            tg=tg,
             depths=depths,
             concurrency_levels=concurrency_levels,
             api_key=api_key,
@@ -657,13 +683,17 @@ def _run_throughput(
     # Post-run hints
     matrix_result = matrix_result_holder[0] if matrix_result_holder else None
     if matrix_result is not None and matrix_result.spec_decoding_detected:
-        method_label = f" ({matrix_result.spec_decoding_method})" if matrix_result.spec_decoding_method else ""
-        console.print(Panel(
-            f"[bold yellow]⚡ Speculative decoding detected{method_label}[/]\n"
-            "Standard [cyan]tg t/s[/] under-reports real throughput for spec-decode models.\n"
-            "Re-run with [bold cyan]--spec-bench[/] for acceptance rate (α) and effective t/s.",
-            border_style="yellow",
-        ))
+        method_label = (
+            f" ({matrix_result.spec_decoding_method})" if matrix_result.spec_decoding_method else ""
+        )
+        console.print(
+            Panel(
+                f"[bold yellow]⚡ Speculative decoding detected{method_label}[/]\n"
+                "Standard [cyan]tg t/s[/] under-reports real throughput for spec-decode models.\n"
+                "Re-run with [bold cyan]--spec-bench[/] for acceptance rate (α) and effective t/s.",
+                border_style="yellow",
+            )
+        )
     if ok_samples and ok_samples[0].calibration_confidence == "heuristic":
         console.print(
             "[dim yellow]⚠ Token counts use 4 chars/token heuristic — pp t/s may be "
@@ -677,6 +707,7 @@ def _run_throughput(
 # ---------------------------------------------------------------------------
 # llama-benchy integration (--perf / --perf-only)
 # ---------------------------------------------------------------------------
+
 
 def _run_llama_benchy(
     console: Console,
@@ -787,10 +818,12 @@ def _run_llama_benchy(
                 # Other informational lines are silently consumed
 
             benchy_result = await run_llama_benchy(
-                base_url, model,
+                base_url,
+                model,
                 api_key=api_key,
                 tokenizer=display_name,
-                pp=pp, tg=tg,
+                pp=pp,
+                tg=tg,
                 depths=depths,
                 concurrency_levels=concurrency_levels,
                 runs=runs,
@@ -879,6 +912,7 @@ def _run_llama_benchy(
 # Speculative decoding / MTP benchmark
 # ---------------------------------------------------------------------------
 
+
 def _run_spec_bench(
     console: Console,
     model: str,
@@ -950,15 +984,23 @@ def _run_spec_bench(
                 parts.append(f"  [dim]win={sample.draft_window:.0f}[/]")
 
             if sample.speedup_ratio is not None:
-                sp_style = "green" if sample.speedup_ratio >= 1.2 else "yellow" if sample.speedup_ratio >= 1.0 else "red"
+                sp_style = (
+                    "green"
+                    if sample.speedup_ratio >= 1.2
+                    else "yellow"
+                    if sample.speedup_ratio >= 1.0
+                    else "red"
+                )
                 parts.append(f"  [{sp_style}]{sample.speedup_ratio:.2f}x[/{sp_style}]")
 
             console.print("".join(parts))
 
     async def run() -> None:
         await run_spec_bench(
-            base_url, model,
-            pp=pp, tg=tg,
+            base_url,
+            model,
+            pp=pp,
+            tg=tg,
             depths=depths,
             api_key=api_key,
             spec_method=spec_method,
@@ -1028,10 +1070,12 @@ def _run_spec_bench(
                 row.append(f"{s.draft_tps:,.1f}" if s.draft_tps is not None else "—")
             if has_speedup:
                 row.append(f"{s.speedup_ratio:.2f}x" if s.speedup_ratio is not None else "—")
-            row.extend([
-                f"{s.ttft_ms:,.0f}",
-                f"{s.total_ms:,.0f}",
-            ])
+            row.extend(
+                [
+                    f"{s.ttft_ms:,.0f}",
+                    f"{s.total_ms:,.0f}",
+                ]
+            )
             table.add_row(*row)
 
         console.print(table)
@@ -1040,7 +1084,10 @@ def _run_spec_bench(
         has_ar = any(s.acceptance_rate is not None for s in ok_samples)
         if has_ar:
             best = max(ok_samples, key=lambda s: s.acceptance_rate or 0)
-            worst = min(ok_samples, key=lambda s: s.acceptance_rate if s.acceptance_rate is not None else float('inf'))
+            worst = min(
+                ok_samples,
+                key=lambda s: s.acceptance_rate if s.acceptance_rate is not None else float("inf"),
+            )
             if best.acceptance_rate is not None and worst.acceptance_rate is not None:
                 console.print(
                     f"\n  [dim]Highest acceptance:[/] [bold]{best.prompt_type}[/] "
@@ -1050,13 +1097,23 @@ def _run_spec_bench(
                 )
 
             # Draft efficiency insight
-            with_window = [s for s in ok_samples if s.draft_window is not None and s.acceptance_length is not None]
+            with_window = [
+                s
+                for s in ok_samples
+                if s.draft_window is not None and s.acceptance_length is not None
+            ]
             if with_window:
                 avg_window = sum(s.draft_window for s in with_window) / len(with_window)  # type: ignore[arg-type]
                 avg_tau = sum(s.acceptance_length for s in with_window) / len(with_window)  # type: ignore[arg-type]
                 utilization = (avg_tau / avg_window * 100) if avg_window > 0 else 0
-                avg_waste = sum(s.waste_ratio for s in with_window if s.waste_ratio is not None) / len(with_window) * 100
-                util_style = "green" if utilization >= 50 else "yellow" if utilization >= 25 else "red"
+                avg_waste = (
+                    sum(s.waste_ratio for s in with_window if s.waste_ratio is not None)
+                    / len(with_window)
+                    * 100
+                )
+                util_style = (
+                    "green" if utilization >= 50 else "yellow" if utilization >= 25 else "red"
+                )
                 console.print(
                     f"  [dim]Draft window:[/] [{util_style}]{avg_tau:.1f}/{avg_window:.0f} "
                     f"positions used ({utilization:.0f}% utilization)[/{util_style}]  "
@@ -1069,9 +1126,7 @@ def _run_spec_bench(
                         f"~{optimal} (currently ~{avg_window:.0f})[/]"
                     )
         else:
-            console.print(
-                "\n  [dim]ℹ Acceptance rate: not available (optional).[/]"
-            )
+            console.print("\n  [dim]ℹ Acceptance rate: not available (optional).[/]")
             console.print(
                 "  [dim]  Effective t/s (shown above) is the primary metric and "
                 "already captures MTP/spec-decode speedup.[/]"
@@ -1089,25 +1144,32 @@ def _run_spec_bench(
     if ok_samples:
         from tool_eval_bench.utils.ids import build_run_id
 
-        run_config = _with_config_fingerprint({
-            "model": model, "base_url": base_url,
-            "mode": "spec-bench", "method": spec_method,
-        })
+        run_config = _with_config_fingerprint(
+            {
+                "model": model,
+                "base_url": base_url,
+                "mode": "spec-bench",
+                "method": spec_method,
+            }
+        )
         run_id = build_run_id(run_config)
         reporter = MarkdownReporter(root=output_dir)
         report_path = reporter.write_spec_decode_report(run_id, display_name, ok_samples)
-        _persist_plugin_run({
-            "run_id": run_id,
-            "run_type": "spec-bench",
-            "status": "completed",
-            "config": run_config,
-            "scores": {"samples": len(ok_samples)},
-            "metadata": _metadata_for_storage(None),
-        })
+        _persist_plugin_run(
+            {
+                "run_id": run_id,
+                "run_type": "spec-bench",
+                "status": "completed",
+                "config": run_config,
+                "scores": {"samples": len(ok_samples)},
+                "metadata": _metadata_for_storage(None),
+            }
+        )
         console.print(f"\n  [dim]📄 Report saved to {report_path}[/]")
 
     try:
         from tool_eval_bench import __version__
+
         console.print(f"  [dim]tool-eval-bench v{__version__}[/]")
     except ImportError:
         pass
@@ -1120,10 +1182,10 @@ def _run_spec_bench(
 # ---------------------------------------------------------------------------
 
 
-
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def _parse_int_list(value: str) -> list[int]:
     """Parse a space-or-comma separated list of ints."""
@@ -1133,6 +1195,7 @@ def _parse_int_list(value: str) -> list[int]:
 # ---------------------------------------------------------------------------
 # GSM8K benchmark (--gsm8k / --gsm8k-only)
 # ---------------------------------------------------------------------------
+
 
 def _run_gsm8k_benchmark(
     console: Console,
@@ -1185,6 +1248,7 @@ def _run_gsm8k_benchmark(
         # First use — download with visible progress
         try:
             import datasets as _ds  # noqa: F401
+
             method_hint = "via datasets lib"
         except ImportError:
             method_hint = "via REST API"
@@ -1250,6 +1314,7 @@ def _run_gsm8k_benchmark(
         last_q_progress = Progress(last_q_text, console=console)
 
         from rich.console import Group
+
         group = Group(progress, stats_progress, last_q_progress)
 
         correct_so_far = 0
@@ -1294,8 +1359,7 @@ def _run_gsm8k_benchmark(
                 if len(question) > 90:
                     question = question[:87] + "…"
                 last_q_text.text_format = (
-                    f"  {icon} [bold]{got}[/]/{expected} "
-                    f"[dim italic]{question}[/]"
+                    f"  {icon} [bold]{got}[/]/{expected} [dim italic]{question}[/]"
                 )
 
             result = await plugin.run(
@@ -1316,9 +1380,14 @@ def _run_gsm8k_benchmark(
             result_holder.append(result)
 
             # Final state
-            progress.update(task, completed=result.details["total"],
-                          description="[green]✓ Complete")
-            final_speed = result.details["total"] / result.duration_seconds * 60 if result.duration_seconds > 0 else 0
+            progress.update(
+                task, completed=result.details["total"], description="[green]✓ Complete"
+            )
+            final_speed = (
+                result.details["total"] / result.duration_seconds * 60
+                if result.duration_seconds > 0
+                else 0
+            )
             stats_text.text_format = (
                 f"  [bold green]✓ {result.details['correct']}[/]  "
                 f"[bold red]✗ {result.details['total'] - result.details['correct']}[/]  "
@@ -1355,39 +1424,50 @@ def _run_gsm8k_benchmark(
         f"({details['correct']}/{details['total']})"
     )
     console.print(f"  [bold]Rating:[/] {result.rating}")
-    console.print(f"  [dim]Duration: {result.duration_seconds:.1f}s · "
-                  f"Tokens: {result.total_tokens:,}[/]")
+    console.print(
+        f"  [dim]Duration: {result.duration_seconds:.1f}s · Tokens: {result.total_tokens:,}[/]"
+    )
 
     # Write report
     if output_dir or True:  # Always write reports
         from tool_eval_bench.storage.reports import MarkdownReporter
         from tool_eval_bench.utils.ids import build_run_id
 
-        run_config = _with_config_fingerprint({
-            "model": model, "base_url": base_url,
-            "mode": "gsm8k", "n_shots": n_shots, "limit": limit,
-            "temperature": args.temperature, "seed": seed, "shuffle": shuffle,
-        })
+        run_config = _with_config_fingerprint(
+            {
+                "model": model,
+                "base_url": base_url,
+                "mode": "gsm8k",
+                "n_shots": n_shots,
+                "limit": limit,
+                "temperature": args.temperature,
+                "seed": seed,
+                "shuffle": shuffle,
+            }
+        )
         run_id = build_run_id(run_config)
         reporter = MarkdownReporter(root=output_dir)
         report_lines = plugin.render_report_section(result)
-        _write_gsm8k_report(reporter, run_id, display_name, result,
-                           report_lines, run_context=run_context)
+        _write_gsm8k_report(
+            reporter, run_id, display_name, result, report_lines, run_context=run_context
+        )
 
         # Persist to SQLite (project rule: every run → SQLite)
-        _persist_plugin_run({
-            "run_id": run_id,
-            "run_type": "gsm8k",
-            "status": "completed",
-            "config": run_config,
-            "scores": {
-                "final_score": round(result.score),
-                "accuracy": result.score,
-                "rating": result.rating,
-                **result.details,
-            },
-            "metadata": _metadata_for_storage(run_context),
-        })
+        _persist_plugin_run(
+            {
+                "run_id": run_id,
+                "run_type": "gsm8k",
+                "status": "completed",
+                "config": run_config,
+                "scores": {
+                    "final_score": round(result.score),
+                    "accuracy": result.score,
+                    "rating": result.rating,
+                    **result.details,
+                },
+                "metadata": _metadata_for_storage(run_context),
+            }
+        )
 
         console.print("\n  [dim]Report saved to runs/[/]\n")
 
@@ -1425,10 +1505,10 @@ def _write_gsm8k_report(
     path.write_text("\n".join(md), encoding="utf-8")
 
 
-
 # ---------------------------------------------------------------------------
 # MMLU benchmark (--mmlu / --mmlu-only)
 # ---------------------------------------------------------------------------
+
 
 def _run_mmlu_benchmark(
     console: Console,
@@ -1480,11 +1560,13 @@ def _run_mmlu_benchmark(
         console.print(f"[bold green]✓[/] [dim]{len(test_items)} questions[/]")
     else:
         from pathlib import Path as _Path
+
         partial_path = _Path("data") / "mmlu" / "test.partial.jsonl"
         resuming = partial_path.exists()
         # Check which download method will be used
         try:
             import datasets as _ds  # noqa: F401
+
             method_hint = "via datasets lib"
         except ImportError:
             method_hint = "via REST API"
@@ -1494,12 +1576,13 @@ def _run_mmlu_benchmark(
             f"[bold]{label} from HuggingFace…[/] [dim]({method_hint})[/]",
             spinner="dots",
         ) as status:
+
             def on_download(downloaded: int, total: int) -> None:
                 pct = downloaded / total * 100 if total else 0
                 status.update(
-                    f"[bold]{label}…[/] "
-                    f"[dim]{downloaded:,}/{total:,} questions ({pct:.0f}%)[/]"
+                    f"[bold]{label}…[/] [dim]{downloaded:,}/{total:,} questions ({pct:.0f}%)[/]"
                 )
+
             try:
                 test_items = load_dataset("test", on_progress=on_download)
             except Exception as exc:
@@ -1546,13 +1629,11 @@ def _run_mmlu_benchmark(
         if subjects_list:
             # Adjust for filtering
             from tool_eval_bench.plugins.mmlu.dataset import CATEGORIES, SUBJECT_CATEGORIES
+
             expanded: set[str] = set()
             for s in subjects_list:
                 if s in CATEGORIES:
-                    expanded.update(
-                        subj for subj, cat in SUBJECT_CATEGORIES.items()
-                        if cat == s
-                    )
+                    expanded.update(subj for subj, cat in SUBJECT_CATEGORIES.items() if cat == s)
                 else:
                     expanded.add(s)
             filtered = [it for it in test_items if it.subject in expanded]
@@ -1618,9 +1699,7 @@ def _run_mmlu_benchmark(
                 if len(question) > 90:
                     question = question[:87] + "…"
                 last_q_text.text_format = (
-                    f"  {icon} [bold]{got}[/]/{expected} "
-                    f"[dim]{subj}[/]  "
-                    f"[dim italic]{question}[/]"
+                    f"  {icon} [bold]{got}[/]/{expected} [dim]{subj}[/]  [dim italic]{question}[/]"
                 )
 
             result = await plugin.run(
@@ -1640,9 +1719,14 @@ def _run_mmlu_benchmark(
             )
             result_holder.append(result)
 
-            progress.update(task, completed=result.details["total"],
-                          description="[green]✓ Complete")
-            final_speed = result.details["total"] / result.duration_seconds * 60 if result.duration_seconds > 0 else 0
+            progress.update(
+                task, completed=result.details["total"], description="[green]✓ Complete"
+            )
+            final_speed = (
+                result.details["total"] / result.duration_seconds * 60
+                if result.duration_seconds > 0
+                else 0
+            )
             stats_text.text_format = (
                 f"  [bold green]✓ {result.details['correct']}[/]  "
                 f"[bold red]✗ {result.details['total'] - result.details['correct']}[/]  "
@@ -1683,8 +1767,9 @@ def _run_mmlu_benchmark(
     if cats:
         parts = [f"{cat}: {c['accuracy']:.1f}%" for cat, c in sorted(cats.items())]
         console.print(f"  [dim]{' · '.join(parts)}[/]")
-    console.print(f"  [dim]Duration: {result.duration_seconds:.1f}s · "
-                  f"Tokens: {result.total_tokens:,}[/]")
+    console.print(
+        f"  [dim]Duration: {result.duration_seconds:.1f}s · Tokens: {result.total_tokens:,}[/]"
+    )
 
     # Write report
     from datetime import datetime, timezone
@@ -1692,12 +1777,18 @@ def _run_mmlu_benchmark(
     from tool_eval_bench.storage.reports import MarkdownReporter
     from tool_eval_bench.utils.ids import build_run_id
 
-    run_config = _with_config_fingerprint({
-        "model": model, "base_url": base_url,
-        "mode": "mmlu", "n_shots": n_shots, "limit": limit,
-        "temperature": args.temperature, "seed": seed,
-        "subjects": subjects_str,
-    })
+    run_config = _with_config_fingerprint(
+        {
+            "model": model,
+            "base_url": base_url,
+            "mode": "mmlu",
+            "n_shots": n_shots,
+            "limit": limit,
+            "temperature": args.temperature,
+            "seed": seed,
+            "subjects": subjects_str,
+        }
+    )
     run_id = build_run_id(run_config)
     reporter = MarkdownReporter(root=output_dir)
     report_lines = plugin.render_report_section(result)
@@ -1720,19 +1811,21 @@ def _run_mmlu_benchmark(
     path.write_text("\n".join(md), encoding="utf-8")
 
     # Persist to SQLite (project rule: every run → SQLite)
-    _persist_plugin_run({
-        "run_id": run_id,
-        "run_type": "mmlu",
-        "status": "completed",
-        "config": run_config,
-        "scores": {
-            "final_score": round(result.score),
-            "accuracy": result.score,
-            "rating": result.rating,
-            **result.details,
-        },
-        "metadata": _metadata_for_storage(run_context),
-    })
+    _persist_plugin_run(
+        {
+            "run_id": run_id,
+            "run_type": "mmlu",
+            "status": "completed",
+            "config": run_config,
+            "scores": {
+                "final_score": round(result.score),
+                "accuracy": result.score,
+                "rating": result.rating,
+                **result.details,
+            },
+            "metadata": _metadata_for_storage(run_context),
+        }
+    )
 
     console.print("\n  [dim]Report saved to runs/[/]\n")
 
@@ -1740,6 +1833,7 @@ def _run_mmlu_benchmark(
 # ---------------------------------------------------------------------------
 # IFEval benchmark (--ifeval / --ifeval-only)
 # ---------------------------------------------------------------------------
+
 
 def _run_ifeval_benchmark(
     console: Console,
@@ -1766,8 +1860,7 @@ def _run_ifeval_benchmark(
     console.print()
     console.print(
         Panel(
-            f"[bold]{display_name}[/]\n"
-            f"[dim]{limit_label} prompts · 25 constraint types[/]",
+            f"[bold]{display_name}[/]\n[dim]{limit_label} prompts · 25 constraint types[/]",
             title="[bold]📋 IFEval — Instruction Following Evaluation[/]",
             border_style="bright_green",
         )
@@ -1787,10 +1880,12 @@ def _run_ifeval_benchmark(
         console.print(f"[bold green]✓[/] [dim]{len(dataset_items)} prompts[/]")
     else:
         from pathlib import Path as _Path
+
         partial_path = _Path("data") / "ifeval" / "prompts.partial.jsonl"
         resuming = partial_path.exists()
         try:
             import datasets as _ds  # noqa: F401
+
             method_hint = "via datasets lib"
         except ImportError:
             method_hint = "via REST API"
@@ -1800,12 +1895,13 @@ def _run_ifeval_benchmark(
             f"[bold]{label} from HuggingFace…[/] [dim]({method_hint})[/]",
             spinner="dots",
         ) as status:
+
             def on_download(downloaded: int, total: int) -> None:
                 pct = downloaded / total * 100 if total else 0
                 status.update(
-                    f"[bold]{label}…[/] "
-                    f"[dim]{downloaded:,}/{total:,} prompts ({pct:.0f}%)[/]"
+                    f"[bold]{label}…[/] [dim]{downloaded:,}/{total:,} prompts ({pct:.0f}%)[/]"
                 )
+
             try:
                 dataset_items = load_dataset(on_progress=on_download)
             except Exception as exc:
@@ -1878,7 +1974,11 @@ def _run_ifeval_benchmark(
                 instructions_total += item_info.get("instructions_total", 0)
 
                 prompt_pct = (prompts_passed / current * 100) if current > 0 else 0
-                inst_pct = (instructions_passed / instructions_total * 100) if instructions_total > 0 else 0
+                inst_pct = (
+                    (instructions_passed / instructions_total * 100)
+                    if instructions_total > 0
+                    else 0
+                )
                 elapsed = time.monotonic() - t_start
                 speed = current / elapsed * 60 if elapsed > 0 else 0
 
@@ -1903,8 +2003,7 @@ def _run_ifeval_benchmark(
                 if len(prompt) > 90:
                     prompt = prompt[:87] + "…"
                 last_q_text.text_format = (
-                    f"  {icon} [bold]{ip}[/]/{it} constraints  "
-                    f"[dim italic]{prompt}[/]"
+                    f"  {icon} [bold]{ip}[/]/{it} constraints  [dim italic]{prompt}[/]"
                 )
 
             result = await plugin.run(
@@ -1922,10 +2021,13 @@ def _run_ifeval_benchmark(
             )
             result_holder.append(result)
 
-            progress.update(task, completed=result.details["total"],
-                          description="[green]✓ Complete")
+            progress.update(
+                task, completed=result.details["total"], description="[green]✓ Complete"
+            )
             d = result.details
-            final_speed = d["total"] / result.duration_seconds * 60 if result.duration_seconds > 0 else 0
+            final_speed = (
+                d["total"] / result.duration_seconds * 60 if result.duration_seconds > 0 else 0
+            )
             stats_text.text_format = (
                 f"  [bold green]✓ {d['prompts_passed']}[/]  "
                 f"[bold red]✗ {d['total'] - d['prompts_passed']}[/]  "
@@ -1967,8 +2069,9 @@ def _run_ifeval_benchmark(
         f"({details.get('instructions_passed', 0)}/{details.get('instructions_total', 0)})"
     )
     console.print(f"  [bold]Rating:[/] {result.rating}")
-    console.print(f"  [dim]Duration: {result.duration_seconds:.1f}s · "
-                  f"Tokens: {result.total_tokens:,}[/]")
+    console.print(
+        f"  [dim]Duration: {result.duration_seconds:.1f}s · Tokens: {result.total_tokens:,}[/]"
+    )
 
     # Write report
     from datetime import datetime, timezone
@@ -1976,11 +2079,16 @@ def _run_ifeval_benchmark(
     from tool_eval_bench.storage.reports import MarkdownReporter
     from tool_eval_bench.utils.ids import build_run_id
 
-    run_config = _with_config_fingerprint({
-        "model": model, "base_url": base_url,
-        "mode": "ifeval", "limit": limit,
-        "temperature": args.temperature, "seed": seed,
-    })
+    run_config = _with_config_fingerprint(
+        {
+            "model": model,
+            "base_url": base_url,
+            "mode": "ifeval",
+            "limit": limit,
+            "temperature": args.temperature,
+            "seed": seed,
+        }
+    )
     run_id = build_run_id(run_config)
     reporter = MarkdownReporter(root=output_dir)
     report_lines = plugin.render_report_section(result)
@@ -2004,19 +2112,21 @@ def _run_ifeval_benchmark(
     path.write_text("\n".join(md), encoding="utf-8")
 
     # Persist to SQLite (project rule: every run → SQLite)
-    _persist_plugin_run({
-        "run_id": run_id,
-        "run_type": "ifeval",
-        "status": "completed",
-        "config": run_config,
-        "scores": {
-            "final_score": round(result.score),
-            "accuracy": result.score,
-            "rating": result.rating,
-            **result.details,
-        },
-        "metadata": _metadata_for_storage(run_context),
-    })
+    _persist_plugin_run(
+        {
+            "run_id": run_id,
+            "run_type": "ifeval",
+            "status": "completed",
+            "config": run_config,
+            "scores": {
+                "final_score": round(result.score),
+                "accuracy": result.score,
+                "rating": result.rating,
+                **result.details,
+            },
+            "metadata": _metadata_for_storage(run_context),
+        }
+    )
 
     console.print("\n  [dim]Report saved to runs/[/]\n")
 
@@ -2036,216 +2146,436 @@ def _make_parser() -> argparse.ArgumentParser:
     # -- Connection --------------------------------------------------------
     conn = parser.add_argument_group("connection")
     conn.add_argument("--model", default=None, help="Model name/path (auto-detected if omitted)")
-    conn.add_argument("--backend", default=None,
-                      help="Backend label for reports: vllm, litellm, llamacpp "
-                           "(all use the same OpenAI-compatible adapter; default: env/vllm)")
-    conn.add_argument("--base-url", default=None,
-                      help="Server base URL (default: auto-discover on localhost, or from .env)")
+    conn.add_argument(
+        "--backend",
+        default=None,
+        help="Backend label for reports: vllm, litellm, llamacpp "
+        "(all use the same OpenAI-compatible adapter; default: env/vllm)",
+    )
+    conn.add_argument(
+        "--base-url",
+        default=None,
+        help="Server base URL (default: auto-discover on localhost, or from .env)",
+    )
     conn.add_argument("--api-key", default=None, help="API key")
-    conn.add_argument("--probe", action="store_true",
-                      help="Check if a server is reachable and exit "
-                           "(exit 0 = ready, exit 1 = not found)")
+    conn.add_argument(
+        "--probe",
+        action="store_true",
+        help="Check if a server is reachable and exit (exit 0 = ready, exit 1 = not found)",
+    )
 
     # -- Sampling ----------------------------------------------------------
     sampling = parser.add_argument_group("sampling")
-    sampling.add_argument("--temperature", type=float, default=0.0, help="Temperature (default: 0.0)")
-    sampling.add_argument("--no-think", action="store_true",
-                          help="Disable thinking/reasoning (sets enable_thinking=false)")
-    sampling.add_argument("--top-p", type=float, default=None, metavar="P",
-                          help="Top-p (nucleus) sampling (e.g. 0.9)")
-    sampling.add_argument("--top-k", type=int, default=None, metavar="K",
-                          help="Top-k sampling (e.g. 40)")
-    sampling.add_argument("--min-p", type=float, default=None, metavar="P",
-                          help="Min-p sampling threshold (e.g. 0.05)")
-    sampling.add_argument("--repeat-penalty", type=float, default=None, metavar="V",
-                          help="Repetition penalty (e.g. 1.1)")
+    sampling.add_argument(
+        "--temperature", type=float, default=0.0, help="Temperature (default: 0.0)"
+    )
+    sampling.add_argument(
+        "--no-think",
+        action="store_true",
+        help="Disable thinking/reasoning (sets enable_thinking=false)",
+    )
+    sampling.add_argument(
+        "--top-p", type=float, default=None, metavar="P", help="Top-p (nucleus) sampling (e.g. 0.9)"
+    )
+    sampling.add_argument(
+        "--top-k", type=int, default=None, metavar="K", help="Top-k sampling (e.g. 40)"
+    )
+    sampling.add_argument(
+        "--min-p",
+        type=float,
+        default=None,
+        metavar="P",
+        help="Min-p sampling threshold (e.g. 0.05)",
+    )
+    sampling.add_argument(
+        "--repeat-penalty",
+        type=float,
+        default=None,
+        metavar="V",
+        help="Repetition penalty (e.g. 1.1)",
+    )
     sampling.add_argument("--seed", type=int, default=None, help="Random seed (passed to server)")
     sampling.add_argument(
-        "--backend-kwargs", type=str, default=None, metavar="JSON",
+        "--backend-kwargs",
+        type=str,
+        default=None,
+        metavar="JSON",
         help="JSON dict merged into API payload; overrides individual flags "
-             "(e.g. '{\"temperature\": 0.6, \"top_p\": 0.9}')",
+        '(e.g. \'{"temperature": 0.6, "top_p": 0.9}\')',
     )
 
     # -- Scenario selection ------------------------------------------------
     select = parser.add_argument_group("scenario selection")
     select.add_argument(
-        "--scenarios", nargs="*", default=None,
+        "--scenarios",
+        nargs="*",
+        default=None,
         help="Specific scenario IDs to run (e.g. TC-01 TC-07). Default: all.",
     )
     select.add_argument(
-        "--categories", nargs="*", default=None, metavar="CAT",
+        "--categories",
+        nargs="*",
+        default=None,
+        metavar="CAT",
         help="Run only specific categories (e.g. --categories K A J). "
-             "Letters A–O map to the 15 benchmark categories.",
+        "Letters A–O map to the 15 benchmark categories.",
     )
-    select.add_argument("--short", action="store_true",
-                        help="Run only the core 15 scenarios (skip extended + agentic)")
-    select.add_argument("--hardmode", action="store_true",
-                        help="Include Hard Mode scenarios (Category P) — ceiling-breaking difficulty "
-                             "for models that score 100%% on the standard benchmark")
+    select.add_argument(
+        "--short",
+        action="store_true",
+        help="Run only the core 15 scenarios (skip extended + agentic)",
+    )
+    select.add_argument(
+        "--hardmode",
+        action="store_true",
+        help="Include Hard Mode scenarios (Category P) — ceiling-breaking difficulty "
+        "for models that score 100%% on the standard benchmark",
+    )
 
     # -- Run control -------------------------------------------------------
     run_ctrl = parser.add_argument_group("run control")
-    run_ctrl.add_argument("--timeout", type=float, default=60.0, help="Request timeout in seconds (default: 60)")
-    run_ctrl.add_argument("--max-turns", type=int, default=8, help="Max turns per scenario (default: 8)")
-    run_ctrl.add_argument("--trials", type=int, default=1,
-                          help="Number of trial runs for statistical rigor (default: 1)")
     run_ctrl.add_argument(
-        "--parallel", type=int, default=1, metavar="N",
+        "--timeout", type=float, default=60.0, help="Request timeout in seconds (default: 60)"
+    )
+    run_ctrl.add_argument(
+        "--max-turns", type=int, default=8, help="Max turns per scenario (default: 8)"
+    )
+    run_ctrl.add_argument(
+        "--trials",
+        type=int,
+        default=1,
+        help="Number of trial runs for statistical rigor (default: 1)",
+    )
+    run_ctrl.add_argument(
+        "--parallel",
+        type=int,
+        default=1,
+        metavar="N",
         help="Run N scenarios concurrently (default: 1 = sequential)",
     )
     run_ctrl.add_argument(
-        "--error-rate", type=float, default=0.0, metavar="RATE",
+        "--error-rate",
+        type=float,
+        default=0.0,
+        metavar="RATE",
         help="Inject random tool errors at this rate (0.0–1.0) for robustness testing",
     )
     run_ctrl.add_argument("--no-warmup", action="store_true", help="Skip server warm-up request")
-    run_ctrl.add_argument("--reference-date", default=None,
-                          help="Override benchmark reference date (YYYY-MM-DD)")
-    run_ctrl.add_argument("--skip-tool-eval", action="store_true",
-                          help="Skip tool-call scenarios (use with --perf / --spec-bench)")
+    run_ctrl.add_argument(
+        "--reference-date", default=None, help="Override benchmark reference date (YYYY-MM-DD)"
+    )
+    run_ctrl.add_argument(
+        "--skip-tool-eval",
+        action="store_true",
+        help="Skip tool-call scenarios (use with --perf / --spec-bench)",
+    )
 
     # -- Output ------------------------------------------------------------
     output = parser.add_argument_group("output")
-    output.add_argument("--json", action="store_true", help="Output raw JSON instead of rich display")
-    output.add_argument("--json-file", default=None, metavar="PATH",
-                        help="Write JSON results to PATH instead of stdout "
-                             "(implies --json; keeps stdout clean for logging)")
-    output.add_argument("--no-live", action="store_true", help="Disable live updating display")
-    output.add_argument("--redact-url", action="store_true",
-                        help="Mask the server URL in display output (for screenshots/recordings)")
     output.add_argument(
-        "--alpha", type=float, default=0.7, metavar="W",
+        "--json", action="store_true", help="Output raw JSON instead of rich display"
+    )
+    output.add_argument(
+        "--json-file",
+        default=None,
+        metavar="PATH",
+        help="Write JSON results to PATH instead of stdout "
+        "(implies --json; keeps stdout clean for logging)",
+    )
+    output.add_argument("--no-live", action="store_true", help="Disable live updating display")
+    output.add_argument(
+        "--redact-url",
+        action="store_true",
+        help="Mask the server URL in display output (for screenshots/recordings)",
+    )
+    output.add_argument(
+        "--alpha",
+        type=float,
+        default=0.7,
+        metavar="W",
         help="Quality/speed weight for deployability score (0–1, default: 0.7)",
     )
-    output.add_argument("--no-probe-engine", action="store_true",
-                        help="Skip inference engine probing (no /version, /health HTTP calls)")
-    output.add_argument("--output-dir", default=None, metavar="DIR",
-                        help="Directory for report files (default: ./runs/)")
-    output.add_argument("--dry-run", action="store_true",
-                        help="Show which scenarios would run, then exit (no server needed)")
+    output.add_argument(
+        "--no-probe-engine",
+        action="store_true",
+        help="Skip inference engine probing (no /version, /health HTTP calls)",
+    )
+    output.add_argument(
+        "--output-dir",
+        default=None,
+        metavar="DIR",
+        help="Directory for report files (default: ./runs/)",
+    )
+    output.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show which scenarios would run, then exit (no server needed)",
+    )
 
     # -- Throughput (llama-benchy) -----------------------------------------
     perf_grp = parser.add_argument_group("throughput benchmark (llama-benchy)")
-    perf_grp.add_argument("--perf", action="store_true",
-                          help="Run throughput benchmark before tool-call scenarios")
-    perf_grp.add_argument("--perf-only", action="store_true",
-                          help="Run ONLY throughput benchmark (skip tool-call scenarios)")
-    perf_grp.add_argument("--perf-legacy", action="store_true",
-                          help="Use built-in throughput benchmark (no external deps)")
-    perf_grp.add_argument("--perf-legacy-only", action="store_true",
-                          help="Run ONLY built-in throughput benchmark")
+    perf_grp.add_argument(
+        "--perf", action="store_true", help="Run throughput benchmark before tool-call scenarios"
+    )
+    perf_grp.add_argument(
+        "--perf-only",
+        action="store_true",
+        help="Run ONLY throughput benchmark (skip tool-call scenarios)",
+    )
+    perf_grp.add_argument(
+        "--perf-legacy",
+        action="store_true",
+        help="Use built-in throughput benchmark (no external deps)",
+    )
+    perf_grp.add_argument(
+        "--perf-legacy-only", action="store_true", help="Run ONLY built-in throughput benchmark"
+    )
     perf_grp.add_argument("--pp", type=int, default=2048, help="Prompt tokens (default: 2048)")
     perf_grp.add_argument("--tg", type=int, default=128, help="Generation tokens (default: 128)")
-    perf_grp.add_argument("--depth", type=str, default="0,4096,8192",
-                          help="Context depths, comma separated (default: '0,4096,8192')")
-    perf_grp.add_argument("--concurrency", type=str, default="1,2,4",
-                          help="Concurrency levels (default: '1,2,4')")
-    perf_grp.add_argument("--benchy-runs", type=int, default=3,
-                          help="Measurement runs per test point (default: 3)")
-    perf_grp.add_argument("--benchy-latency-mode", default="generation",
-                          choices=["api", "generation", "none"],
-                          help="Latency measurement mode (default: generation)")
-    perf_grp.add_argument("--benchy-args", type=str, default=None,
-                          help="Pass-through args for llama-benchy (quoted string)")
-    perf_grp.add_argument("--skip-coherence", action="store_true",
-                          help="Skip coherence check (for air-gapped hosts)")
+    perf_grp.add_argument(
+        "--depth",
+        type=str,
+        default="0,4096,8192",
+        help="Context depths, comma separated (default: '0,4096,8192')",
+    )
+    perf_grp.add_argument(
+        "--concurrency", type=str, default="1,2,4", help="Concurrency levels (default: '1,2,4')"
+    )
+    perf_grp.add_argument(
+        "--benchy-runs", type=int, default=3, help="Measurement runs per test point (default: 3)"
+    )
+    perf_grp.add_argument(
+        "--benchy-latency-mode",
+        default="generation",
+        choices=["api", "generation", "none"],
+        help="Latency measurement mode (default: generation)",
+    )
+    perf_grp.add_argument(
+        "--benchy-args",
+        type=str,
+        default=None,
+        help="Pass-through args for llama-benchy (quoted string)",
+    )
+    perf_grp.add_argument(
+        "--skip-coherence", action="store_true", help="Skip coherence check (for air-gapped hosts)"
+    )
 
     # -- GSM8K benchmark ----------------------------------------------------
     gsm8k_grp = parser.add_argument_group("GSM8K benchmark")
-    gsm8k_grp.add_argument("--gsm8k", action="store_true",
-                           help="Run GSM8K (Grade School Math) benchmark after tool-call scenarios")
-    gsm8k_grp.add_argument("--gsm8k-only", action="store_true",
-                           help="Run ONLY the GSM8K benchmark (skip tool-call scenarios)")
-    gsm8k_grp.add_argument("--gsm8k-shots", type=int, default=8, metavar="N",
-                           help="Number of few-shot CoT examples (0–8, default: 8)")
-    gsm8k_grp.add_argument("--gsm8k-limit", type=int, default=200, metavar="N",
-                           help="Max questions to evaluate (default: 200, 0 = all 1319)")
-    gsm8k_grp.add_argument("--gsm8k-shuffle", action="store_true",
-                           help="Shuffle question order (uses --seed for reproducibility)")
+    gsm8k_grp.add_argument(
+        "--gsm8k",
+        action="store_true",
+        help="Run GSM8K (Grade School Math) benchmark after tool-call scenarios",
+    )
+    gsm8k_grp.add_argument(
+        "--gsm8k-only",
+        action="store_true",
+        help="Run ONLY the GSM8K benchmark (skip tool-call scenarios)",
+    )
+    gsm8k_grp.add_argument(
+        "--gsm8k-shots",
+        type=int,
+        default=8,
+        metavar="N",
+        help="Number of few-shot CoT examples (0–8, default: 8)",
+    )
+    gsm8k_grp.add_argument(
+        "--gsm8k-limit",
+        type=int,
+        default=200,
+        metavar="N",
+        help="Max questions to evaluate (default: 200, 0 = all 1319)",
+    )
+    gsm8k_grp.add_argument(
+        "--gsm8k-shuffle",
+        action="store_true",
+        help="Shuffle question order (uses --seed for reproducibility)",
+    )
 
     # -- MMLU benchmark -----------------------------------------------------
     mmlu_grp = parser.add_argument_group("MMLU benchmark")
-    mmlu_grp.add_argument("--mmlu", action="store_true",
-                          help="Run MMLU (Massive Multitask Language Understanding) benchmark")
-    mmlu_grp.add_argument("--mmlu-only", action="store_true",
-                          help="Run ONLY the MMLU benchmark (skip tool-call scenarios)")
-    mmlu_grp.add_argument("--mmlu-shots", type=int, default=5, metavar="N",
-                          help="Number of few-shot examples per subject (0–5, default: 5)")
-    mmlu_grp.add_argument("--mmlu-limit", type=int, default=500, metavar="N",
-                          help="Max questions to evaluate (default: 500, 0 = all 14042)")
-    mmlu_grp.add_argument("--mmlu-subjects", type=str, default=None, metavar="LIST",
-                          help="Comma-separated subjects or categories "
-                               "(e.g. 'STEM,abstract_algebra')")
+    mmlu_grp.add_argument(
+        "--mmlu",
+        action="store_true",
+        help="Run MMLU (Massive Multitask Language Understanding) benchmark",
+    )
+    mmlu_grp.add_argument(
+        "--mmlu-only",
+        action="store_true",
+        help="Run ONLY the MMLU benchmark (skip tool-call scenarios)",
+    )
+    mmlu_grp.add_argument(
+        "--mmlu-shots",
+        type=int,
+        default=5,
+        metavar="N",
+        help="Number of few-shot examples per subject (0–5, default: 5)",
+    )
+    mmlu_grp.add_argument(
+        "--mmlu-limit",
+        type=int,
+        default=500,
+        metavar="N",
+        help="Max questions to evaluate (default: 500, 0 = all 14042)",
+    )
+    mmlu_grp.add_argument(
+        "--mmlu-subjects",
+        type=str,
+        default=None,
+        metavar="LIST",
+        help="Comma-separated subjects or categories (e.g. 'STEM,abstract_algebra')",
+    )
 
     # -- IFEval benchmark ---------------------------------------------------
     ifeval_grp = parser.add_argument_group("IFEval benchmark")
-    ifeval_grp.add_argument("--ifeval", action="store_true",
-                            help="Run IFEval (Instruction Following) benchmark")
-    ifeval_grp.add_argument("--ifeval-only", action="store_true",
-                            help="Run ONLY the IFEval benchmark (skip tool-call scenarios)")
-    ifeval_grp.add_argument("--ifeval-limit", type=int, default=0, metavar="N",
-                            help="Max prompts to evaluate (default: 0 = all 541)")
+    ifeval_grp.add_argument(
+        "--ifeval", action="store_true", help="Run IFEval (Instruction Following) benchmark"
+    )
+    ifeval_grp.add_argument(
+        "--ifeval-only",
+        action="store_true",
+        help="Run ONLY the IFEval benchmark (skip tool-call scenarios)",
+    )
+    ifeval_grp.add_argument(
+        "--ifeval-limit",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Max prompts to evaluate (default: 0 = all 541)",
+    )
 
     # -- Speculative decoding benchmark ------------------------------------
     spec_grp = parser.add_argument_group("speculative decoding benchmark")
-    spec_grp.add_argument("--spec-bench", action="store_true",
-                          help="Run spec-decode / MTP benchmark (effective t/s, acceptance rate)")
-    spec_grp.add_argument("--spec-live", action="store_true",
-                          help="Live-monitor speculative decoding stats "
-                               "(polls /metrics, runs until Ctrl+C)")
-    spec_grp.add_argument("--spec-live-interval", type=float, default=1.0, metavar="SEC",
-                          help="Poll interval for --spec-live in seconds (default: 1.0)")
-    spec_grp.add_argument("--spec-method", default="auto",
-                          choices=["auto", "mtp", "draft", "dflash", "ngram", "eagle"],
-                          help="Spec-decode method hint (default: auto-detect)")
-    spec_grp.add_argument("--baseline-tgs", type=float, default=None, metavar="TPS",
-                          help="Baseline tg t/s for speedup ratio calculation")
-    spec_grp.add_argument("--spec-prompts", type=str, default="filler,code,structured",
-                          help="Prompt types, comma separated (default: 'filler,code,structured')")
-    spec_grp.add_argument("--metrics-url", type=str, default=None, metavar="URL",
-                          help="Prometheus /metrics URL for acceptance rate "
-                               "(when API is behind a proxy)")
+    spec_grp.add_argument(
+        "--spec-bench",
+        action="store_true",
+        help="Run spec-decode / MTP benchmark (effective t/s, acceptance rate)",
+    )
+    spec_grp.add_argument(
+        "--spec-live",
+        action="store_true",
+        help="Live-monitor speculative decoding stats (polls /metrics, runs until Ctrl+C)",
+    )
+    spec_grp.add_argument(
+        "--spec-live-interval",
+        type=float,
+        default=1.0,
+        metavar="SEC",
+        help="Poll interval for --spec-live in seconds (default: 1.0)",
+    )
+    spec_grp.add_argument(
+        "--spec-method",
+        default="auto",
+        choices=["auto", "mtp", "draft", "dflash", "ngram", "eagle"],
+        help="Spec-decode method hint (default: auto-detect)",
+    )
+    spec_grp.add_argument(
+        "--baseline-tgs",
+        type=float,
+        default=None,
+        metavar="TPS",
+        help="Baseline tg t/s for speedup ratio calculation",
+    )
+    spec_grp.add_argument(
+        "--spec-prompts",
+        type=str,
+        default="filler,code,structured",
+        help="Prompt types, comma separated (default: 'filler,code,structured')",
+    )
+    spec_grp.add_argument(
+        "--metrics-url",
+        type=str,
+        default=None,
+        metavar="URL",
+        help="Prometheus /metrics URL for acceptance rate (when API is behind a proxy)",
+    )
 
     # -- Context pressure --------------------------------------------------
     pressure = parser.add_argument_group("context pressure")
-    pressure.add_argument("--context-pressure", type=float, default=None, metavar="RATIO",
-                          help="Fill context to RATIO (0.0–1.0) before each scenario")
-    pressure.add_argument("--context-size", type=int, default=None, metavar="TOKENS",
-                          help="Override auto-detected context window size (tokens)")
-    pressure.add_argument("--context-pressure-sweep", type=str, default=None, metavar="START-END",
-                          help="Sweep pressure from START to END (e.g. 0.5-1.0)")
-    pressure.add_argument("--sweep-steps", type=int, default=5, metavar="N",
-                          help="Number of pressure levels to test (default: 5)")
+    pressure.add_argument(
+        "--context-pressure",
+        type=float,
+        default=None,
+        metavar="RATIO",
+        help="Fill context to RATIO (0.0–1.0) before each scenario",
+    )
+    pressure.add_argument(
+        "--context-size",
+        type=int,
+        default=None,
+        metavar="TOKENS",
+        help="Override auto-detected context window size (tokens)",
+    )
+    pressure.add_argument(
+        "--context-pressure-sweep",
+        type=str,
+        default=None,
+        metavar="START-END",
+        help="Sweep pressure from START to END (e.g. 0.5-1.0)",
+    )
+    pressure.add_argument(
+        "--sweep-steps",
+        type=int,
+        default=5,
+        metavar="N",
+        help="Number of pressure levels to test (default: 5)",
+    )
 
     # -- History & comparison ----------------------------------------------
     hist_grp = parser.add_argument_group("history & comparison")
-    hist_grp.add_argument("--diff", metavar="RUN_ID", default=None,
-                          help="Compare against a previous run (use 'latest' for most recent)")
-    hist_grp.add_argument("--compare", nargs=2, metavar=("RUN_A", "RUN_B"), default=None,
-                          help="Compare two stored runs by ID")
-    hist_grp.add_argument("--history", action="store_true",
-                          help="List recent benchmark runs and exit")
-    hist_grp.add_argument("--leaderboard", action="store_true",
-                          help="Show ranked model leaderboard and exit")
-    hist_grp.add_argument("--export", metavar="FORMAT", default=None,
-                          choices=["csv", "json"],
-                          help="Export all results in CSV or JSON format and exit")
-    hist_grp.add_argument("--export-output", metavar="FILE", default=None,
-                          help="Output file for --export (default: stdout)")
-    hist_grp.add_argument("--resume", metavar="RUN_ID", default=None,
-                          help="Resume a previous run — skip scenarios that already passed")
+    hist_grp.add_argument(
+        "--diff",
+        metavar="RUN_ID",
+        default=None,
+        help="Compare against a previous run (use 'latest' for most recent)",
+    )
+    hist_grp.add_argument(
+        "--compare",
+        nargs=2,
+        metavar=("RUN_A", "RUN_B"),
+        default=None,
+        help="Compare two stored runs by ID",
+    )
+    hist_grp.add_argument(
+        "--history", action="store_true", help="List recent benchmark runs and exit"
+    )
+    hist_grp.add_argument(
+        "--leaderboard", action="store_true", help="Show ranked model leaderboard and exit"
+    )
+    hist_grp.add_argument(
+        "--export",
+        metavar="FORMAT",
+        default=None,
+        choices=["csv", "json"],
+        help="Export all results in CSV or JSON format and exit",
+    )
+    hist_grp.add_argument(
+        "--export-output",
+        metavar="FILE",
+        default=None,
+        help="Output file for --export (default: stdout)",
+    )
+    hist_grp.add_argument(
+        "--resume",
+        metavar="RUN_ID",
+        default=None,
+        help="Resume a previous run — skip scenarios that already passed",
+    )
 
     # -- Scoring options ---------------------------------------------------
     scoring = parser.add_argument_group("scoring")
-    scoring.add_argument("--weight-by-difficulty", action="store_true",
-                         help="Weight scenario scores by difficulty tier "
-                              "(1×trivial … 5×very hard)")
+    scoring.add_argument(
+        "--weight-by-difficulty",
+        action="store_true",
+        help="Weight scenario scores by difficulty tier (1×trivial … 5×very hard)",
+    )
 
     # -- Hidden / WIP (not shown in --help) --------------------------------
     parser.add_argument("--llm-judge", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--judge-model", type=str, default=None, metavar="MODEL",
-                        help=argparse.SUPPRESS)
-    parser.add_argument("--experimental-async", action="store_true",
-                        help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--judge-model", type=str, default=None, metavar="MODEL", help=argparse.SUPPRESS
+    )
+    parser.add_argument("--experimental-async", action="store_true", help=argparse.SUPPRESS)
 
     return parser
 
@@ -2290,8 +2620,10 @@ def main() -> None:
     if args.dry_run:
         scenarios = _resolve_scenarios(args)
         from tool_eval_bench.domain.scenarios import CATEGORY_LABELS
+
         if args.json:
             import json as _json
+
             cat_counts: dict[str, int] = {}
             for s in scenarios:
                 cat_counts[s.category.value] = cat_counts.get(s.category.value, 0) + 1
@@ -2310,16 +2642,21 @@ def main() -> None:
                     for cat, count in sorted(cat_counts.items())
                 },
                 "scenarios": [
-                    {"id": s.id, "title": s.title, "category": s.category.value,
-                     "difficulty": s.difficulty}
+                    {
+                        "id": s.id,
+                        "title": s.title,
+                        "category": s.category.value,
+                        "difficulty": s.difficulty,
+                    }
                     for s in scenarios
                 ],
             }
             sys.stdout.write(_json.dumps(out, indent=2) + "\n")
         else:
             console.print(f"\n[bold]Dry run:[/] {len(scenarios)} scenarios would execute\n")
-            console.print(f"  Estimated time: ~{len(scenarios) * 0.3:.0f} minutes "
-                          f"(at ~18s/scenario)\n")
+            console.print(
+                f"  Estimated time: ~{len(scenarios) * 0.3:.0f} minutes (at ~18s/scenario)\n"
+            )
             cat_counts = {}
             for s in scenarios:
                 label = CATEGORY_LABELS.get(s.category, s.category.value)
@@ -2388,7 +2725,9 @@ def main() -> None:
             console.print("\n[bold]🔧 Tool-Call Benchmark[/]")
             console.print(f"[dim]  Server: {display_url}[/]")
         model, display_name = _detect_model(
-            base_url, api_key, console,
+            base_url,
+            api_key,
+            console,
             display_url=display_url,
             headless=args.json,
         )
@@ -2417,8 +2756,9 @@ def main() -> None:
         try:
             bk = json.loads(args.backend_kwargs)
             if not isinstance(bk, dict):
-                parser.error("--backend-kwargs must be a JSON object (dict), "
-                             f"got {type(bk).__name__}")
+                parser.error(
+                    f"--backend-kwargs must be a JSON object (dict), got {type(bk).__name__}"
+                )
             # Deep-merge: for dict-valued keys, merge nested dicts; else override
             for k, v in bk.items():
                 if isinstance(v, dict) and isinstance(extra_params.get(k), dict):
@@ -2438,15 +2778,11 @@ def main() -> None:
             )
         cats = [c.upper() for c in args.categories]
         from tool_eval_bench.domain.scenarios import CATEGORY_LABELS
-        cat_names = ", ".join(
-            f"{c} ({CATEGORY_LABELS[Category(c)]})" for c in cats
-        )
+
+        cat_names = ", ".join(f"{c} ({CATEGORY_LABELS[Category(c)]})" for c in cats)
         resolved_count = len(_resolve_scenarios(args))
         if not args.json:
-            console.print(
-                f"  [dim]📋 Categories: {cat_names} "
-                f"({resolved_count} scenarios)[/]"
-            )
+            console.print(f"  [dim]📋 Categories: {cat_names} ({resolved_count} scenarios)[/]")
 
     # -- spec-live: standalone live monitor (exits after session) --
     if args.spec_live:
@@ -2458,14 +2794,16 @@ def main() -> None:
         from tool_eval_bench.cli.spec_live_display import run_spec_live
 
         try:
-            asyncio.run(run_spec_live(
-                base_url,
-                api_key=api_key,
-                metrics_url=args.metrics_url,
-                model_name=display_name,
-                poll_interval=args.spec_live_interval,
-                spec_method=spec_method_hint,
-            ))
+            asyncio.run(
+                run_spec_live(
+                    base_url,
+                    api_key=api_key,
+                    metrics_url=args.metrics_url,
+                    model_name=display_name,
+                    poll_interval=args.spec_live_interval,
+                    spec_method=spec_method_hint,
+                )
+            )
         except KeyboardInterrupt:
             pass
         return
@@ -2499,31 +2837,35 @@ def main() -> None:
         if args.scenarios:
             scenario_sel = ", ".join(args.scenarios)
         elif args.categories:
-            scenario_sel = f"categories {', '.join(c.upper() for c in args.categories)} ({len(resolved_sc)})"
+            scenario_sel = (
+                f"categories {', '.join(c.upper() for c in args.categories)} ({len(resolved_sc)})"
+            )
         elif args.short:
             scenario_sel = f"short ({len(resolved_sc)})"
         else:
             scenario_sel = f"all ({len(resolved_sc)})"
 
         trials = max(1, args.trials)
-        run_context = asyncio.run(collect_run_context(
-            model=model,
-            backend=backend,
-            base_url=base_url,
-            api_key=api_key,
-            temperature=args.temperature,
-            max_turns=args.max_turns,
-            timeout_seconds=args.timeout,
-            seed=args.seed,
-            scenario_selector=scenario_sel,
-            trials=trials,
-            parallel=args.parallel,
-            error_rate=args.error_rate,
-            thinking_enabled=not args.no_think,
-            extra_params=extra_params or None,
-            context_pressure=args.context_pressure,
-            probe_engine=not args.no_probe_engine,
-        ))
+        run_context = asyncio.run(
+            collect_run_context(
+                model=model,
+                backend=backend,
+                base_url=base_url,
+                api_key=api_key,
+                temperature=args.temperature,
+                max_turns=args.max_turns,
+                timeout_seconds=args.timeout,
+                seed=args.seed,
+                scenario_selector=scenario_sel,
+                trials=trials,
+                parallel=args.parallel,
+                error_rate=args.error_rate,
+                thinking_enabled=not args.no_think,
+                extra_params=extra_params or None,
+                context_pressure=args.context_pressure,
+                probe_engine=not args.no_probe_engine,
+            )
+        )
         if not args.json and run_context.engine_name:
             engine_str = run_context.engine_name
             if run_context.engine_version:
@@ -2542,11 +2884,17 @@ def main() -> None:
         benchy_extra: list[str] | None = None
         if args.benchy_args:
             import shlex
+
             benchy_extra = shlex.split(args.benchy_args)
 
         throughput_samples = _run_llama_benchy(
-            console, model, display_name, base_url, api_key,
-            pp=[args.pp], tg=[args.tg],
+            console,
+            model,
+            display_name,
+            base_url,
+            api_key,
+            pp=[args.pp],
+            tg=[args.tg],
             depths=depths,
             concurrency_levels=conc_levels,
             runs=args.benchy_runs,
@@ -2562,24 +2910,32 @@ def main() -> None:
             # Write standalone throughput report
             from tool_eval_bench.utils.ids import build_run_id
 
-            run_config = _with_config_fingerprint({
-                "model": model, "backend": backend,
-                "base_url": base_url, "mode": "perf-only",
-            })
+            run_config = _with_config_fingerprint(
+                {
+                    "model": model,
+                    "backend": backend,
+                    "base_url": base_url,
+                    "mode": "perf-only",
+                }
+            )
             run_id = build_run_id(run_config)
             reporter = MarkdownReporter(root=args.output_dir)
             report_path = reporter.write_throughput_report(
-                run_id, display_name, throughput_samples,
+                run_id,
+                display_name,
+                throughput_samples,
                 run_context=run_context,
             )
-            _persist_plugin_run({
-                "run_id": run_id,
-                "run_type": "perf",
-                "status": "completed",
-                "config": run_config,
-                "scores": {"samples": len(throughput_samples)},
-                "metadata": _metadata_for_storage(run_context),
-            })
+            _persist_plugin_run(
+                {
+                    "run_id": run_id,
+                    "run_type": "perf",
+                    "status": "completed",
+                    "config": run_config,
+                    "scores": {"samples": len(throughput_samples)},
+                    "metadata": _metadata_for_storage(run_context),
+                }
+            )
             console.print(f"\n  [dim]Report saved to {report_path}[/]\n")
             return
 
@@ -2588,32 +2944,47 @@ def main() -> None:
         depths = _parse_int_list(args.depth)
         conc_levels = _parse_int_list(args.concurrency)
         legacy_samples = _run_throughput(
-            console, model, display_name, base_url, api_key,
-            pp=args.pp, tg=args.tg, depths=depths, concurrency_levels=conc_levels,
+            console,
+            model,
+            display_name,
+            base_url,
+            api_key,
+            pp=args.pp,
+            tg=args.tg,
+            depths=depths,
+            concurrency_levels=conc_levels,
         )
         throughput_samples.extend(legacy_samples)
 
         if args.perf_legacy_only:
             from tool_eval_bench.utils.ids import build_run_id
 
-            run_config = _with_config_fingerprint({
-                "model": model, "backend": backend,
-                "base_url": base_url, "mode": "perf-legacy-only",
-            })
+            run_config = _with_config_fingerprint(
+                {
+                    "model": model,
+                    "backend": backend,
+                    "base_url": base_url,
+                    "mode": "perf-legacy-only",
+                }
+            )
             run_id = build_run_id(run_config)
             reporter = MarkdownReporter(root=args.output_dir)
             report_path = reporter.write_throughput_report(
-                run_id, display_name, legacy_samples,
+                run_id,
+                display_name,
+                legacy_samples,
                 run_context=run_context,
             )
-            _persist_plugin_run({
-                "run_id": run_id,
-                "run_type": "perf-legacy",
-                "status": "completed",
-                "config": run_config,
-                "scores": {"samples": len(legacy_samples)},
-                "metadata": _metadata_for_storage(run_context),
-            })
+            _persist_plugin_run(
+                {
+                    "run_id": run_id,
+                    "run_type": "perf-legacy",
+                    "status": "completed",
+                    "config": run_config,
+                    "scores": {"samples": len(legacy_samples)},
+                    "metadata": _metadata_for_storage(run_context),
+                }
+            )
             console.print(f"\n  [dim]Report saved to {report_path}[/]\n")
             return
 
@@ -2622,8 +2993,14 @@ def main() -> None:
         spec_depths = _parse_int_list(args.depth)
         spec_prompts = [p.strip() for p in args.spec_prompts.split(",") if p.strip()]
         _run_spec_bench(
-            console, model, display_name, base_url, api_key,
-            pp=args.pp, tg=args.tg, depths=spec_depths,
+            console,
+            model,
+            display_name,
+            base_url,
+            api_key,
+            pp=args.pp,
+            tg=args.tg,
+            depths=spec_depths,
             spec_method=args.spec_method,
             baseline_tg_tps=args.baseline_tgs,
             prompt_types=spec_prompts,
@@ -2631,16 +3008,28 @@ def main() -> None:
             output_dir=args.output_dir,
         )
         # If --spec-bench is the only mode, or user explicitly skipped tool-eval
-        if args.skip_tool_eval or (not args.perf and not args.perf_only
-                                   and not args.gsm8k and not args.gsm8k_only
-                                   and not args.mmlu and not args.mmlu_only
-                                   and not args.ifeval and not args.ifeval_only):
+        if args.skip_tool_eval or (
+            not args.perf
+            and not args.perf_only
+            and not args.gsm8k
+            and not args.gsm8k_only
+            and not args.mmlu
+            and not args.mmlu_only
+            and not args.ifeval
+            and not args.ifeval_only
+        ):
             return
 
     # -- Context pressure sweep --
     if args.context_pressure_sweep is not None:
         _run_pressure_sweep(
-            console, model, display_name, backend, base_url, api_key, args,
+            console,
+            model,
+            display_name,
+            backend,
+            base_url,
+            api_key,
+            args,
             display_url=display_url,
             extra_params=extra_params or None,
         )
@@ -2662,7 +3051,9 @@ def main() -> None:
         try:
             pressure_cfg = asyncio.run(
                 prepare_context_pressure(
-                    base_url, model, api_key,
+                    base_url,
+                    model,
+                    api_key,
                     ratio=ratio,
                     context_size_override=args.context_size,
                     metrics_url=args.metrics_url,
@@ -2681,13 +3072,15 @@ def main() -> None:
                     pressure_messages = build_pressure_messages(
                         pressure_cfg,
                         on_chunk=lambda tokens_so_far: progress.update(
-                            task, completed=tokens_so_far,
+                            task,
+                            completed=tokens_so_far,
                         ),
                         seed=args.seed,
                     )
             else:
                 pressure_messages = build_pressure_messages(
-                    pressure_cfg, seed=args.seed,
+                    pressure_cfg,
+                    seed=args.seed,
                 )
 
             # Calibrate using server-side tokenizer for exact token counts
@@ -2695,7 +3088,9 @@ def main() -> None:
                 calibrate_pressure_messages(
                     pressure_messages,
                     pressure_cfg.fill_tokens,
-                    base_url, model, api_key,
+                    base_url,
+                    model,
+                    api_key,
                     seed=args.seed,
                 )
             )
@@ -2724,9 +3119,7 @@ def main() -> None:
                 )
 
                 headroom = (
-                    pressure_cfg.detected_context
-                    - pressure_cfg.fill_tokens
-                    - _RESERVED_FOR_OUTPUT
+                    pressure_cfg.detected_context - pressure_cfg.fill_tokens - _RESERVED_FOR_OUTPUT
                 )
                 fill_k = pressure_cfg.fill_tokens / 1000
                 tool_k = tool_tokens_est / 1000
@@ -2754,7 +3147,9 @@ def main() -> None:
                 if scaled_timeout > args.timeout:
                     logger.info(
                         "Auto-scaling timeout from %.0fs to %.0fs for %d fill tokens",
-                        args.timeout, scaled_timeout, fill_tokens_for_timeout,
+                        args.timeout,
+                        scaled_timeout,
+                        fill_tokens_for_timeout,
                     )
                     args.timeout = scaled_timeout
 
@@ -2765,7 +3160,12 @@ def main() -> None:
     # -- GSM8K benchmark --
     if args.gsm8k or args.gsm8k_only:
         _run_gsm8k_benchmark(
-            console, model, display_name, base_url, api_key, args,
+            console,
+            model,
+            display_name,
+            base_url,
+            api_key,
+            args,
             extra_params=extra_params or None,
             output_dir=args.output_dir,
             run_context=run_context,
@@ -2776,7 +3176,12 @@ def main() -> None:
     # -- MMLU benchmark --
     if args.mmlu or args.mmlu_only:
         _run_mmlu_benchmark(
-            console, model, display_name, base_url, api_key, args,
+            console,
+            model,
+            display_name,
+            base_url,
+            api_key,
+            args,
             extra_params=extra_params or None,
             output_dir=args.output_dir,
             run_context=run_context,
@@ -2787,7 +3192,12 @@ def main() -> None:
     # -- IFEval benchmark --
     if args.ifeval or args.ifeval_only:
         _run_ifeval_benchmark(
-            console, model, display_name, base_url, api_key, args,
+            console,
+            model,
+            display_name,
+            base_url,
+            api_key,
+            args,
             extra_params=extra_params or None,
             output_dir=args.output_dir,
             run_context=run_context,
@@ -2797,10 +3207,18 @@ def main() -> None:
 
     # -- Skip tool-call scenarios if requested --
     if args.skip_tool_eval:
-        any_benchmark = (args.perf or args.perf_only or args.spec_bench
-                        or args.spec_live or args.gsm8k or args.gsm8k_only
-                        or args.mmlu or args.mmlu_only
-                        or args.ifeval or args.ifeval_only)
+        any_benchmark = (
+            args.perf
+            or args.perf_only
+            or args.spec_bench
+            or args.spec_live
+            or args.gsm8k
+            or args.gsm8k_only
+            or args.mmlu
+            or args.mmlu_only
+            or args.ifeval
+            or args.ifeval_only
+        )
         if not any_benchmark:
             console.print(
                 "\n  [yellow]⚠ --skip-tool-eval has no effect without "
@@ -2820,6 +3238,7 @@ def main() -> None:
     resume_prior_results: list[dict] | None = None
     if args.resume:
         from tool_eval_bench.storage.db import RunRepository
+
         resume_repo = RunRepository()
         prev_run = resume_repo.get(args.resume)
         resume_repo.close()
@@ -2854,14 +3273,12 @@ def main() -> None:
                     f"  [dim]ℹ No scenario results in run {args.resume} — running all.[/]"
                 )
         else:
-            passed_ids = {
-                r["scenario_id"] for r in prev_results
-                if r.get("status") == "pass"
-            }
+            passed_ids = {r["scenario_id"] for r in prev_results if r.get("status") == "pass"}
 
             # --- B5: Reject legacy passes without raw_log traces ---
             traceless = {
-                r["scenario_id"] for r in prev_results
+                r["scenario_id"]
+                for r in prev_results
                 if r.get("status") == "pass" and not r.get("raw_log")
             }
             if traceless and not args.json:
@@ -2897,8 +3314,7 @@ def main() -> None:
                 args.scenarios = [s.id for s in remaining]
                 # Store prior results for post-run merge (only those with traces)
                 resume_prior_results = [
-                    r for r in prev_results
-                    if r.get("status") == "pass" and r.get("raw_log")
+                    r for r in prev_results if r.get("status") == "pass" and r.get("raw_log")
                 ]
         # Store resume_run_id on args so the run_benchmark helpers can pass it
         args._resume_run_id = args.resume
@@ -2912,7 +3328,14 @@ def main() -> None:
 
     if use_live:
         _run_with_live_display(
-            service, console, model, display_name, backend, base_url, api_key, args,
+            service,
+            console,
+            model,
+            display_name,
+            backend,
+            base_url,
+            api_key,
+            args,
             throughput_samples=throughput_samples,
             extra_params=extra_params or None,
             context_pressure_messages=pressure_messages,
@@ -2921,23 +3344,41 @@ def main() -> None:
             run_context=run_context,
         )
     elif args.json:
-        _run_json(service, model, backend, base_url, api_key, args,
-                  extra_params=extra_params or None,
-                  context_pressure_messages=pressure_messages,
-                  context_pressure_config=pressure_config_dict,
-                  run_context=run_context)
+        _run_json(
+            service,
+            model,
+            backend,
+            base_url,
+            api_key,
+            args,
+            extra_params=extra_params or None,
+            context_pressure_messages=pressure_messages,
+            context_pressure_config=pressure_config_dict,
+            run_context=run_context,
+        )
     else:
-        _run_plain(service, console, model, display_name, backend, base_url, api_key, args,
-                   throughput_samples=throughput_samples,
-                   extra_params=extra_params or None,
-                   context_pressure_messages=pressure_messages,
-                   context_pressure_config=pressure_config_dict,
-                   display_url=display_url,
-                   run_context=run_context)
+        _run_plain(
+            service,
+            console,
+            model,
+            display_name,
+            backend,
+            base_url,
+            api_key,
+            args,
+            throughput_samples=throughput_samples,
+            extra_params=extra_params or None,
+            context_pressure_messages=pressure_messages,
+            context_pressure_config=pressure_config_dict,
+            display_url=display_url,
+            run_context=run_context,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Multi-trial aggregation
 # ---------------------------------------------------------------------------
+
 
 def _bootstrap_ci(
     values: list[float],
@@ -2960,10 +3401,7 @@ def _bootstrap_ci(
 
     # Deterministic bootstrap for reproducibility
     rng = random.Random(42)
-    means = sorted(
-        mean(rng.choices(values, k=len(values)))
-        for _ in range(n_resamples)
-    )
+    means = sorted(mean(rng.choices(values, k=len(values))) for _ in range(n_resamples))
 
     alpha = 1 - ci
     lo_idx = int(alpha / 2 * n_resamples)
@@ -3098,22 +3536,28 @@ def _print_trials_summary(console: Console, agg: dict) -> None:
     cat_lines = []
     for cat_key, cs in agg["per_category"].items():
         if cs["stddev_percent"] > 0:
-            cat_lines.append(f"    {cat_key} {cs['label']}: {cs['mean_percent']:.0f}% ± {cs['stddev_percent']:.1f}%")
+            cat_lines.append(
+                f"    {cat_key} {cs['label']}: {cs['mean_percent']:.0f}% ± {cs['stddev_percent']:.1f}%"
+            )
     if cat_lines:
         content += "\n  [bold]Categories with variance:[/]\n" + "\n".join(cat_lines)
 
     # Show scenarios with variance
-    unstable = [
-        (sid, st) for sid, st in agg["per_scenario"].items()
-        if st["stddev"] > 0
-    ]
+    unstable = [(sid, st) for sid, st in agg["per_scenario"].items() if st["stddev"] > 0]
     if unstable:
         content += f"\n\n  [bold yellow]⚡ {len(unstable)} unstable scenario(s):[/]"
         for sid, st in unstable:
             pts_str = ",".join(str(p) for p in st["points"])
             content += f"\n    {sid}: {st['mean']:.1f} ± {st['stddev']:.1f}  [dim]({pts_str})[/]"
 
-    console.print(Panel(content, title="[bold]📊 Trial Statistics[/]", border_style="bright_cyan", padding=(1, 2)))
+    console.print(
+        Panel(
+            content,
+            title="[bold]📊 Trial Statistics[/]",
+            border_style="bright_cyan",
+            padding=(1, 2),
+        )
+    )
     console.print()
 
 
@@ -3121,27 +3565,24 @@ def _print_trials_summary(console: Console, agg: dict) -> None:
 # Context pressure sweep
 # ---------------------------------------------------------------------------
 
+
 def _parse_sweep_range(sweep_str: str) -> tuple[float, float]:
     """Parse 'START-END' into (start, end) floats, each clamped to [0, 1]."""
     parts = sweep_str.split("-", maxsplit=1)
     if len(parts) != 2:
         raise ValueError(
-            f"Invalid sweep range '{sweep_str}'. Expected format: START-END "
-            f"(e.g. 0.5-1.0)"
+            f"Invalid sweep range '{sweep_str}'. Expected format: START-END (e.g. 0.5-1.0)"
         )
     try:
         start, end = float(parts[0]), float(parts[1])
     except ValueError:
         raise ValueError(
-            f"Invalid sweep range '{sweep_str}'. START and END must be numbers "
-            f"(e.g. 0.5-1.0)"
+            f"Invalid sweep range '{sweep_str}'. START and END must be numbers (e.g. 0.5-1.0)"
         ) from None
     start = max(0.0, min(1.0, start))
     end = max(0.0, min(1.0, end))
     if start >= end:
-        raise ValueError(
-            f"Sweep START ({start}) must be less than END ({end})"
-        )
+        raise ValueError(f"Sweep START ({start}) must be less than END ({end})")
     return start, end
 
 
@@ -3191,9 +3632,7 @@ def _run_pressure_sweep(
     scenario_ids = [s.id for s in scenarios]
 
     console.print(f"\n[bold]⚡ Context Pressure Sweep[/] — {display_name}")
-    console.print(
-        f"[dim]  Backend: {backend}  |  Server: {display_url or base_url}[/]"
-    )
+    console.print(f"[dim]  Backend: {backend}  |  Server: {display_url or base_url}[/]")
     console.print(
         f"[dim]  Range: {start:.0%} → {end:.0%}  |  "
         f"{len(levels)} levels  |  "
@@ -3204,9 +3643,7 @@ def _run_pressure_sweep(
     try:
         context_size: int | None = args.context_size
         if context_size is None:
-            context_size = asyncio.run(
-                detect_context_size(base_url, model, api_key)
-            )
+            context_size = asyncio.run(detect_context_size(base_url, model, api_key))
         if context_size is None:
             console.print(
                 "[bold red]Error:[/] Could not auto-detect context size. "
@@ -3218,7 +3655,9 @@ def _run_pressure_sweep(
         # Only when auto-detected — explicit --context-size is trusted as-is.
         if args.context_size is None:
             kv_cap = asyncio.run(
-                detect_kv_capacity(base_url, api_key, metrics_url=getattr(args, 'metrics_url', None))
+                detect_kv_capacity(
+                    base_url, api_key, metrics_url=getattr(args, "metrics_url", None)
+                )
             )
             if kv_cap is not None and kv_cap < context_size:
                 console.print(
@@ -3248,7 +3687,8 @@ def _run_pressure_sweep(
             # Compute fill budget for this ratio
             fill_tokens = compute_fill_budget(context_size, ratio)
             cfg = ContextPressureConfig(
-                ratio=ratio, fill_tokens=fill_tokens,
+                ratio=ratio,
+                fill_tokens=fill_tokens,
                 detected_context=context_size,
             )
 
@@ -3259,19 +3699,24 @@ def _run_pressure_sweep(
             if args.seed is not None:
                 level_seed = args.seed + level_idx
             pressure_messages = build_pressure_messages(
-                cfg, seed=level_seed,
+                cfg,
+                seed=level_seed,
             )
 
             # Calibrate filler to exact token count via server tokenizer.
             # Uses a private event loop to avoid interfering with the
             # mocked asyncio.run in tests.
             import asyncio as _aio
+
             _loop = _aio.new_event_loop()
             try:
                 pressure_messages, actual_fill = _loop.run_until_complete(
                     calibrate_pressure_messages(
-                        pressure_messages, fill_tokens,
-                        base_url, model, api_key,
+                        pressure_messages,
+                        fill_tokens,
+                        base_url,
+                        model,
+                        api_key,
                         seed=level_seed,
                     )
                 )
@@ -3281,10 +3726,14 @@ def _run_pressure_sweep(
             n_msg_pairs = len(pressure_messages) // 2
             cal_delta = actual_fill - fill_tokens
             logger.info(
-                "Sweep %d/%d: ratio=%.4f fill_target=%d actual=%d "
-                "delta=%+d msg_pairs=%d",
-                level_idx + 1, len(levels), ratio, fill_tokens,
-                actual_fill, cal_delta, n_msg_pairs,
+                "Sweep %d/%d: ratio=%.4f fill_target=%d actual=%d delta=%+d msg_pairs=%d",
+                level_idx + 1,
+                len(levels),
+                ratio,
+                fill_tokens,
+                actual_fill,
+                cal_delta,
+                n_msg_pairs,
             )
 
             # Auto-scale timeout: large fills need significant prefill time.
@@ -3292,7 +3741,7 @@ def _run_pressure_sweep(
             # so 50K tokens ≈ 33s just for prefill, plus multi-turn
             # generation overhead.  We use a generous 120s base + 60s per
             # 50K fill tokens to avoid false timeout failures.
-            base_timeout = getattr(args, 'timeout', 60.0)
+            base_timeout = getattr(args, "timeout", 60.0)
             fill_scaling = max(0, fill_tokens / 50_000) * 60.0
             effective_timeout = max(base_timeout, 120.0 + fill_scaling)
 
@@ -3336,26 +3785,25 @@ def _run_pressure_sweep(
                 for sr in summary.scenario_results:
                     results_map[sr.scenario_id] = sr.status.value
 
-                pass_count = sum(
-                    1 for s in results_map.values() if s == "pass"
-                )
+                pass_count = sum(1 for s in results_map.values() if s == "pass")
                 total = len(scenarios)
                 score_pct = (pass_count / total * 100) if total else 0
 
                 # Print inline status
                 emoji_str = "  ".join(
-                    _STATUS_EMOJI.get(results_map.get(sid, "fail"), "❌")
-                    for sid in scenario_ids
+                    _STATUS_EMOJI.get(results_map.get(sid, "fail"), "❌") for sid in scenario_ids
                 )
                 console.print(f"{emoji_str}  [bold]{score_pct:.0f}%[/]")
 
-                level_results.append({
-                    "ratio": ratio,
-                    "results": results_map,
-                    "score_pct": score_pct,
-                    "pass_count": pass_count,
-                    "fill_tokens": fill_tokens,
-                })
+                level_results.append(
+                    {
+                        "ratio": ratio,
+                        "results": results_map,
+                        "score_pct": score_pct,
+                        "pass_count": pass_count,
+                        "fill_tokens": fill_tokens,
+                    }
+                )
 
                 # Early stop logic
                 if pass_count == 0:
@@ -3364,26 +3812,24 @@ def _run_pressure_sweep(
                     consecutive_all_fail = 0
 
                 if consecutive_all_fail >= 2:
-                    console.print(
-                        "  [dim]··· stopped (2 consecutive all-fail levels)[/]"
-                    )
+                    console.print("  [dim]··· stopped (2 consecutive all-fail levels)[/]")
                     break
 
             except Exception as exc:
                 console.print(f"[red]error: {exc}[/]")
-                level_results.append({
-                    "ratio": ratio,
-                    "results": {sid: "fail" for sid in scenario_ids},
-                    "score_pct": 0,
-                    "pass_count": 0,
-                    "fill_tokens": fill_tokens,
-                    "error": str(exc),
-                })
+                level_results.append(
+                    {
+                        "ratio": ratio,
+                        "results": {sid: "fail" for sid in scenario_ids},
+                        "score_pct": 0,
+                        "pass_count": 0,
+                        "fill_tokens": fill_tokens,
+                        "error": str(exc),
+                    }
+                )
                 consecutive_all_fail += 1
                 if consecutive_all_fail >= 2:
-                    console.print(
-                        "  [dim]··· stopped (2 consecutive all-fail levels)[/]"
-                    )
+                    console.print("  [dim]··· stopped (2 consecutive all-fail levels)[/]")
                     break
 
     except KeyboardInterrupt:
@@ -3405,8 +3851,7 @@ def _run_pressure_sweep(
         ratio = lr["ratio"]
         score = lr["score_pct"]
         emoji_str = "  ".join(
-            _STATUS_EMOJI.get(lr["results"].get(sid, "fail"), "❌")
-            for sid in scenario_ids
+            _STATUS_EMOJI.get(lr["results"].get(sid, "fail"), "❌") for sid in scenario_ids
         )
         # Bar visualization (20 chars wide)
         bar_len = int(score / 100 * 20)
@@ -3418,14 +3863,10 @@ def _run_pressure_sweep(
             bar_color = "red"
         bar = f"[{bar_color}]{'█' * bar_len}[/]{'░' * (20 - bar_len)}"
 
-        lines.append(
-            f"  [bold]{ratio:>4.0%}[/]  {emoji_str}   {score:>3.0f}%  {bar}"
-        )
+        lines.append(f"  [bold]{ratio:>4.0%}[/]  {emoji_str}   {score:>3.0f}%  {bar}")
 
         # Track breaking point (last level where all pass)
-        all_pass = all(
-            v == "pass" for v in lr["results"].values()
-        )
+        all_pass = all(v == "pass" for v in lr["results"].values())
         if all_pass:
             breaking_point = ratio
         if first_degradation is None and not all_pass:
@@ -3433,56 +3874,59 @@ def _run_pressure_sweep(
 
     lines.append("")
     if breaking_point is not None:
-        lines.append(
-            f"  [bold green]Breaking point:[/] {breaking_point:.0%} "
-            f"(all scenarios pass)"
-        )
+        lines.append(f"  [bold green]Breaking point:[/] {breaking_point:.0%} (all scenarios pass)")
     else:
-        lines.append(
-            "  [bold red]Breaking point:[/] none "
-            "(no level had all scenarios pass)"
-        )
+        lines.append("  [bold red]Breaking point:[/] none (no level had all scenarios pass)")
     if first_degradation is not None:
         lines.append(
-            f"  [bold yellow]Degradation:[/]    {first_degradation:.0%} "
-            f"(first partial/fail)"
+            f"  [bold yellow]Degradation:[/]    {first_degradation:.0%} (first partial/fail)"
         )
 
     header = "  ".join(f"[dim]{sid}[/]" for sid in scenario_ids)
     lines.insert(0, f"  [dim]      {header}[/]")
 
     panel_content = "\n".join(lines)
-    console.print(Panel(
-        panel_content,
-        title="[bold]⚡ Context Pressure Sweep Results[/]",
-        border_style="bright_cyan",
-        padding=(1, 1),
-    ))
+    console.print(
+        Panel(
+            panel_content,
+            title="[bold]⚡ Context Pressure Sweep Results[/]",
+            border_style="bright_cyan",
+            padding=(1, 1),
+        )
+    )
     console.print()
 
     # Persist sweep to SQLite (project rule: every completed run → SQLite)
     from tool_eval_bench.utils.ids import build_run_id
 
-    sweep_config = _with_config_fingerprint({
-        "model": model, "base_url": base_url,
-        "mode": "context-pressure-sweep",
-        "start": start, "end": end, "steps": steps,
-        "scenarios": scenario_ids,
-    })
+    sweep_config = _with_config_fingerprint(
+        {
+            "model": model,
+            "base_url": base_url,
+            "mode": "context-pressure-sweep",
+            "start": start,
+            "end": end,
+            "steps": steps,
+            "scenarios": scenario_ids,
+        }
+    )
     sweep_run_id = build_run_id(sweep_config)
-    _persist_plugin_run({
-        "run_id": sweep_run_id,
-        "run_type": "context-pressure",
-        "status": "completed",
-        "config": sweep_config,
-        "scores": {
-            "levels": len(level_results),
-            "breaking_point": breaking_point,
-            "first_degradation": first_degradation,
-            "level_results": level_results,
-        },
-        "metadata": _metadata_for_storage(None),
-    })
+    _persist_plugin_run(
+        {
+            "run_id": sweep_run_id,
+            "run_type": "context-pressure",
+            "status": "completed",
+            "config": sweep_config,
+            "scores": {
+                "levels": len(level_results),
+                "breaking_point": breaking_point,
+                "first_degradation": first_degradation,
+                "level_results": level_results,
+            },
+            "metadata": _metadata_for_storage(None),
+        }
+    )
+
 
 def _run_with_live_display(
     service: BenchmarkService,
@@ -3510,7 +3954,9 @@ def _run_with_live_display(
     all_summaries = []
 
     # --- Trial 1: with live display ---
-    display = BenchmarkDisplay(display_name, backend, display_url or base_url, scenarios, run_context=run_context)
+    display = BenchmarkDisplay(
+        display_name, backend, display_url or base_url, scenarios, run_context=run_context
+    )
     display.start()
 
     async def run_trial(*, show: bool = False) -> dict:
@@ -3537,9 +3983,9 @@ def _run_with_live_display(
             context_pressure_messages=context_pressure_messages,
             context_pressure_config=context_pressure_config,
             run_context=run_context,
-            weight_by_difficulty=getattr(args, 'weight_by_difficulty', False),
-            resume_run_id=getattr(args, '_resume_run_id', None),
-            resume_prior_results=getattr(args, '_resume_prior_results', None),
+            weight_by_difficulty=getattr(args, "weight_by_difficulty", False),
+            resume_run_id=getattr(args, "_resume_run_id", None),
+            resume_prior_results=getattr(args, "_resume_prior_results", None),
             **callbacks,
         )
 
@@ -3552,7 +3998,7 @@ def _run_with_live_display(
         # re-scoring only the rerun subset from display.results (which would
         # show an inflated score — e.g. 100% from 5/5 reruns when the full
         # set was 50% on 35/69).
-        has_resume = bool(getattr(args, '_resume_prior_results', None))
+        has_resume = bool(getattr(args, "_resume_prior_results", None))
         merged_scores = result.get("scores", {}) if has_resume else None
 
         if merged_scores and has_resume:
@@ -3560,29 +4006,29 @@ def _run_with_live_display(
             from tool_eval_bench.domain.scenarios import (
                 ScenarioResult as _SR,
             )
+
             merged_sr = [
-                _SR.from_dict(sr_dict)
-                for sr_dict in merged_scores.get("scenario_results", [])
+                _SR.from_dict(sr_dict) for sr_dict in merged_scores.get("scenario_results", [])
             ]
             merged_scenario_defs = _resolve_all_scenarios_for_ids(
                 [sr.scenario_id for sr in merged_sr]
             )
             summary = score_results(
-                merged_sr, merged_scenario_defs, alpha=args.alpha,
-                weight_by_difficulty=getattr(args, 'weight_by_difficulty', False),
+                merged_sr,
+                merged_scenario_defs,
+                alpha=args.alpha,
+                weight_by_difficulty=getattr(args, "weight_by_difficulty", False),
             )
             all_summaries.append(summary)
             display.set_finished(summary, throughput_samples=throughput_samples)
         else:
-            all_results = [
-                display.results[s.id]
-                for s in scenarios
-                if s.id in display.results
-            ]
+            all_results = [display.results[s.id] for s in scenarios if s.id in display.results]
             if all_results:
                 summary = score_results(
-                    all_results, scenarios, alpha=args.alpha,
-                    weight_by_difficulty=getattr(args, 'weight_by_difficulty', False),
+                    all_results,
+                    scenarios,
+                    alpha=args.alpha,
+                    weight_by_difficulty=getattr(args, "weight_by_difficulty", False),
                 )
                 all_summaries.append(summary)
                 display.set_finished(summary, throughput_samples=throughput_samples)
@@ -3615,14 +4061,13 @@ def _run_with_live_display(
 
                 # Reconstruct ScenarioResult objects from the persisted dict
                 # Reconstruct ScenarioResult objects from the persisted dict
-                trial_sr = [
-                    ScenarioResult.from_dict(sr_dict)
-                    for sr_dict in trial_score_results
-                ]
+                trial_sr = [ScenarioResult.from_dict(sr_dict) for sr_dict in trial_score_results]
                 if trial_sr:
                     trial_summary = score_results(
-                        trial_sr, scenarios, alpha=args.alpha,
-                        weight_by_difficulty=getattr(args, 'weight_by_difficulty', False),
+                        trial_sr,
+                        scenarios,
+                        alpha=args.alpha,
+                        weight_by_difficulty=getattr(args, "weight_by_difficulty", False),
                     )
                     all_summaries.append(trial_summary)
                     console.print(f"[bold]{trial_summary.final_score}[/]/100")
@@ -3662,8 +4107,11 @@ def _run_with_live_display(
 # JSONL progress callbacks for headless mode (sparkrun integration)
 # ---------------------------------------------------------------------------
 
+
 async def _stderr_progress_start(
-    scenario: ScenarioDefinition, idx: int, total: int,
+    scenario: ScenarioDefinition,
+    idx: int,
+    total: int,
 ) -> None:
     """Emit a JSONL progress event to stderr when a scenario starts."""
     msg = {
@@ -3679,7 +4127,10 @@ async def _stderr_progress_start(
 
 
 async def _stderr_progress_result(
-    scenario: ScenarioDefinition, result: ScenarioResult, idx: int, total: int,
+    scenario: ScenarioDefinition,
+    result: ScenarioResult,
+    idx: int,
+    total: int,
 ) -> None:
     """Emit a JSONL progress event to stderr when a scenario completes."""
     msg = {
@@ -3761,9 +4212,9 @@ def _run_json(
             context_pressure_messages=context_pressure_messages,
             context_pressure_config=context_pressure_config,
             run_context=run_context,
-            weight_by_difficulty=getattr(args, 'weight_by_difficulty', False),
-            resume_run_id=getattr(args, '_resume_run_id', None),
-            resume_prior_results=getattr(args, '_resume_prior_results', None),
+            weight_by_difficulty=getattr(args, "weight_by_difficulty", False),
+            resume_run_id=getattr(args, "_resume_run_id", None),
+            resume_prior_results=getattr(args, "_resume_prior_results", None),
             on_scenario_start=_stderr_progress_start,
             on_scenario_result=_stderr_progress_result,
         )
@@ -3858,9 +4309,9 @@ def _run_plain(
             context_pressure_messages=context_pressure_messages,
             context_pressure_config=context_pressure_config,
             run_context=run_context,
-            weight_by_difficulty=getattr(args, 'weight_by_difficulty', False),
-            resume_run_id=getattr(args, '_resume_run_id', None),
-            resume_prior_results=getattr(args, '_resume_prior_results', None),
+            weight_by_difficulty=getattr(args, "weight_by_difficulty", False),
+            resume_run_id=getattr(args, "_resume_run_id", None),
+            resume_prior_results=getattr(args, "_resume_prior_results", None),
             **callbacks,
         )
 
@@ -3879,9 +4330,13 @@ def _run_plain(
 
     elapsed = time.time() - started
     scores = all_results_dicts[-1].get("scores", {})
-    console.print(f"\n[bold]Score: {scores.get('final_score', 0)} / 100  — {scores.get('rating', '')}[/]")
+    console.print(
+        f"\n[bold]Score: {scores.get('final_score', 0)} / 100  — {scores.get('rating', '')}[/]"
+    )
     if scores.get("weighted_score") is not None:
-        console.print(f"[bold]Weighted Score: {scores['weighted_score']} / 100[/]  [dim](difficulty-weighted)[/]")
+        console.print(
+            f"[bold]Weighted Score: {scores['weighted_score']} / 100[/]  [dim](difficulty-weighted)[/]"
+        )
     console.print(f"[dim]Completed in {elapsed:.1f}s[/]\n")
 
     # Show trial statistics if multiple trials
@@ -3908,8 +4363,12 @@ def _run_plain(
 
         if agg and len(summaries) > 1:
             reporter = MarkdownReporter(root=args.output_dir)
-            run_id_base = all_results_dicts[0].get("run_id", "summary") if all_results_dicts else "summary"
-            rp_list = [str(r.get("report_path", "")) for r in all_results_dicts if r.get("report_path")]
+            run_id_base = (
+                all_results_dicts[0].get("run_id", "summary") if all_results_dicts else "summary"
+            )
+            rp_list = [
+                str(r.get("report_path", "")) for r in all_results_dicts if r.get("report_path")
+            ]
             summary_path = reporter.write_summary_report(
                 run_id=run_id_base,
                 model=display_name,

@@ -20,6 +20,7 @@ from tool_eval_bench.utils.urls import chat_completions_url as _chat_completions
 
 logger = logging.getLogger(__name__)
 
+
 def _normalize_tool_calls(raw_calls: list[dict] | None) -> list[ProviderToolCall]:
     if not raw_calls:
         return []
@@ -149,7 +150,9 @@ class OpenAICompatibleAdapter(BackendAdapter):
             body_text = exc.response.text[:200].strip()
             logger.warning(
                 "Server returned %d for %s: %s",
-                exc.response.status_code, url, body_text,
+                exc.response.status_code,
+                url,
+                body_text,
             )
             return ChatCompletionResult(
                 content=f"[server error {exc.response.status_code}] {body_text}",
@@ -185,7 +188,9 @@ class OpenAICompatibleAdapter(BackendAdapter):
         reasoning_parts: list[str] = []
         stream_usage: dict = {}  # usage from final chunk
 
-        async with client.stream("POST", url, json=payload, headers=headers, timeout=timeout) as response:
+        async with client.stream(
+            "POST", url, json=payload, headers=headers, timeout=timeout
+        ) as response:
             try:
                 response.raise_for_status()
             except httpx.HTTPStatusError as exc:
@@ -196,7 +201,9 @@ class OpenAICompatibleAdapter(BackendAdapter):
                 body_text = body_bytes.decode("utf-8", errors="replace")[:200].strip()
                 logger.warning(
                     "Stream request returned %d for %s: %s",
-                    exc.response.status_code, url, body_text,
+                    exc.response.status_code,
+                    url,
+                    body_text,
                 )
                 return ChatCompletionResult(
                     content=f"[server error {exc.response.status_code}] {body_text}",
@@ -294,7 +301,8 @@ class OpenAICompatibleAdapter(BackendAdapter):
         content = message.get("content") or ""
         if isinstance(content, list):
             content = " ".join(
-                part.get("text", "") for part in content
+                part.get("text", "")
+                for part in content
                 if isinstance(part, dict) and part.get("type") == "text"
             ).strip()
 

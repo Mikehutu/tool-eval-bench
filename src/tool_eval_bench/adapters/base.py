@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ProviderToolCall:
     """A tool call returned by the model in OpenAI wire format."""
+
     id: str
     name: str
     arguments_str: str
@@ -37,6 +38,7 @@ class ProviderToolCall:
 @dataclass
 class ChatCompletionResult:
     """Result of a single chat completion request."""
+
     content: str
     tool_calls: list[ProviderToolCall] = field(default_factory=list)
     raw_response: dict = field(default_factory=dict)

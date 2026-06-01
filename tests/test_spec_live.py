@@ -213,9 +213,16 @@ class TestComputeDelta:
             timestamp=100.0, accepted_tokens=100, draft_tokens=400, num_drafts=50
         )
         curr = self._make_snap(
-            timestamp=110.0, accepted_tokens=200, draft_tokens=800, num_drafts=100,
-            generation_tps=10.5, prompt_tps=2580.9, gpu_cache_usage=0.034,
-            running_reqs=1, waiting_reqs=0, prefix_cache_hit=0.45,
+            timestamp=110.0,
+            accepted_tokens=200,
+            draft_tokens=800,
+            num_drafts=100,
+            generation_tps=10.5,
+            prompt_tps=2580.9,
+            gpu_cache_usage=0.034,
+            running_reqs=1,
+            waiting_reqs=0,
+            prefix_cache_hit=0.45,
         )
         delta = compute_delta(prev, curr)
 
@@ -300,7 +307,7 @@ class TestComputeDelta:
         """kv_cache_usage=0.0 (present) should NOT fall back to gpu_cache_usage."""
         prev = self._make_snap(timestamp=100.0)
         curr = self._make_snap(timestamp=101.0, accepted_tokens=100, draft_tokens=500)
-        curr.kv_cache_usage = 0.0   # genuinely zero (idle)
+        curr.kv_cache_usage = 0.0  # genuinely zero (idle)
         curr.gpu_cache_usage = None  # not present (old metric)
         delta = compute_delta(prev, curr)
         assert delta.gpu_cache_pct == pytest.approx(0.0)
@@ -309,7 +316,7 @@ class TestComputeDelta:
         """When kv_cache_usage is None, fall back to gpu_cache_usage."""
         prev = self._make_snap(timestamp=100.0)
         curr = self._make_snap(timestamp=101.0, accepted_tokens=100, draft_tokens=500)
-        curr.kv_cache_usage = None   # new metric not present
+        curr.kv_cache_usage = None  # new metric not present
         curr.gpu_cache_usage = 0.05  # old metric present
         delta = compute_delta(prev, curr)
         assert delta.gpu_cache_pct == pytest.approx(5.0)
@@ -326,11 +333,15 @@ class TestComputeDelta:
     def test_counter_derived_gen_tps(self):
         """When generation_tps gauge is 0, derive from token counter deltas."""
         prev = self._make_snap(
-            timestamp=100.0, accepted_tokens=0, draft_tokens=0,
+            timestamp=100.0,
+            accepted_tokens=0,
+            draft_tokens=0,
         )
         prev.generation_tokens_total = 1000.0
         curr = self._make_snap(
-            timestamp=110.0, accepted_tokens=100, draft_tokens=500,
+            timestamp=110.0,
+            accepted_tokens=100,
+            draft_tokens=500,
             generation_tps=0.0,  # gauge removed in vLLM ≥0.8
         )
         curr.generation_tokens_total = 1500.0  # 500 tokens in 10s
@@ -340,11 +351,15 @@ class TestComputeDelta:
     def test_counter_derived_prompt_tps(self):
         """When prompt_tps gauge is 0, derive from prompt_tokens_total deltas."""
         prev = self._make_snap(
-            timestamp=100.0, accepted_tokens=0, draft_tokens=0,
+            timestamp=100.0,
+            accepted_tokens=0,
+            draft_tokens=0,
         )
         prev.prompt_tokens_total = 10000.0
         curr = self._make_snap(
-            timestamp=110.0, accepted_tokens=100, draft_tokens=500,
+            timestamp=110.0,
+            accepted_tokens=100,
+            draft_tokens=500,
             prompt_tps=0.0,  # gauge removed
         )
         curr.prompt_tokens_total = 30000.0  # 20000 tokens in 10s
@@ -355,11 +370,13 @@ class TestComputeDelta:
         """When prefix_cache_hit gauge is 0, derive from hit/query counters."""
         prev = self._make_snap(timestamp=100.0)
         curr = self._make_snap(
-            timestamp=101.0, accepted_tokens=100, draft_tokens=500,
+            timestamp=101.0,
+            accepted_tokens=100,
+            draft_tokens=500,
         )
-        curr.prefix_cache_hit = 0.0       # old gauge not present
+        curr.prefix_cache_hit = 0.0  # old gauge not present
         curr.prefix_cache_queries = 10000  # counter
-        curr.prefix_cache_hits = 800       # counter
+        curr.prefix_cache_hits = 800  # counter
         delta = compute_delta(prev, curr)
         # 800/10000 = 0.08 → 8%
         assert delta.prefix_cache_hit_pct == pytest.approx(8.0)
@@ -533,8 +550,9 @@ class TestBuildDashboard:
 
         delta = self._make_delta()
         history = deque([delta] * 10, maxlen=60)
-        panel = _build_dashboard(delta, history, time.time() - 60,
-                                 "TestModel", "http://localhost:8000/metrics", 60)
+        panel = _build_dashboard(
+            delta, history, time.time() - 60, "TestModel", "http://localhost:8000/metrics", 60
+        )
         text = self._render(panel)
         assert "SPECULATIVE DECODING MONITOR" in text
         assert "TestModel" in text
@@ -543,8 +561,9 @@ class TestBuildDashboard:
     def test_renders_waiting_state(self):
         from tool_eval_bench.cli.spec_live_display import _build_dashboard
 
-        panel = _build_dashboard(None, deque(maxlen=60), time.time() - 5,
-                                 "TestModel", "http://localhost:8000/metrics", 5)
+        panel = _build_dashboard(
+            None, deque(maxlen=60), time.time() - 5, "TestModel", "http://localhost:8000/metrics", 5
+        )
         text = self._render(panel)
         assert "Connecting to" in text
         assert "spec decode enabled" in text
@@ -555,8 +574,9 @@ class TestBuildDashboard:
 
         delta = self._make_delta(per_position_rates={})
         history = deque([delta] * 10, maxlen=60)
-        panel = _build_dashboard(delta, history, time.time() - 30,
-                                 "MTPModel", "http://localhost:8000/metrics", 30)
+        panel = _build_dashboard(
+            delta, history, time.time() - 30, "MTPModel", "http://localhost:8000/metrics", 30
+        )
         text = self._render(panel)
         assert "Per-Position" not in text
         # Engine panel should still be present
@@ -568,8 +588,9 @@ class TestBuildDashboard:
 
         delta = self._make_delta()
         history = deque([delta] * 10, maxlen=60)
-        panel = _build_dashboard(delta, history, time.time() - 30,
-                                 "TestModel", "http://localhost:8000/metrics", 30)
+        panel = _build_dashboard(
+            delta, history, time.time() - 30, "TestModel", "http://localhost:8000/metrics", 30
+        )
         text = self._render(panel)
         assert "Rolling Averages" in text
 
@@ -579,8 +600,9 @@ class TestBuildDashboard:
 
         delta = self._make_delta()
         history = deque([delta] * 3, maxlen=60)
-        panel = _build_dashboard(delta, history, time.time() - 3,
-                                 "TestModel", "http://localhost:8000/metrics", 3)
+        panel = _build_dashboard(
+            delta, history, time.time() - 3, "TestModel", "http://localhost:8000/metrics", 3
+        )
         text = self._render(panel)
         assert "Rolling Averages" in text
 
@@ -594,8 +616,9 @@ class TestBuildDashboard:
             cumulative_draft_window=8.0,
         )
         history = deque([delta] * 10, maxlen=60)
-        panel = _build_dashboard(delta, history, time.time() - 60,
-                                 "TestModel", "http://localhost:8000/metrics", 60)
+        panel = _build_dashboard(
+            delta, history, time.time() - 60, "TestModel", "http://localhost:8000/metrics", 60
+        )
         text = self._render(panel)
         assert "Excellent" in text
 
@@ -609,8 +632,9 @@ class TestBuildDashboard:
             cumulative_draft_window=8.0,
         )
         history = deque([delta] * 10, maxlen=60)
-        panel = _build_dashboard(delta, history, time.time() - 60,
-                                 "TestModel", "http://localhost:8000/metrics", 60)
+        panel = _build_dashboard(
+            delta, history, time.time() - 60, "TestModel", "http://localhost:8000/metrics", 60
+        )
         text = self._render(panel)
         assert "Poor" in text
 
@@ -763,7 +787,7 @@ class TestComputeDeltaLlamaCpp:
             generation_tps=0.0,
         )
         curr.llamacpp_predicted_tokens_total = 1500.0  # 500 in 10s
-        curr.llamacpp_predicted_tokens_seconds = 0.0   # gauge also zero (edge case)
+        curr.llamacpp_predicted_tokens_seconds = 0.0  # gauge also zero (edge case)
         delta = compute_delta(prev, curr)
         assert delta.generation_tps == pytest.approx(50.0)
 
@@ -802,7 +826,7 @@ class TestComputeDeltaLlamaCpp:
             running_reqs=2.0,
         )
         curr.llamacpp_predicted_tokens_seconds = 28.39  # should be ignored
-        curr.llamacpp_requests_processing = 5.0         # should be ignored
+        curr.llamacpp_requests_processing = 5.0  # should be ignored
         delta = compute_delta(prev, curr)
         assert delta.generation_tps == pytest.approx(55.0)
         assert delta.running_reqs == 2
@@ -818,6 +842,7 @@ class TestSpecMethodDetection:
 
     def test_dflash_detection(self):
         from tool_eval_bench.runner.spec_live import _detect_spec_method
+
         text = """\
 # HELP vllm:spec_decode_num_draft_tokens_total Total draft tokens.
 # TYPE vllm:spec_decode_num_draft_tokens_total counter
@@ -827,6 +852,7 @@ vllm:spec_decode_num_draft_tokens_total{engine="0",model_name="Qwen3.6-35B",spec
 
     def test_mtp_detection(self):
         from tool_eval_bench.runner.spec_live import _detect_spec_method
+
         text = """\
 # HELP vllm:spec_decode_num_draft_tokens_total MTP draft tokens.
 # TYPE vllm:spec_decode_num_draft_tokens_total counter
@@ -836,50 +862,59 @@ vllm:spec_decode_num_draft_tokens_total{engine="0",spec_method="mtp"} 3000.0
 
     def test_multi_token_detection(self):
         from tool_eval_bench.runner.spec_live import _detect_spec_method
+
         text = "# Multi-token prediction spec decode counters\nspec_decode_num_draft_tokens 100\n"
         assert _detect_spec_method(text) == "mtp"
 
     def test_eagle3_detection(self):
         from tool_eval_bench.runner.spec_live import _detect_spec_method
-        text = "spec_decode_num_draft_tokens{spec_method=\"eagle3\"} 100\n"
+
+        text = 'spec_decode_num_draft_tokens{spec_method="eagle3"} 100\n'
         assert _detect_spec_method(text) == "eagle3"
 
     def test_eagle_detection(self):
         from tool_eval_bench.runner.spec_live import _detect_spec_method
-        text = "spec_decode_num_draft_tokens{spec_method=\"eagle\"} 100\n"
+
+        text = 'spec_decode_num_draft_tokens{spec_method="eagle"} 100\n'
         assert _detect_spec_method(text) == "eagle"
 
     def test_ngram_detection(self):
         from tool_eval_bench.runner.spec_live import _detect_spec_method
+
         text = "# Using ngram speculative decoding\nspec_decode_num_draft_tokens 100\n"
         assert _detect_spec_method(text) == "ngram"
 
     def test_prompt_lookup_detection(self):
         from tool_eval_bench.runner.spec_live import _detect_spec_method
+
         text = "# prompt_lookup spec method\nspec_decode_num_draft_tokens 100\n"
         assert _detect_spec_method(text) == "ngram"
 
     def test_generic_draft_model_detection(self):
         from tool_eval_bench.runner.spec_live import _detect_spec_method
+
         # spec_decode counters present but no specific method keyword
         text = "spec_decode_num_draft_tokens 100\n"
         assert _detect_spec_method(text) == "draft_model"
 
     def test_unknown_when_no_spec_decode(self):
         from tool_eval_bench.runner.spec_live import _detect_spec_method
+
         text = "vllm:num_requests_running 0\n"
         assert _detect_spec_method(text) == "unknown"
 
     def test_dflash_takes_precedence_over_draft(self):
         """dflash should be detected before generic draft_model."""
         from tool_eval_bench.runner.spec_live import _detect_spec_method
-        text = "spec_decode_num_draft_tokens{method=\"dflash\"} 100\n"
+
+        text = 'spec_decode_num_draft_tokens{method="dflash"} 100\n'
         assert _detect_spec_method(text) == "dflash"
 
     def test_eagle3_before_eagle(self):
         """eagle3 is more specific than eagle and should match first."""
         from tool_eval_bench.runner.spec_live import _detect_spec_method
-        text = "spec_decode_num_draft_tokens{method=\"eagle3\"} 100\n"
+
+        text = 'spec_decode_num_draft_tokens{method="eagle3"} 100\n'
         assert _detect_spec_method(text) == "eagle3"
 
     def test_method_in_parse_snapshot(self):
@@ -896,7 +931,9 @@ vllm:spec_decode_num_draft_tokens_total{engine="0",spec_method="dflash"} 5000.0
         prev = MetricsSnapshot(timestamp=100.0)
         curr = MetricsSnapshot(
             timestamp=110.0,
-            accepted_tokens=100, draft_tokens=500, num_drafts=50,
+            accepted_tokens=100,
+            draft_tokens=500,
+            num_drafts=50,
             spec_method="mtp",
         )
         delta = compute_delta(prev, curr)
@@ -916,7 +953,9 @@ class TestNumSpecTokens:
         prev = MetricsSnapshot(timestamp=100.0)
         curr = MetricsSnapshot(
             timestamp=110.0,
-            accepted_tokens=150, draft_tokens=500, num_drafts=100,
+            accepted_tokens=150,
+            draft_tokens=500,
+            num_drafts=100,
         )
         delta = compute_delta(prev, curr)
         # 500 / 100 = 5.0 → 5
@@ -927,7 +966,9 @@ class TestNumSpecTokens:
         prev = MetricsSnapshot(timestamp=100.0)
         curr = MetricsSnapshot(
             timestamp=110.0,
-            accepted_tokens=150, draft_tokens=330, num_drafts=100,
+            accepted_tokens=150,
+            draft_tokens=330,
+            num_drafts=100,
         )
         delta = compute_delta(prev, curr)
         # 330 / 100 = 3.3 → 3
@@ -945,7 +986,9 @@ class TestNumSpecTokens:
         prev = MetricsSnapshot(timestamp=100.0)
         curr = MetricsSnapshot(
             timestamp=110.0,
-            accepted_tokens=450, draft_tokens=500, num_drafts=500,
+            accepted_tokens=450,
+            draft_tokens=500,
+            num_drafts=500,
             spec_method="mtp",
         )
         delta = compute_delta(prev, curr)
@@ -1040,14 +1083,17 @@ class TestPerPositionDecaySummary:
 
     def test_no_rates_returns_none(self):
         from tool_eval_bench.cli.spec_live_rendering import _per_position_decay_summary
+
         assert _per_position_decay_summary({}) is None
 
     def test_single_position_returns_none(self):
         from tool_eval_bench.cli.spec_live_rendering import _per_position_decay_summary
+
         assert _per_position_decay_summary({0: 0.8}) is None
 
     def test_effective_positions_count(self):
         from tool_eval_bench.cli.spec_live_rendering import _per_position_decay_summary
+
         rates = {0: 0.80, 1: 0.60, 2: 0.40, 3: 0.15, 4: 0.05}
         result = _per_position_decay_summary(rates)
         text = str(result)
@@ -1057,6 +1103,7 @@ class TestPerPositionDecaySummary:
 
     def test_half_point_reported(self):
         from tool_eval_bench.cli.spec_live_rendering import _per_position_decay_summary
+
         rates = {0: 0.80, 1: 0.60, 2: 0.35, 3: 0.15}
         result = _per_position_decay_summary(rates)
         text = str(result)
@@ -1065,6 +1112,7 @@ class TestPerPositionDecaySummary:
 
     def test_no_half_point_when_all_high(self):
         from tool_eval_bench.cli.spec_live_rendering import _per_position_decay_summary
+
         rates = {0: 0.90, 1: 0.85, 2: 0.80}
         result = _per_position_decay_summary(rates)
         text = str(result)
@@ -1074,6 +1122,7 @@ class TestPerPositionDecaySummary:
 
     def test_decay_rate_gamma(self):
         from tool_eval_bench.cli.spec_live_rendering import _per_position_decay_summary
+
         rates = {0: 0.80, 1: 0.60, 2: 0.40, 3: 0.25}
         result = _per_position_decay_summary(rates)
         text = str(result)
@@ -1091,39 +1140,46 @@ class TestSpecMethodLabel:
 
     def test_dflash_label(self):
         from tool_eval_bench.cli.spec_live_rendering import _spec_method_label
+
         label, style = _spec_method_label("dflash")
         assert label == "Draft Flash"
         assert "cyan" in style
 
     def test_mtp_label(self):
         from tool_eval_bench.cli.spec_live_rendering import _spec_method_label
+
         label, style = _spec_method_label("mtp")
         assert label == "Multi-Token Prediction"
         assert "yellow" in style
 
     def test_eagle_label(self):
         from tool_eval_bench.cli.spec_live_rendering import _spec_method_label
+
         label, _ = _spec_method_label("eagle")
         assert label == "EAGLE"
 
     def test_eagle3_label(self):
         from tool_eval_bench.cli.spec_live_rendering import _spec_method_label
+
         label, _ = _spec_method_label("eagle3")
         assert label == "EAGLE-3"
 
     def test_ngram_label(self):
         from tool_eval_bench.cli.spec_live_rendering import _spec_method_label
+
         label, _ = _spec_method_label("ngram")
         assert label == "N-Gram"
 
     def test_unknown_label(self):
         from tool_eval_bench.cli.spec_live_rendering import _spec_method_label
+
         label, style = _spec_method_label("unknown")
         assert label == "Speculative Decoding"
         assert style == "bold dim"
 
     def test_mlp_speculator_label(self):
         from tool_eval_bench.cli.spec_live_rendering import _spec_method_label
+
         label, _ = _spec_method_label("mlp_speculator")
         assert label == "MLP Speculator"
 
@@ -1133,18 +1189,22 @@ class TestDraftModelDetection:
 
     def test_draft_flash_detected(self):
         from tool_eval_bench.runner.spec_live import _detect_spec_method
+
         assert _detect_spec_method("method: draft_flash") == "dflash"
 
     def test_dflash_detected(self):
         from tool_eval_bench.runner.spec_live import _detect_spec_method
+
         assert _detect_spec_method("using dflash speculator") == "dflash"
 
     def test_mlp_speculator_detected(self):
         from tool_eval_bench.runner.spec_live import _detect_spec_method
+
         assert _detect_spec_method("mlp_speculator active") == "mlp_speculator"
 
     def test_model_names_extracted(self):
         from tool_eval_bench.runner.spec_live import _extract_model_names
+
         text = (
             'vllm:spec_decode_num_accepted_tokens_total{model_name="Qwen/Qwen3-8B"} 100\n'
             'vllm:generation_tokens_total{model_name="Qwen/Qwen3-8B"} 500\n'
@@ -1155,12 +1215,14 @@ class TestDraftModelDetection:
 
     def test_model_names_empty(self):
         from tool_eval_bench.runner.spec_live import _extract_model_names
+
         text = "vllm:spec_decode_num_accepted_tokens_total 100\n"
         names = _extract_model_names(text)
         assert names == set()
 
     def test_model_names_in_snapshot(self):
         from tool_eval_bench.runner.spec_live import _parse_snapshot
+
         text = (
             'vllm:spec_decode_num_accepted_tokens_total{model_name="MainModel"} 100\n'
             'vllm:spec_decode_num_draft_tokens_total{model_name="DraftModel"} 200\n'
@@ -1256,56 +1318,67 @@ class TestDashboardSpecBadge:
         from io import StringIO
 
         from rich.console import Console
+
         out = StringIO()
         Console(file=out, width=120, no_color=True).print(panel)
         return out.getvalue()
 
     def test_dflash_badge_in_header(self):
         from tool_eval_bench.cli.spec_live_display import _build_dashboard
+
         delta = self._make_delta(spec_method="dflash")
         history = deque([delta] * 10, maxlen=60)
-        panel = _build_dashboard(delta, history, time.time() - 30,
-                                 "TestModel", "http://localhost:8000/metrics", 30)
+        panel = _build_dashboard(
+            delta, history, time.time() - 30, "TestModel", "http://localhost:8000/metrics", 30
+        )
         text = self._render(panel)
         assert "Draft Flash" in text
 
     def test_mtp_badge_in_header(self):
         from tool_eval_bench.cli.spec_live_display import _build_dashboard
+
         delta = self._make_delta(spec_method="mtp")
         history = deque([delta] * 10, maxlen=60)
-        panel = _build_dashboard(delta, history, time.time() - 30,
-                                 "TestModel", "http://localhost:8000/metrics", 30)
+        panel = _build_dashboard(
+            delta, history, time.time() - 30, "TestModel", "http://localhost:8000/metrics", 30
+        )
         text = self._render(panel)
         assert "Multi-Token Prediction" in text
 
     def test_unknown_method_no_badge(self):
         from tool_eval_bench.cli.spec_live_display import _build_dashboard
+
         delta = self._make_delta(spec_method="unknown")
         history = deque([delta] * 10, maxlen=60)
-        panel = _build_dashboard(delta, history, time.time() - 30,
-                                 "TestModel", "http://localhost:8000/metrics", 30)
+        panel = _build_dashboard(
+            delta, history, time.time() - 30, "TestModel", "http://localhost:8000/metrics", 30
+        )
         text = self._render(panel)
         assert "Draft Flash" not in text
         assert "Multi-Token" not in text
 
     def test_num_spec_tokens_shown(self):
         from tool_eval_bench.cli.spec_live_display import _build_dashboard
+
         delta = self._make_delta(num_spec_tokens=5)
         history = deque([delta] * 10, maxlen=60)
-        panel = _build_dashboard(delta, history, time.time() - 30,
-                                 "TestModel", "http://localhost:8000/metrics", 30)
+        panel = _build_dashboard(
+            delta, history, time.time() - 30, "TestModel", "http://localhost:8000/metrics", 30
+        )
         text = self._render(panel)
         assert "k=5" in text
         assert "Spec Tokens" in text
 
     def test_per_position_rendered_in_dashboard(self):
         from tool_eval_bench.cli.spec_live_display import _build_dashboard
+
         delta = self._make_delta(
             per_position_rates={0: 0.80, 1: 0.60, 2: 0.30, 3: 0.08, 4: 0.02},
         )
         history = deque([delta] * 10, maxlen=60)
-        panel = _build_dashboard(delta, history, time.time() - 30,
-                                 "TestModel", "http://localhost:8000/metrics", 30)
+        panel = _build_dashboard(
+            delta, history, time.time() - 30, "TestModel", "http://localhost:8000/metrics", 30
+        )
         text = self._render(panel)
         # Per-position panel should be rendered with position labels
         assert "p0" in text
@@ -1318,6 +1391,7 @@ class TestDashboardSpecBadge:
     def test_dflash_efficiency_insight_with_nst(self):
         """Dflash with high draft tokens and low utilization shows hint."""
         from tool_eval_bench.cli.spec_live_rendering import _efficiency_insight
+
         delta = self._make_delta(
             spec_method="dflash",
             cumulative_acceptance_rate=0.20,
@@ -1332,6 +1406,7 @@ class TestDashboardSpecBadge:
     def test_mtp_efficiency_insight_guidance(self):
         """MTP with good utilization shows MTP-specific guidance."""
         from tool_eval_bench.cli.spec_live_rendering import _efficiency_insight
+
         delta = self._make_delta(
             spec_method="mtp",
             cumulative_acceptance_rate=0.65,
@@ -1353,6 +1428,7 @@ class TestServerSpecInfo:
 
     def test_default_values(self):
         from tool_eval_bench.runner.spec_live import ServerSpecInfo
+
         info = ServerSpecInfo()
         assert info.spec_method is None
         assert info.draft_model_name is None
@@ -1361,6 +1437,7 @@ class TestServerSpecInfo:
 
     def test_fields_populated(self):
         from tool_eval_bench.runner.spec_live import ServerSpecInfo
+
         info = ServerSpecInfo(
             spec_method="dflash",
             draft_model_name="Qwen/Qwen3-0.6B",
@@ -1469,6 +1546,7 @@ class TestDashboardWithServerSpecInfo:
         from io import StringIO
 
         from rich.console import Console
+
         out = StringIO()
         Console(file=out, width=120, no_color=True).print(panel)
         return out.getvalue()
@@ -1485,8 +1563,12 @@ class TestDashboardWithServerSpecInfo:
         delta = self._make_delta()
         history = deque([delta] * 5, maxlen=60)
         panel = _build_dashboard(
-            delta, history, time.time() - 30,
-            "Qwen/Qwen3-35B", "http://localhost:8000/metrics", 30,
+            delta,
+            history,
+            time.time() - 30,
+            "Qwen/Qwen3-35B",
+            "http://localhost:8000/metrics",
+            30,
             server_spec_info=info,
         )
         text = self._render(panel)
@@ -1502,8 +1584,12 @@ class TestDashboardWithServerSpecInfo:
         delta.model_names = {"Qwen/Qwen3-35B", "prom-draft-model"}
         history = deque([delta] * 5, maxlen=60)
         panel = _build_dashboard(
-            delta, history, time.time() - 30,
-            "Qwen/Qwen3-35B", "http://localhost:8000/metrics", 30,
+            delta,
+            history,
+            time.time() - 30,
+            "Qwen/Qwen3-35B",
+            "http://localhost:8000/metrics",
+            30,
             server_spec_info=info,
         )
         text = self._render(panel)
@@ -1518,8 +1604,12 @@ class TestDashboardWithServerSpecInfo:
         delta = self._make_delta()
         history = deque([delta] * 5, maxlen=60)
         panel = _build_dashboard(
-            delta, history, time.time() - 30,
-            "TestModel", "http://localhost:8000/metrics", 30,
+            delta,
+            history,
+            time.time() - 30,
+            "TestModel",
+            "http://localhost:8000/metrics",
+            30,
             reset_flash=True,
         )
         text = self._render(panel)
@@ -1532,8 +1622,12 @@ class TestDashboardWithServerSpecInfo:
         delta = self._make_delta()
         history = deque([delta] * 5, maxlen=60)
         panel = _build_dashboard(
-            delta, history, time.time() - 30,
-            "TestModel", "http://localhost:8000/metrics", 30,
+            delta,
+            history,
+            time.time() - 30,
+            "TestModel",
+            "http://localhost:8000/metrics",
+            30,
         )
         text = self._render(panel)
         assert "Session reset" not in text
@@ -1545,8 +1639,12 @@ class TestDashboardWithServerSpecInfo:
         delta = self._make_delta()
         history = deque([delta] * 5, maxlen=60)
         panel = _build_dashboard(
-            delta, history, time.time() - 30,
-            "TestModel", "http://localhost:8000/metrics", 30,
+            delta,
+            history,
+            time.time() - 30,
+            "TestModel",
+            "http://localhost:8000/metrics",
+            30,
         )
         text = self._render(panel)
         assert "Ctrl+R" in text
@@ -1556,8 +1654,12 @@ class TestDashboardWithServerSpecInfo:
         from tool_eval_bench.cli.spec_live_display import _build_dashboard
 
         panel = _build_dashboard(
-            None, deque(maxlen=60), time.time() - 5,
-            "TestModel", "http://localhost:8000/metrics", 5,
+            None,
+            deque(maxlen=60),
+            time.time() - 5,
+            "TestModel",
+            "http://localhost:8000/metrics",
+            5,
         )
         text = self._render(panel)
         assert "Ctrl+R" in text
@@ -1637,8 +1739,12 @@ class TestHighKPositionScaling:
         )
         history = deque([delta] * 10, maxlen=60)
         panel = _build_dashboard(
-            delta, history, time.time() - 30,
-            "TestModel", "http://localhost:8000/metrics", 30,
+            delta,
+            history,
+            time.time() - 30,
+            "TestModel",
+            "http://localhost:8000/metrics",
+            30,
         )
         out = StringIO()
         Console(file=out, width=120, no_color=True).print(panel)
@@ -1647,4 +1753,3 @@ class TestHighKPositionScaling:
         assert "p0" in text
         assert "p19" in text
         assert "Per-Position" in text
-

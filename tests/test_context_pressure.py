@@ -109,9 +109,7 @@ class TestComputeFillBudget:
         for i in range(100):
             ratio = i / 100
             fill = compute_fill_budget(ctx, ratio)
-            assert fill >= prev, (
-                f"Non-monotonic: ratio={ratio} fill={fill} < prev={prev}"
-            )
+            assert fill >= prev, f"Non-monotonic: ratio={ratio} fill={fill} < prev={prev}"
             prev = fill
 
 
@@ -245,6 +243,7 @@ class TestBuildPressureMessages:
         # Nonce prefix should differ
         assert msgs_a[0]["content"][:40] != msgs_b[0]["content"][:40]
 
+
 # ---------------------------------------------------------------------------
 # ContextPressureConfig.summary
 # ---------------------------------------------------------------------------
@@ -253,7 +252,9 @@ class TestBuildPressureMessages:
 class TestContextPressureConfigSummary:
     def test_summary_format(self) -> None:
         cfg = ContextPressureConfig(
-            ratio=0.75, fill_tokens=20000, detected_context=32768,
+            ratio=0.75,
+            fill_tokens=20000,
+            detected_context=32768,
         )
         s = cfg.summary()
         assert "75%" in s
@@ -278,9 +279,7 @@ class TestDetectContextSize:
         from unittest.mock import MagicMock
 
         mock_response = {
-            "data": [
-                {"id": "test-model", "max_model_len": 32768, "root": "test-model"}
-            ]
+            "data": [{"id": "test-model", "max_model_len": 32768, "root": "test-model"}]
         }
         with patch("tool_eval_bench.runner.context_pressure.httpx.AsyncClient") as MockClient:
             instance = AsyncMock()
@@ -300,11 +299,7 @@ class TestDetectContextSize:
         """Should detect from LiteLLM's context_window field."""
         from unittest.mock import MagicMock
 
-        mock_response = {
-            "data": [
-                {"id": "gpt-4o", "context_window": 128000}
-            ]
-        }
+        mock_response = {"data": [{"id": "gpt-4o", "context_window": 128000}]}
         with patch("tool_eval_bench.runner.context_pressure.httpx.AsyncClient") as MockClient:
             instance = AsyncMock()
             resp = MagicMock()
@@ -323,9 +318,7 @@ class TestDetectContextSize:
         """If model metadata has no context size fields, return None."""
         from unittest.mock import MagicMock
 
-        mock_response = {
-            "data": [{"id": "test-model"}]
-        }
+        mock_response = {"data": [{"id": "test-model"}]}
         with patch("tool_eval_bench.runner.context_pressure.httpx.AsyncClient") as MockClient:
             instance = AsyncMock()
             resp = MagicMock()
@@ -365,8 +358,8 @@ class TestDetectKvCapacity:
         from unittest.mock import MagicMock
 
         metrics_text = (
-            '# HELP vllm:cache_config_info Information of the LLMEngine CacheConfig\n'
-            '# TYPE vllm:cache_config_info gauge\n'
+            "# HELP vllm:cache_config_info Information of the LLMEngine CacheConfig\n"
+            "# TYPE vllm:cache_config_info gauge\n"
             'vllm:cache_config_info{block_size="16",engine="0",'
             'num_gpu_blocks="7338",num_cpu_blocks="None"} 1.0\n'
         )
@@ -390,8 +383,7 @@ class TestDetectKvCapacity:
 
         # num_gpu_blocks before block_size
         metrics_text = (
-            'vllm:cache_config_info{num_gpu_blocks="5000",'
-            'block_size="32",engine="0"} 1.0\n'
+            'vllm:cache_config_info{num_gpu_blocks="5000",block_size="32",engine="0"} 1.0\n'
         )
         with patch("tool_eval_bench.runner.context_pressure.httpx.AsyncClient") as MockClient:
             instance = AsyncMock()
@@ -412,7 +404,7 @@ class TestDetectKvCapacity:
         from unittest.mock import MagicMock
 
         metrics_text = (
-            '# HELP http_requests_total Total requests\n'
+            "# HELP http_requests_total Total requests\n"
             'http_requests_total{handler="/v1/chat/completions"} 100.0\n'
         )
         with patch("tool_eval_bench.runner.context_pressure.httpx.AsyncClient") as MockClient:
@@ -464,8 +456,7 @@ class TestDetectKvCapacity:
         from unittest.mock import MagicMock
 
         metrics_text = (
-            'vllm:cache_config_info{block_size="16",'
-            'num_gpu_blocks="4096",engine="0"} 1.0\n'
+            'vllm:cache_config_info{block_size="16",num_gpu_blocks="4096",engine="0"} 1.0\n'
         )
         with patch("tool_eval_bench.runner.context_pressure.httpx.AsyncClient") as MockClient:
             instance = AsyncMock()
@@ -497,8 +488,11 @@ class TestPrepareContextPressure:
     async def test_with_override(self) -> None:
         """Should use context_size_override without querying the server."""
         cfg = await prepare_context_pressure(
-            "http://localhost:8080", "test-model", None,
-            ratio=0.75, context_size_override=32768,
+            "http://localhost:8080",
+            "test-model",
+            None,
+            ratio=0.75,
+            context_size_override=32768,
         )
         assert cfg.detected_context == 32768
         assert cfg.ratio == 0.75
@@ -513,22 +507,29 @@ class TestPrepareContextPressure:
         ):
             with pytest.raises(ValueError, match="auto-detect"):
                 await prepare_context_pressure(
-                    "http://localhost:8080", "test-model", None,
+                    "http://localhost:8080",
+                    "test-model",
+                    None,
                     ratio=0.75,
                 )
 
     @pytest.mark.asyncio
     async def test_kv_capacity_caps_context_size(self) -> None:
         """When KV cache capacity < max_model_len, context should be capped."""
-        with patch(
-            "tool_eval_bench.runner.context_pressure.detect_context_size",
-            return_value=262144,
-        ), patch(
-            "tool_eval_bench.runner.context_pressure.detect_kv_capacity",
-            return_value=117408,
+        with (
+            patch(
+                "tool_eval_bench.runner.context_pressure.detect_context_size",
+                return_value=262144,
+            ),
+            patch(
+                "tool_eval_bench.runner.context_pressure.detect_kv_capacity",
+                return_value=117408,
+            ),
         ):
             cfg = await prepare_context_pressure(
-                "http://localhost:8080", "test-model", None,
+                "http://localhost:8080",
+                "test-model",
+                None,
                 ratio=0.9,
             )
             # Should be capped to KV capacity, not max_model_len
@@ -539,15 +540,20 @@ class TestPrepareContextPressure:
     @pytest.mark.asyncio
     async def test_kv_capacity_no_cap_when_smaller_context(self) -> None:
         """When max_model_len < KV capacity, no capping needed."""
-        with patch(
-            "tool_eval_bench.runner.context_pressure.detect_context_size",
-            return_value=32768,
-        ), patch(
-            "tool_eval_bench.runner.context_pressure.detect_kv_capacity",
-            return_value=117408,
+        with (
+            patch(
+                "tool_eval_bench.runner.context_pressure.detect_context_size",
+                return_value=32768,
+            ),
+            patch(
+                "tool_eval_bench.runner.context_pressure.detect_kv_capacity",
+                return_value=117408,
+            ),
         ):
             cfg = await prepare_context_pressure(
-                "http://localhost:8080", "test-model", None,
+                "http://localhost:8080",
+                "test-model",
+                None,
                 ratio=0.75,
             )
             assert cfg.detected_context == 32768
@@ -555,15 +561,20 @@ class TestPrepareContextPressure:
     @pytest.mark.asyncio
     async def test_kv_detection_failure_uses_max_model_len(self) -> None:
         """When KV capacity detection fails, fall back to max_model_len."""
-        with patch(
-            "tool_eval_bench.runner.context_pressure.detect_context_size",
-            return_value=262144,
-        ), patch(
-            "tool_eval_bench.runner.context_pressure.detect_kv_capacity",
-            return_value=None,
+        with (
+            patch(
+                "tool_eval_bench.runner.context_pressure.detect_context_size",
+                return_value=262144,
+            ),
+            patch(
+                "tool_eval_bench.runner.context_pressure.detect_kv_capacity",
+                return_value=None,
+            ),
         ):
             cfg = await prepare_context_pressure(
-                "http://localhost:8080", "test-model", None,
+                "http://localhost:8080",
+                "test-model",
+                None,
                 ratio=0.9,
             )
             assert cfg.detected_context == 262144
@@ -576,8 +587,11 @@ class TestPrepareContextPressure:
             "tool_eval_bench.runner.context_pressure.detect_kv_capacity",
         ) as mock_kv:
             cfg = await prepare_context_pressure(
-                "http://localhost:8080", "test-model", None,
-                ratio=0.9, context_size_override=32768,
+                "http://localhost:8080",
+                "test-model",
+                None,
+                ratio=0.9,
+                context_size_override=32768,
             )
             assert cfg.detected_context == 32768
             mock_kv.assert_not_called()
@@ -734,8 +748,12 @@ class TestCalibratePressureMessages:
     async def test_empty_messages_returns_zero(self) -> None:
         """Empty message list should return immediately."""
         from tool_eval_bench.runner.context_pressure import calibrate_pressure_messages
+
         msgs, actual = await calibrate_pressure_messages(
-            [], 1000, "http://localhost", "model",
+            [],
+            1000,
+            "http://localhost",
+            "model",
         )
         assert msgs == []
         assert actual == 0
@@ -744,9 +762,13 @@ class TestCalibratePressureMessages:
     async def test_zero_target_returns_zero(self) -> None:
         """Target of 0 should return immediately."""
         from tool_eval_bench.runner.context_pressure import calibrate_pressure_messages
+
         msgs = self._make_messages(1)
         result, actual = await calibrate_pressure_messages(
-            msgs, 0, "http://localhost", "model",
+            msgs,
+            0,
+            "http://localhost",
+            "model",
         )
         assert actual == 0
 
@@ -761,7 +783,10 @@ class TestCalibratePressureMessages:
         ):
             msgs = self._make_messages(2, content_len=1000)
             result, actual = await calibrate_pressure_messages(
-                msgs, 5000, "http://localhost", "model",
+                msgs,
+                5000,
+                "http://localhost",
+                "model",
             )
             assert len(result) == 4  # unchanged
             assert actual > 0  # char-based estimate
@@ -780,7 +805,10 @@ class TestCalibratePressureMessages:
             msgs = self._make_messages(2, content_len=1000)
             original_content = msgs[2]["content"]  # last user msg
             result, actual = await calibrate_pressure_messages(
-                msgs, target, "http://localhost", "model",
+                msgs,
+                target,
+                "http://localhost",
+                "model",
             )
             assert actual == 5050
             assert result[2]["content"] == original_content  # unchanged
@@ -798,7 +826,10 @@ class TestCalibratePressureMessages:
             msgs = self._make_messages(3, content_len=2000)
             original_len = len(msgs[-2]["content"])  # last user msg
             result, actual = await calibrate_pressure_messages(
-                msgs, target, "http://localhost", "model",
+                msgs,
+                target,
+                "http://localhost",
+                "model",
             )
             assert len(result) == 6  # same number of messages
             assert len(result[-2]["content"]) < original_len  # trimmed
@@ -819,14 +850,15 @@ class TestCalibratePressureMessages:
             msgs = self._make_messages(2, content_len=2000)
             n_before = len(msgs)
             result, actual = await calibrate_pressure_messages(
-                msgs, target, "http://localhost", "model",
+                msgs,
+                target,
+                "http://localhost",
+                "model",
             )
             # Message count must NOT change
             assert len(result) == n_before
             # Last user message should be trimmed to minimum, not removed
-            last_user = next(
-                m for m in reversed(result) if m["role"] == "user"
-            )
+            last_user = next(m for m in reversed(result) if m["role"] == "user")
             assert len(last_user["content"]) == 100  # min viable
 
     @pytest.mark.asyncio
@@ -842,7 +874,10 @@ class TestCalibratePressureMessages:
             msgs = self._make_messages(2, content_len=1000)
             original_len = len(msgs[2]["content"])  # last user msg
             result, actual = await calibrate_pressure_messages(
-                msgs, target, "http://localhost", "model",
+                msgs,
+                target,
+                "http://localhost",
+                "model",
             )
             assert len(result) == 4  # same number of messages
             assert len(result[2]["content"]) > original_len  # extended
@@ -861,10 +896,18 @@ class TestCalibratePressureMessages:
             msgs_a = self._make_messages(2, content_len=1000)
             msgs_b = self._make_messages(2, content_len=1000)
             result_a, _ = await calibrate_pressure_messages(
-                msgs_a, target, "http://localhost", "model", seed=42,
+                msgs_a,
+                target,
+                "http://localhost",
+                "model",
+                seed=42,
             )
             result_b, _ = await calibrate_pressure_messages(
-                msgs_b, target, "http://localhost", "model", seed=42,
+                msgs_b,
+                target,
+                "http://localhost",
+                "model",
+                seed=42,
             )
             # Extended content should be identical
             assert result_a[2]["content"] == result_b[2]["content"]
@@ -883,10 +926,16 @@ class TestCalibratePressureMessages:
             msgs_a = self._make_messages(2, content_len=1000)
             msgs_b = self._make_messages(2, content_len=1000)
             result_a, _ = await calibrate_pressure_messages(
-                msgs_a, target, "http://localhost", "model",
+                msgs_a,
+                target,
+                "http://localhost",
+                "model",
             )
             result_b, _ = await calibrate_pressure_messages(
-                msgs_b, target, "http://localhost", "model",
+                msgs_b,
+                target,
+                "http://localhost",
+                "model",
             )
             # Extended content should differ (different time.time_ns() seeds)
             assert result_a[2]["content"] != result_b[2]["content"]
@@ -916,6 +965,7 @@ class TestRunScenarioWithPressure:
 
             async def chat_completion(self, **kwargs: Any) -> ChatCompletionResult:
                 import copy
+
                 self.captured.append(copy.deepcopy(kwargs.get("messages", [])))
                 return ChatCompletionResult(content="It's 22C in Berlin.")
 
@@ -923,12 +973,12 @@ class TestRunScenarioWithPressure:
             return {"result": "ok"}
 
         def evaluator(state):
-            return ScenarioEvaluation(
-                status=ScenarioStatus.PASS, points=2, summary="ok"
-            )
+            return ScenarioEvaluation(status=ScenarioStatus.PASS, points=2, summary="ok")
 
         scenario = ScenarioDefinition(
-            id="CP-01", title="Pressure test", category=Category.A,
+            id="CP-01",
+            title="Pressure test",
+            category=Category.A,
             user_message="What's the weather?",
             description="Test with pressure",
             handle_tool_call=handler,
@@ -1092,12 +1142,16 @@ class TestPressureSweepIntegration:
         results = []
         for i, status_str in enumerate(statuses):
             s = ScenarioStatus(status_str)
-            results.append(ScenarioResult(
-                scenario_id=f"TC-{i + 1:02d}",
-                status=s,
-                points=2 if s == ScenarioStatus.PASS else (1 if s == ScenarioStatus.PARTIAL else 0),
-                summary="ok",
-            ))
+            results.append(
+                ScenarioResult(
+                    scenario_id=f"TC-{i + 1:02d}",
+                    status=s,
+                    points=2
+                    if s == ScenarioStatus.PASS
+                    else (1 if s == ScenarioStatus.PARTIAL else 0),
+                    summary="ok",
+                )
+            )
 
         return ModelScoreSummary(
             scenario_results=results,
@@ -1124,9 +1178,13 @@ class TestPressureSweepIntegration:
         )
 
         scenario = ScenarioDefinition(
-            id="TC-01", title="Test", category=Category.A,
-            user_message="test", description="test",
-            handle_tool_call=lambda s, c: {}, evaluate=lambda s: None,
+            id="TC-01",
+            title="Test",
+            category=Category.A,
+            user_message="test",
+            description="test",
+            handle_tool_call=lambda s, c: {},
+            evaluate=lambda s: None,
         )
         mock_resolve.return_value = [scenario]
 
@@ -1137,9 +1195,15 @@ class TestPressureSweepIntegration:
         args = self._make_args(sweep="0.5-1.0", steps=3, context_size=32768)
 
         from tool_eval_bench.cli.bench import _run_pressure_sweep
+
         _run_pressure_sweep(
-            console, "test-model", "test-model", "vllm",
-            "http://localhost:8080", None, args,
+            console,
+            "test-model",
+            "test-model",
+            "vllm",
+            "http://localhost:8080",
+            None,
+            args,
         )
 
         # 3 levels (steps=3 → 0.5, 0.75, 1.0) — one asyncio.run per level
@@ -1148,7 +1212,9 @@ class TestPressureSweepIntegration:
     @patch("tool_eval_bench.cli.bench._resolve_scenarios")
     @patch("tool_eval_bench.cli.bench.asyncio")
     def test_sweep_early_stops_on_consecutive_failures(
-        self, mock_asyncio, mock_resolve,
+        self,
+        mock_asyncio,
+        mock_resolve,
     ) -> None:
         """Sweep should stop after 2 consecutive all-fail levels."""
         import io
@@ -1161,9 +1227,13 @@ class TestPressureSweepIntegration:
         )
 
         scenario = ScenarioDefinition(
-            id="TC-01", title="Test", category=Category.A,
-            user_message="test", description="test",
-            handle_tool_call=lambda s, c: {}, evaluate=lambda s: None,
+            id="TC-01",
+            title="Test",
+            category=Category.A,
+            user_message="test",
+            description="test",
+            handle_tool_call=lambda s, c: {},
+            evaluate=lambda s: None,
         )
         mock_resolve.return_value = [scenario]
 
@@ -1177,9 +1247,15 @@ class TestPressureSweepIntegration:
         args = self._make_args(sweep="0.5-1.0", steps=4, context_size=32768)
 
         from tool_eval_bench.cli.bench import _run_pressure_sweep
+
         _run_pressure_sweep(
-            console, "test-model", "test-model", "vllm",
-            "http://localhost:8080", None, args,
+            console,
+            "test-model",
+            "test-model",
+            "vllm",
+            "http://localhost:8080",
+            None,
+            args,
         )
 
         # Should stop at 3 calls (pass, fail, fail), not run all 4 levels
@@ -1200,5 +1276,6 @@ class TestPressureSweepIntegration:
         import inspect
 
         from tool_eval_bench.cli.bench import _run_pressure_sweep
+
         sig = inspect.signature(_run_pressure_sweep)
         assert "display_url" in sig.parameters

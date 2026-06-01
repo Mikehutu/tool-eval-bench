@@ -143,7 +143,9 @@ def _download_dataset(
 
     # Fast path: datasets library (no rate limits)
     rows = load_via_datasets_lib(
-        _DATASET, _CONFIG, _SPLIT,
+        _DATASET,
+        _CONFIG,
+        _SPLIT,
         on_progress=on_progress,
     )
     if rows is not None:

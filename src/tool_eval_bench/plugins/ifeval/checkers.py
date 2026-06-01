@@ -19,9 +19,11 @@ _CHECKERS: dict[str, Any] = {}
 
 def register(instruction_id: str):
     """Decorator to register a checker function."""
+
     def decorator(fn):
         _CHECKERS[instruction_id] = fn
         return fn
+
     return decorator
 
 
@@ -49,6 +51,7 @@ def available_checkers() -> list[str]:
 # ---------------------------------------------------------------------------
 # Helper utilities
 # ---------------------------------------------------------------------------
+
 
 def _count_words(text: str) -> int:
     return len(text.split())
@@ -85,6 +88,7 @@ def _relation_check(actual: int, expected: int, relation: str) -> bool:
 # ---------------------------------------------------------------------------
 # Length constraints
 # ---------------------------------------------------------------------------
+
 
 @register("length_constraints:number_words")
 def check_number_words(response: str, kwargs: dict) -> bool:
@@ -130,6 +134,7 @@ def check_nth_paragraph_first_word(response: str, kwargs: dict) -> bool:
 # Keyword constraints
 # ---------------------------------------------------------------------------
 
+
 @register("keywords:existence")
 def check_keywords_existence(response: str, kwargs: dict) -> bool:
     keywords = kwargs.get("keywords")
@@ -173,6 +178,7 @@ def check_letter_frequency(response: str, kwargs: dict) -> bool:
 # ---------------------------------------------------------------------------
 # Format constraints
 # ---------------------------------------------------------------------------
+
 
 @register("detectable_format:number_highlighted_sections")
 def check_highlighted_sections(response: str, kwargs: dict) -> bool:
@@ -266,6 +272,7 @@ def check_constrained_response(response: str, kwargs: dict) -> bool:
 # Punctuation constraints
 # ---------------------------------------------------------------------------
 
+
 @register("punctuation:no_comma")
 def check_no_comma(response: str, kwargs: dict) -> bool:
     return "," not in response
@@ -274,6 +281,7 @@ def check_no_comma(response: str, kwargs: dict) -> bool:
 # ---------------------------------------------------------------------------
 # Start/end constraints
 # ---------------------------------------------------------------------------
+
 
 @register("startend:end_checker")
 def check_end_phrase(response: str, kwargs: dict) -> bool:
@@ -296,6 +304,7 @@ def check_quotation(response: str, kwargs: dict) -> bool:
 # ---------------------------------------------------------------------------
 # Case constraints
 # ---------------------------------------------------------------------------
+
 
 @register("change_case:english_uppercase")
 def check_uppercase(response: str, kwargs: dict) -> bool:
@@ -320,6 +329,7 @@ def check_capitalize(response: str, kwargs: dict) -> bool:
 # ---------------------------------------------------------------------------
 # Combination / misc constraints
 # ---------------------------------------------------------------------------
+
 
 @register("combination:repeat_prompt")
 def check_repeat_prompt(response: str, kwargs: dict) -> bool:

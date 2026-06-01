@@ -27,9 +27,7 @@ def get_plugin(name: str, **kwargs) -> BenchmarkPlugin:
     cls = registry.get(name)
     if cls is None:
         available = ", ".join(sorted(registry))
-        raise KeyError(
-            f"Unknown benchmark plugin: {name!r}. Available: {available}"
-        )
+        raise KeyError(f"Unknown benchmark plugin: {name!r}. Available: {available}")
     return cls(**kwargs)
 
 

@@ -214,9 +214,14 @@ def print_diff(
         if prev is None:
             new_scenarios += 1
             table.add_row(
-                sc_id, cr.summary[:30],
-                "[dim]—[/]", "→", f"[bold]{cur_pts}[/]/2",
-                "[dim]new[/]", "", "[dim]new scenario[/]",
+                sc_id,
+                cr.summary[:30],
+                "[dim]—[/]",
+                "→",
+                f"[bold]{cur_pts}[/]/2",
+                "[dim]new[/]",
+                "",
+                "[dim]new scenario[/]",
             )
             continue
 
@@ -262,7 +267,11 @@ def print_diff(
 
     # Summary line
     cur_total = sum(r.points for r in current_results)
-    prev_total = sum(r.get("points", 0) for r in prev_results if r["scenario_id"] in {cr.scenario_id for cr in current_results})
+    prev_total = sum(
+        r.get("points", 0)
+        for r in prev_results
+        if r["scenario_id"] in {cr.scenario_id for cr in current_results}
+    )
     total_delta = cur_total - prev_total
     delta_color = "green" if total_delta > 0 else ("red" if total_delta < 0 else "dim")
     delta_sign = "+" if total_delta > 0 else ""
@@ -328,12 +337,14 @@ def compare_runs(console: Console, run_id_a: str, run_id_b: str) -> None:
             if va != vb:
                 diffs.append(f"{key} ({va} vs {vb})")
         diff_str = ", ".join(diffs) if diffs else "config fingerprints differ"
-        console.print(Panel(
-            f"  [bold yellow]⚠ These runs have different configurations[/]\n"
-            f"  [dim]{diff_str}[/]\n"
-            f"  [dim]McNemar results may not be meaningful.[/]",
-            border_style="yellow",
-        ))
+        console.print(
+            Panel(
+                f"  [bold yellow]⚠ These runs have different configurations[/]\n"
+                f"  [dim]{diff_str}[/]\n"
+                f"  [dim]McNemar results may not be meaningful.[/]",
+                border_style="yellow",
+            )
+        )
 
     model_a = run_a.get("config", {}).get("model", "?")
     model_b = run_b.get("config", {}).get("model", "?")
@@ -352,18 +363,20 @@ def compare_runs(console: Console, run_id_a: str, run_id_b: str) -> None:
         header_lines.extend(ctx_lines_b)
 
     console.print()
-    console.print(Panel(
-        "\n".join(header_lines),
-        title="[bold]📊 Run Comparison[/]",
-        border_style="bright_cyan",
-    ))
+    console.print(
+        Panel(
+            "\n".join(header_lines),
+            title="[bold]📊 Run Comparison[/]",
+            border_style="bright_cyan",
+        )
+    )
 
     # Build lookup: scenario_id → result dict
     map_a = {r["scenario_id"]: r for r in results_a}
     map_b = {r["scenario_id"]: r for r in results_b}
-    all_ids = list(dict.fromkeys(
-        [r["scenario_id"] for r in results_a] + [r["scenario_id"] for r in results_b]
-    ))
+    all_ids = list(
+        dict.fromkeys([r["scenario_id"] for r in results_a] + [r["scenario_id"] for r in results_b])
+    )
 
     status_symbols = {"pass": "✅", "partial": "⚠️", "fail": "❌"}
     improved = regressed = unchanged = 0
@@ -387,10 +400,26 @@ def compare_runs(console: Console, run_id_a: str, run_id_b: str) -> None:
         rb = map_b.get(sc_id)
 
         if ra and not rb:
-            table.add_row(sc_id, f"[dim]{ra.get('points', 0)}/2[/]", "→", "[dim]—[/]", "", "", "[dim]removed in B[/]")
+            table.add_row(
+                sc_id,
+                f"[dim]{ra.get('points', 0)}/2[/]",
+                "→",
+                "[dim]—[/]",
+                "",
+                "",
+                "[dim]removed in B[/]",
+            )
             continue
         if rb and not ra:
-            table.add_row(sc_id, "[dim]—[/]", "→", f"[bold]{rb.get('points', 0)}/2[/]", "[dim]new[/]", "", "[dim]new in B[/]")
+            table.add_row(
+                sc_id,
+                "[dim]—[/]",
+                "→",
+                f"[bold]{rb.get('points', 0)}/2[/]",
+                "[dim]new[/]",
+                "",
+                "[dim]new in B[/]",
+            )
             continue
 
         pts_a, pts_b = ra.get("points", 0), rb.get("points", 0)
@@ -419,8 +448,12 @@ def compare_runs(console: Console, run_id_a: str, run_id_b: str) -> None:
 
         table.add_row(
             sc_id,
-            f"[dim]{sym_a} {pts_a}[/]", "→", f"{sym_b} [bold]{pts_b}[/]",
-            delta_str, dur_str, note,
+            f"[dim]{sym_a} {pts_a}[/]",
+            "→",
+            f"{sym_b} [bold]{pts_b}[/]",
+            delta_str,
+            dur_str,
+            note,
         )
 
     console.print()
@@ -521,13 +554,10 @@ def _print_mcnemar(
 
     parts = [
         f"  [bold]McNemar's test:[/] {sig_str}",
-        f"  [dim]Discordant pairs: {n_discordant} "
-        f"(A→fail: {b}, A→pass: {c}, χ²={chi2:.2f})[/]",
+        f"  [dim]Discordant pairs: {n_discordant} (A→fail: {b}, A→pass: {c}, χ²={chi2:.2f})[/]",
     ]
     if sig:
-        parts.append(
-            f"  [bold]→ {direction} is statistically better[/]"
-        )
+        parts.append(f"  [bold]→ {direction} is statistically better[/]")
 
     console.print()
     console.print("\n".join(parts))

@@ -154,13 +154,15 @@ def _load_from_cache(path: Path) -> list[MMLUItem]:
             if not line:
                 continue
             row = json.loads(line)
-            items.append(MMLUItem(
-                index=row["index"],
-                question=row["question"],
-                subject=row["subject"],
-                choices=row["choices"],
-                answer=row["answer"],
-            ))
+            items.append(
+                MMLUItem(
+                    index=row["index"],
+                    question=row["question"],
+                    subject=row["subject"],
+                    choices=row["choices"],
+                    answer=row["answer"],
+                )
+            )
     return items
 
 
@@ -168,13 +170,15 @@ def _rows_to_items(rows: list[dict]) -> list[MMLUItem]:
     """Convert raw row dicts to MMLUItem objects."""
     items: list[MMLUItem] = []
     for row in rows:
-        items.append(MMLUItem(
-            index=len(items),
-            question=row["question"],
-            subject=row["subject"],
-            choices=list(row["choices"]),
-            answer=int(row["answer"]),
-        ))
+        items.append(
+            MMLUItem(
+                index=len(items),
+                question=row["question"],
+                subject=row["subject"],
+                choices=list(row["choices"]),
+                answer=int(row["answer"]),
+            )
+        )
     return items
 
 
@@ -193,7 +197,9 @@ def _download_dataset(
 
     # Fast path: datasets library (no rate limits)
     rows = load_via_datasets_lib(
-        _DATASET, _CONFIG, split,
+        _DATASET,
+        _CONFIG,
+        split,
         on_progress=on_progress,
     )
     if rows is not None:
@@ -202,7 +208,9 @@ def _download_dataset(
     # Fallback: REST API with resume support
     partial_path = _CACHE_DIR / f"{split}.partial.jsonl"
     rows = download_rows_paginated(
-        _DATASET, _CONFIG, split,
+        _DATASET,
+        _CONFIG,
+        split,
         page_size=_PAGE_SIZE,
         partial_path=partial_path,
         on_progress=on_progress,
@@ -233,6 +241,3 @@ def load_dataset(
     partial_path.unlink(missing_ok=True)
 
     return items
-
-
-

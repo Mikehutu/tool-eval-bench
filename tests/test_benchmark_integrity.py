@@ -145,13 +145,15 @@ async def test_resume_rescores_and_reports_merged_results(monkeypatch: pytest.Mo
         base_url="http://localhost:8000",
         scenarios=[rerun],
         resume_run_id="existing-run",
-        resume_prior_results=[{
-            "scenario_id": prior.id,
-            "status": "pass",
-            "points": 2,
-            "summary": "passed",
-            "raw_log": "prior trace",
-        }],
+        resume_prior_results=[
+            {
+                "scenario_id": prior.id,
+                "status": "pass",
+                "points": 2,
+                "summary": "passed",
+                "raw_log": "prior trace",
+            }
+        ],
     )
 
     merged_summary = reporter.write_scenario_report.call_args.args[2]

@@ -207,13 +207,13 @@ class MetricsSnapshot:
     # Engine gauges (vLLM)
     prompt_tps: float = 0.0
     generation_tps: float = 0.0
-    gpu_cache_usage: float | None = None   # legacy: gpu_cache_usage_perc
-    kv_cache_usage: float | None = None    # current: kv_cache_usage_perc
+    gpu_cache_usage: float | None = None  # legacy: gpu_cache_usage_perc
+    kv_cache_usage: float | None = None  # current: kv_cache_usage_perc
     running_reqs: float = 0.0
     waiting_reqs: float = 0.0
     prefix_cache_hit: float = 0.0  # legacy gauge (0–1)
     prefix_cache_queries: float = 0.0  # new counter
-    prefix_cache_hits: float = 0.0     # new counter
+    prefix_cache_hits: float = 0.0  # new counter
     prompt_tokens_total: float = 0.0
     generation_tokens_total: float = 0.0
 
@@ -497,7 +497,7 @@ class ServerSpecInfo:
     relying on keyword scanning of Prometheus text (which rarely works).
     """
 
-    spec_method: str | None = None       # e.g. "draft_model", "mtp", "dflash"
+    spec_method: str | None = None  # e.g. "draft_model", "mtp", "dflash"
     draft_model_name: str | None = None  # e.g. "Qwen/Qwen3-0.6B"
     target_model_name: str | None = None
     num_speculative_tokens: int | None = None
@@ -564,7 +564,8 @@ async def probe_server_spec_info(
                         info.spec_method = info.spec_method or "draft_model"
                         logger.info(
                             "Detected draft model from /v1/models: %s (target: %s)",
-                            info.draft_model_name, info.target_model_name,
+                            info.draft_model_name,
+                            info.target_model_name,
                         )
                 elif len(model_ids) == 1:
                     info.target_model_name = model_ids[0]
@@ -594,7 +595,9 @@ async def probe_server_spec_info(
                             info.num_speculative_tokens = nst
                         logger.info(
                             "Detected spec config from /version: method=%s, draft=%s, k=%s",
-                            info.spec_method, info.draft_model_name, info.num_speculative_tokens,
+                            info.spec_method,
+                            info.draft_model_name,
+                            info.num_speculative_tokens,
                         )
         except Exception as exc:
             logger.debug("/version probe failed: %s", exc)

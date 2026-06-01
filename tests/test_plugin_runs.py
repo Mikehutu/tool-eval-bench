@@ -42,29 +42,27 @@ class MockAdapter(BackendAdapter):
         response_format: dict | None = None,
         parallel_tool_calls: bool | None = True,
     ) -> ChatCompletionResult:
-        self.calls.append({
-            "model": model,
-            "messages": messages,
-            "tools": tools,
-            "tool_choice": tool_choice,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "timeout_seconds": timeout_seconds,
-            "api_key": api_key,
-            "base_url": base_url,
-            "extra_params": extra_params,
-            "stream": stream,
-            "response_format": response_format,
-            "parallel_tool_calls": parallel_tool_calls,
-        })
+        self.calls.append(
+            {
+                "model": model,
+                "messages": messages,
+                "tools": tools,
+                "tool_choice": tool_choice,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "timeout_seconds": timeout_seconds,
+                "api_key": api_key,
+                "base_url": base_url,
+                "extra_params": extra_params,
+                "stream": stream,
+                "response_format": response_format,
+                "parallel_tool_calls": parallel_tool_calls,
+            }
+        )
         return ChatCompletionResult(
             content=self.response_content,
             tool_calls=[],
-            raw_response={
-                "choices": [
-                    {"message": {"content": self.response_content}}
-                ]
-            },
+            raw_response={"choices": [{"message": {"content": self.response_content}}]},
             elapsed_ms=15.0,
         )
 
@@ -74,12 +72,16 @@ async def test_gsm8k_plugin_run() -> None:
     """GSM8K evaluation: sequential and parallel loops."""
     items = [
         GSM8KItem(
-            index=0, question="What is 2+2?",
-            raw_answer="#### 4", ground_truth=4.0,
+            index=0,
+            question="What is 2+2?",
+            raw_answer="#### 4",
+            ground_truth=4.0,
         ),
         GSM8KItem(
-            index=1, question="What is 3+3?",
-            raw_answer="#### 6", ground_truth=6.0,
+            index=1,
+            question="What is 3+3?",
+            raw_answer="#### 6",
+            ground_truth=6.0,
         ),
     ]
 
@@ -119,14 +121,18 @@ async def test_mmlu_plugin_run() -> None:
     choices = ["A", "B", "C", "D"]
     items = [
         MMLUItem(
-            index=0, question="Q1",
+            index=0,
+            question="Q1",
             subject="abstract_algebra",
-            choices=choices, answer=0,
+            choices=choices,
+            answer=0,
         ),
         MMLUItem(
-            index=1, question="Q2",
+            index=1,
+            question="Q2",
             subject="abstract_algebra",
-            choices=choices, answer=1,
+            choices=choices,
+            answer=1,
         ),
     ]
 
@@ -165,12 +171,14 @@ async def test_ifeval_plugin_run() -> None:
     """IFEval evaluation: sequential and parallel loops."""
     items = [
         IFEvalItem(
-            key=0, prompt="P1",
+            key=0,
+            prompt="P1",
             instruction_id_list=["punctuation:no_comma"],
             kwargs=[{"comma_number": 0}],
         ),
         IFEvalItem(
-            key=1, prompt="P2",
+            key=1,
+            prompt="P2",
             instruction_id_list=["punctuation:no_comma"],
             kwargs=[{"comma_number": 0}],
         ),

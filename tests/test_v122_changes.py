@@ -27,6 +27,7 @@ from tool_eval_bench.evals.scenarios import ALL_SCENARIOS
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _sc(sid: str):
     """Get a scenario by ID."""
     return next(s for s in ALL_SCENARIOS if s.id == sid)
@@ -58,42 +59,52 @@ class TestTC15FlexibleQuery:
 
     def test_pass_exact_phrase(self) -> None:
         """Original phrasing should still pass."""
-        s = _state(tool_calls=[
-            {"name": "web_search", "arguments": {"query": "population of iceland"}},
-            {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
-        ])
+        s = _state(
+            tool_calls=[
+                {"name": "web_search", "arguments": {"query": "population of iceland"}},
+                {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
+            ]
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
     def test_pass_reversed_word_order(self) -> None:
         """'Iceland population' (reversed order) should also pass."""
-        s = _state(tool_calls=[
-            {"name": "web_search", "arguments": {"query": "Iceland population 2026"}},
-            {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
-        ])
+        s = _state(
+            tool_calls=[
+                {"name": "web_search", "arguments": {"query": "Iceland population 2026"}},
+                {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
+            ]
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
     def test_pass_mixed_case(self) -> None:
         """Case-insensitive matching should work."""
-        s = _state(tool_calls=[
-            {"name": "web_search", "arguments": {"query": "Population Iceland current"}},
-            {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
-        ])
+        s = _state(
+            tool_calls=[
+                {"name": "web_search", "arguments": {"query": "Population Iceland current"}},
+                {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
+            ]
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
     def test_fail_missing_iceland(self) -> None:
         """Query without 'iceland' should fail."""
-        s = _state(tool_calls=[
-            {"name": "web_search", "arguments": {"query": "population of europe"}},
-            {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
-        ])
+        s = _state(
+            tool_calls=[
+                {"name": "web_search", "arguments": {"query": "population of europe"}},
+                {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
+            ]
+        )
         assert self.sc.evaluate(s).status != ScenarioStatus.PASS
 
     def test_fail_missing_population(self) -> None:
         """Query without 'population' should fail."""
-        s = _state(tool_calls=[
-            {"name": "web_search", "arguments": {"query": "iceland facts"}},
-            {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
-        ])
+        s = _state(
+            tool_calls=[
+                {"name": "web_search", "arguments": {"query": "iceland facts"}},
+                {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
+            ]
+        )
         assert self.sc.evaluate(s).status != ScenarioStatus.PASS
 
 
@@ -106,11 +117,13 @@ class TestReservedForScenario:
     def test_constant_value(self) -> None:
         """Reservation must be >= 8000 to cover LARGE_TOOLSET tool definitions."""
         from tool_eval_bench.runner.context_pressure import _RESERVED_FOR_SCENARIO
+
         assert _RESERVED_FOR_SCENARIO >= 8000
 
     def test_small_context_returns_zero(self) -> None:
         """Context too small for any fill should still return 0, not negative."""
         from tool_eval_bench.runner.context_pressure import compute_fill_budget
+
         fill = compute_fill_budget(8000, 0.75)
         assert fill == 0
 
@@ -121,6 +134,7 @@ class TestReservedForScenario:
             _RESERVED_FOR_SCENARIO,
             compute_fill_budget,
         )
+
         ctx = 32768
         fill = compute_fill_budget(ctx, 1.0)
         available = ctx - _RESERVED_FOR_OUTPUT - _RESERVED_FOR_SCENARIO
@@ -143,24 +157,28 @@ class TestResolveScenarios:
 
     def test_all_scenarios_default(self) -> None:
         from tool_eval_bench.cli.bench import _resolve_scenarios
+
         result = _resolve_scenarios(self._args())
         assert len(result) == len(ALL_SCENARIOS)
 
     def test_short_flag(self) -> None:
         from tool_eval_bench.cli.bench import _resolve_scenarios
         from tool_eval_bench.evals.scenarios import SCENARIOS
+
         result = _resolve_scenarios(self._args(short=True))
         assert len(result) == len(SCENARIOS)
         assert len(result) < len(ALL_SCENARIOS)
 
     def test_categories_single(self) -> None:
         from tool_eval_bench.cli.bench import _resolve_scenarios
+
         result = _resolve_scenarios(self._args(categories=["K"]))
         assert all(s.category == Category.K for s in result)
         assert len(result) > 0
 
     def test_categories_multiple(self) -> None:
         from tool_eval_bench.cli.bench import _resolve_scenarios
+
         result = _resolve_scenarios(self._args(categories=["A", "B"]))
         cats = {s.category for s in result}
         assert cats == {Category.A, Category.B}
@@ -168,6 +186,7 @@ class TestResolveScenarios:
     def test_categories_lowercase(self) -> None:
         """Should accept lowercase category letters."""
         from tool_eval_bench.cli.bench import _resolve_scenarios
+
         result = _resolve_scenarios(self._args(categories=["k", "a"]))
         cats = {s.category for s in result}
         assert cats == {Category.K, Category.A}
@@ -175,16 +194,20 @@ class TestResolveScenarios:
     def test_scenarios_override_categories(self) -> None:
         """--scenarios takes priority over --categories."""
         from tool_eval_bench.cli.bench import _resolve_scenarios
-        result = _resolve_scenarios(self._args(
-            scenarios=["TC-01"],
-            categories=["K"],
-        ))
+
+        result = _resolve_scenarios(
+            self._args(
+                scenarios=["TC-01"],
+                categories=["K"],
+            )
+        )
         assert len(result) == 1
         assert result[0].id == "TC-01"
 
     def test_categories_with_short(self) -> None:
         """--categories should filter from --short base when both set."""
         from tool_eval_bench.cli.bench import _resolve_scenarios
+
         result = _resolve_scenarios(self._args(short=True, categories=["A"]))
         assert all(s.category == Category.A for s in result)
         assert len(result) > 0
@@ -192,6 +215,7 @@ class TestResolveScenarios:
     def test_empty_categories_returns_empty(self) -> None:
         """Non-existent category should return empty list (not crash)."""
         from tool_eval_bench.cli.bench import _resolve_scenarios
+
         # Category Z doesn't exist, but categories are uppercased
         # and filtered — no match means empty list
         result = _resolve_scenarios(self._args(categories=["Z"]))
@@ -207,6 +231,7 @@ class TestBackendKwargsParsing:
     def test_valid_json_merges(self) -> None:
         """Valid JSON dict should merge into extra_params."""
         import json
+
         bk = json.loads('{"temperature": 0.6, "top_p": 0.9}')
         extra_params: dict = {}
         for k, v in bk.items():
@@ -216,6 +241,7 @@ class TestBackendKwargsParsing:
     def test_deep_merge_dict_values(self) -> None:
         """Dict-valued keys should be deep-merged."""
         import json
+
         extra_params = {"chat_template_kwargs": {"enable_thinking": False}}
         bk = json.loads('{"chat_template_kwargs": {"max_thinking_tokens": 1024}}')
         for k, v in bk.items():
@@ -233,6 +259,7 @@ class TestBackendKwargsParsing:
     def test_override_scalar(self) -> None:
         """Scalar values in --backend-kwargs should override individual flags."""
         import json
+
         extra_params = {"top_p": 0.9}
         bk = json.loads('{"top_p": 0.5}')
         for k, v in bk.items():
@@ -249,12 +276,14 @@ class TestMetricsUrlOverride:
     def test_metrics_url_auto(self) -> None:
         """Without override, _metrics_url derives from base_url."""
         from tool_eval_bench.runner.speculative import _metrics_url
+
         assert _metrics_url("http://localhost:8080/v1") == "http://localhost:8080/metrics"
         assert _metrics_url("http://host:4000") == "http://host:4000/metrics"
 
     def test_metrics_url_strips_v1(self) -> None:
         """Should strip /v1 before appending /metrics."""
         from tool_eval_bench.runner.speculative import _metrics_url
+
         assert _metrics_url("http://host:8080/v1/") == "http://host:8080/metrics"
 
     @pytest.mark.asyncio
@@ -265,11 +294,14 @@ class TestMetricsUrlOverride:
         client = AsyncMock()
         resp = MagicMock()
         resp.status_code = 200
-        resp.text = "spec_decode_num_accepted_tokens_total 100\nspec_decode_num_draft_tokens_total 200\n"
+        resp.text = (
+            "spec_decode_num_accepted_tokens_total 100\nspec_decode_num_draft_tokens_total 200\n"
+        )
         client.get = AsyncMock(return_value=resp)
 
         result = await scrape_spec_metrics(
-            client, "http://litellm:4000",
+            client,
+            "http://litellm:4000",
             metrics_url="http://vllm:8080/metrics",
         )
         # Should have called the override URL, not litellm:4000/metrics
@@ -291,7 +323,8 @@ class TestMetricsUrlOverride:
         client.get = AsyncMock(return_value=resp)
 
         info = await detect_spec_decoding(
-            client, "http://litellm:4000",
+            client,
+            "http://litellm:4000",
             metrics_url="http://vllm:8080/metrics",
         )
         assert info.active is True

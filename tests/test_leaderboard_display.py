@@ -49,11 +49,13 @@ def _make_run(
             "rating": rating,
             "total_points": total_points,
             "max_points": max_points,
-            "category_scores": cat_scores or [
+            "category_scores": cat_scores
+            or [
                 {"category": "A", "percent": 100},
                 {"category": "B", "percent": 67},
             ],
-            "scenario_results": scenario_results or [
+            "scenario_results": scenario_results
+            or [
                 {"status": "pass", "scenario_id": "TC-01"},
                 {"status": "partial", "scenario_id": "TC-02"},
                 {"status": "fail", "scenario_id": "TC-03"},
@@ -210,7 +212,11 @@ class TestPrintLeaderboard:
             assert "🥉" in output
 
     def test_shows_category_heatmap(self) -> None:
-        runs = [_make_run(cat_scores=[{"category": "A", "percent": 100}, {"category": "B", "percent": 50}])]
+        runs = [
+            _make_run(
+                cat_scores=[{"category": "A", "percent": 100}, {"category": "B", "percent": 50}]
+            )
+        ]
         with patch("tool_eval_bench.storage.db.RunRepository") as MockRepo:
             repo = MagicMock()
             repo.list.return_value = runs
@@ -343,10 +349,12 @@ class TestExportRuns:
 
             # export_runs prints CSV to stdout via print(), not to console
             import sys
+
             old_stdout = sys.stdout
             sys.stdout = buf = io.StringIO()
             try:
                 from tool_eval_bench.cli.leaderboard import export_runs
+
                 export_runs(Console(file=StringIO(), width=200, no_color=True), fmt="csv")
             finally:
                 sys.stdout = old_stdout
@@ -364,11 +372,13 @@ class TestExportRuns:
 
             # Capture stdout
             import sys
+
             old_stdout = sys.stdout
             sys.stdout = buf = io.StringIO()
 
             try:
                 from tool_eval_bench.cli.leaderboard import export_runs
+
                 export_runs(MagicMock(), fmt="csv")
             finally:
                 sys.stdout = old_stdout
@@ -389,11 +399,13 @@ class TestExportRuns:
             MockRepo.return_value = repo
 
             import sys
+
             old_stdout = sys.stdout
             sys.stdout = buf = io.StringIO()
 
             try:
                 from tool_eval_bench.cli.leaderboard import export_runs
+
                 export_runs(MagicMock(), fmt="csv")
             finally:
                 sys.stdout = old_stdout
@@ -411,11 +423,13 @@ class TestExportRuns:
             MockRepo.return_value = repo
 
             import sys
+
             old_stdout = sys.stdout
             sys.stdout = buf = io.StringIO()
 
             try:
                 from tool_eval_bench.cli.leaderboard import export_runs
+
                 export_runs(MagicMock(), fmt="json")
             finally:
                 sys.stdout = old_stdout
@@ -427,18 +441,24 @@ class TestExportRuns:
             assert data[0]["final_score"] == 85
 
     def test_export_json_has_categories(self) -> None:
-        runs = [_make_run(cat_scores=[{"category": "A", "percent": 100}, {"category": "B", "percent": 50}])]
+        runs = [
+            _make_run(
+                cat_scores=[{"category": "A", "percent": 100}, {"category": "B", "percent": 50}]
+            )
+        ]
         with patch("tool_eval_bench.storage.db.RunRepository") as MockRepo:
             repo = MagicMock()
             repo.list.return_value = runs
             MockRepo.return_value = repo
 
             import sys
+
             old_stdout = sys.stdout
             sys.stdout = buf = io.StringIO()
 
             try:
                 from tool_eval_bench.cli.leaderboard import export_runs
+
                 export_runs(MagicMock(), fmt="json")
             finally:
                 sys.stdout = old_stdout
@@ -459,7 +479,6 @@ class TestExportRuns:
 
             console = Console(file=StringIO(), width=200, no_color=True)
             export_runs(console, fmt="csv", output=output_file)
-
 
             with open(output_file) as f:
                 assert "model" in f.read()
@@ -507,18 +526,24 @@ class TestExportRuns:
             assert "No benchmark runs found" in output
 
     def test_export_csv_includes_category_columns(self) -> None:
-        runs = [_make_run(cat_scores=[{"category": "A", "percent": 100}, {"category": "K", "percent": 75}])]
+        runs = [
+            _make_run(
+                cat_scores=[{"category": "A", "percent": 100}, {"category": "K", "percent": 75}]
+            )
+        ]
         with patch("tool_eval_bench.storage.db.RunRepository") as MockRepo:
             repo = MagicMock()
             repo.list.return_value = runs
             MockRepo.return_value = repo
 
             import sys
+
             old_stdout = sys.stdout
             sys.stdout = buf = io.StringIO()
 
             try:
                 from tool_eval_bench.cli.leaderboard import export_runs
+
                 export_runs(MagicMock(), fmt="csv")
             finally:
                 sys.stdout = old_stdout

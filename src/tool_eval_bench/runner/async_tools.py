@@ -33,8 +33,10 @@ logger = logging.getLogger(__name__)
 # Async tool result types
 # ---------------------------------------------------------------------------
 
+
 class AsyncToolStatus(str, Enum):
     """Status of an async tool execution."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -45,6 +47,7 @@ class AsyncToolStatus(str, Enum):
 @dataclass
 class AsyncToolResult:
     """Result from an async tool that may still be in progress."""
+
     status: AsyncToolStatus
     handle: str  # Opaque handle for polling
     result: Any = None
@@ -57,6 +60,7 @@ class AsyncToolResult:
 @dataclass
 class AsyncToolSpec:
     """Specification for an async tool's behavior in a scenario."""
+
     tool_name: str
     # How long the tool takes to complete (simulated)
     duration_ms: float = 2000.0
@@ -76,6 +80,7 @@ class AsyncToolSpec:
 # ---------------------------------------------------------------------------
 # Async tool executor
 # ---------------------------------------------------------------------------
+
 
 class AsyncToolExecutor:
     """Manages async tool execution with progress tracking.
@@ -193,6 +198,7 @@ class AsyncToolExecutor:
 # Async-aware orchestration helpers
 # ---------------------------------------------------------------------------
 
+
 def format_async_status(result: AsyncToolResult) -> str:
     """Format an async tool result as a human-readable status string.
 
@@ -200,11 +206,13 @@ def format_async_status(result: AsyncToolResult) -> str:
     during async orchestration.
     """
     if result.status == AsyncToolStatus.PENDING:
-        return json.dumps({
-            "status": "pending",
-            "handle": result.handle,
-            "message": "Task started. Poll with handle to check progress.",
-        })
+        return json.dumps(
+            {
+                "status": "pending",
+                "handle": result.handle,
+                "message": "Task started. Poll with handle to check progress.",
+            }
+        )
     if result.status == AsyncToolStatus.RUNNING:
         parts: dict[str, Any] = {
             "status": "running",
@@ -217,11 +225,13 @@ def format_async_status(result: AsyncToolResult) -> str:
     if result.status == AsyncToolStatus.COMPLETED:
         return json.dumps({"status": "completed", "result": result.result})
     if result.status == AsyncToolStatus.FAILED:
-        return json.dumps({
-            "status": "failed",
-            "handle": result.handle,
-            "error": result.error,
-        })
+        return json.dumps(
+            {
+                "status": "failed",
+                "handle": result.handle,
+                "error": result.error,
+            }
+        )
     if result.status == AsyncToolStatus.CANCELLED:
         return json.dumps({"status": "cancelled", "handle": result.handle})
     return json.dumps({"status": "unknown"})
@@ -230,6 +240,7 @@ def format_async_status(result: AsyncToolResult) -> str:
 # ---------------------------------------------------------------------------
 # Example async scenario definitions (for future use)
 # ---------------------------------------------------------------------------
+
 
 def create_example_async_specs() -> list[AsyncToolSpec]:
     """Create example async tool specifications for testing.
@@ -253,7 +264,10 @@ def create_example_async_specs() -> list[AsyncToolSpec]:
             },
             intermediate_results=[
                 {"partial_count": 1, "first_match": "Project_Plan_2026.docx"},
-                {"partial_count": 2, "matches": ["Project_Plan_2026.docx", "Budget_Analysis_Q1.xlsx"]},
+                {
+                    "partial_count": 2,
+                    "matches": ["Project_Plan_2026.docx", "Budget_Analysis_Q1.xlsx"],
+                },
             ],
         ),
         AsyncToolSpec(
@@ -269,7 +283,9 @@ def create_example_async_specs() -> list[AsyncToolSpec]:
                 {"stdout": "Loading data...\n"},
                 {"stdout": "Loading data...\nProcessing batch 1/3...\n"},
                 {"stdout": "Loading data...\nProcessing batch 1/3...\nProcessing batch 2/3...\n"},
-                {"stdout": "Loading data...\nProcessing batch 1/3...\nProcessing batch 2/3...\nProcessing batch 3/3...\n"},
+                {
+                    "stdout": "Loading data...\nProcessing batch 1/3...\nProcessing batch 2/3...\nProcessing batch 3/3...\n"
+                },
             ],
         ),
         AsyncToolSpec(

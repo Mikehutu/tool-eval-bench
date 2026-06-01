@@ -279,12 +279,14 @@ class GSM8KPlugin(BenchmarkPlugin):
             m = item.get("extraction_method", "unknown")
             methods[m] = methods.get(m, 0) + 1
         if methods:
-            md.extend([
-                "### Answer Extraction Methods",
-                "",
-                "| Method | Count |",
-                "|---|---:|",
-            ])
+            md.extend(
+                [
+                    "### Answer Extraction Methods",
+                    "",
+                    "| Method | Count |",
+                    "|---|---:|",
+                ]
+            )
             for method, count in sorted(methods.items(), key=lambda x: -x[1]):
                 md.append(f"| {method} | {count} |")
             md.append("")
@@ -293,18 +295,22 @@ class GSM8KPlugin(BenchmarkPlugin):
         failures = [r for r in result.item_results if not r["correct"]]
         if failures:
             show = failures[:20]
-            md.extend([
-                f"### Failed Questions ({len(failures)} total, showing {len(show)})",
-                "",
-                "| # | Ground Truth | Extracted | Method | Response (truncated) |",
-                "|---:|---:|---:|---|---|",
-            ])
+            md.extend(
+                [
+                    f"### Failed Questions ({len(failures)} total, showing {len(show)})",
+                    "",
+                    "| # | Ground Truth | Extracted | Method | Response (truncated) |",
+                    "|---:|---:|---:|---|---|",
+                ]
+            )
             for f in show:
                 gt = f["ground_truth"]
                 ext = f.get("extracted_answer")
                 ext_str = f"{ext}" if ext is not None else "—"
                 method = f.get("extraction_method", "?")
-                resp = (f.get("model_response", "") or "")[:80].replace("|", "\\|").replace("\n", " ")
+                resp = (
+                    (f.get("model_response", "") or "")[:80].replace("|", "\\|").replace("\n", " ")
+                )
                 md.append(f"| {f['index']} | {gt} | {ext_str} | {method} | {resp} |")
             md.append("")
 

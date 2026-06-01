@@ -11,12 +11,14 @@ from tool_eval_bench.domain.scenarios import (
 
 def _get_scenario(sc_id: str):
     from tool_eval_bench.evals.scenarios_structured import STRUCTURED_SCENARIOS
+
     return next(s for s in STRUCTURED_SCENARIOS if s.id == sc_id)
 
 
 # ==========================================================================
 # TC-64: Simple Schema Compliance
 # ==========================================================================
+
 
 class TestTC64SimpleSchema:
     scenario = _get_scenario("TC-64")
@@ -51,7 +53,13 @@ class TestTC64SimpleSchema:
         assert result.status == ScenarioStatus.FAIL
 
     def test_fail_used_tools(self) -> None:
-        data = {"title": "The Matrix", "year": 1999, "rating": 8.7, "genre": "sci-fi", "summary": "Great."}
+        data = {
+            "title": "The Matrix",
+            "year": 1999,
+            "rating": 8.7,
+            "genre": "sci-fi",
+            "summary": "Great.",
+        }
         state = _make_state(
             tool_calls=[{"name": "web_search", "arguments": {"query": "matrix review"}}],
             final_answer=json.dumps(data),
@@ -94,6 +102,7 @@ class TestTC64SimpleSchema:
 # ==========================================================================
 # TC-65: Tool → Structured Output
 # ==========================================================================
+
 
 class TestTC65ToolToStructured:
     scenario = _get_scenario("TC-65")
@@ -142,6 +151,7 @@ class TestTC65ToolToStructured:
 # TC-66: Nested Schema
 # ==========================================================================
 
+
 class TestTC66NestedSchema:
     scenario = _get_scenario("TC-66")
 
@@ -150,9 +160,21 @@ class TestTC66NestedSchema:
             "query": "engineering",
             "total": 3,
             "contacts": [
-                {"name": "Alice Zhang", "email": "alice.zhang@company.com", "department": "Engineering"},
-                {"name": "Bob Martinez", "email": "bob.martinez@company.com", "department": "Design"},
-                {"name": "Carol Singh", "email": "carol.singh@company.com", "department": "Engineering"},
+                {
+                    "name": "Alice Zhang",
+                    "email": "alice.zhang@company.com",
+                    "department": "Engineering",
+                },
+                {
+                    "name": "Bob Martinez",
+                    "email": "bob.martinez@company.com",
+                    "department": "Design",
+                },
+                {
+                    "name": "Carol Singh",
+                    "email": "carol.singh@company.com",
+                    "department": "Engineering",
+                },
             ],
         }
         state = _make_state(
@@ -172,9 +194,21 @@ class TestTC66NestedSchema:
             "query": "engineering",
             "total": 5,  # doesn't match array length
             "contacts": [
-                {"name": "Alice Zhang", "email": "alice.zhang@company.com", "department": "Engineering"},
-                {"name": "Bob Martinez", "email": "bob.martinez@company.com", "department": "Design"},
-                {"name": "Carol Singh", "email": "carol.singh@company.com", "department": "Engineering"},
+                {
+                    "name": "Alice Zhang",
+                    "email": "alice.zhang@company.com",
+                    "department": "Engineering",
+                },
+                {
+                    "name": "Bob Martinez",
+                    "email": "bob.martinez@company.com",
+                    "department": "Design",
+                },
+                {
+                    "name": "Carol Singh",
+                    "email": "carol.singh@company.com",
+                    "department": "Engineering",
+                },
             ],
         }
         state = _make_state(
@@ -188,6 +222,7 @@ class TestTC66NestedSchema:
 # ==========================================================================
 # TC-67: Enum Constraint + Analysis
 # ==========================================================================
+
 
 class TestTC67EnumConstraint:
     scenario = _get_scenario("TC-67")
@@ -232,6 +267,7 @@ class TestTC67EnumConstraint:
 # TC-68: Schema Violation Resistance
 # ==========================================================================
 
+
 class TestTC68ViolationResistance:
     scenario = _get_scenario("TC-68")
 
@@ -266,6 +302,7 @@ class TestTC68ViolationResistance:
 # ==========================================================================
 # TC-69: Multi-Tool → Complex Schema
 # ==========================================================================
+
 
 class TestTC69MultiToolComplex:
     scenario = _get_scenario("TC-69")
@@ -336,13 +373,16 @@ class TestTC69MultiToolComplex:
 # When a model returns a list value for an enum field (e.g. "genre": ["sci-fi"])
 # the evaluators previously crashed with TypeError instead of returning PARTIAL.
 
+
 class TestIssue5ListValuedEnums:
     """Verify list-valued enum fields produce PARTIAL, not TypeError."""
 
     def test_tc64_genre_as_list(self) -> None:
         """TC-64: 'genre' is a list instead of a string."""
         data = {
-            "title": "The Matrix", "year": 1999, "rating": 9.0,
+            "title": "The Matrix",
+            "year": 1999,
+            "rating": 9.0,
             "genre": ["sci-fi", "action"],  # list, not string
             "summary": "A classic movie about reality.",
         }
@@ -354,7 +394,9 @@ class TestIssue5ListValuedEnums:
     def test_tc67_signal_as_list(self) -> None:
         """TC-67: 'signal' is a list instead of a string."""
         data = {
-            "ticker": "NVDA", "price": 892.50, "currency": "USD",
+            "ticker": "NVDA",
+            "price": 892.50,
+            "currency": "USD",
             "signal": ["buy"],  # list, not string
             "reasoning": "Strong AI demand with record revenue growth.",
         }
@@ -397,7 +439,9 @@ class TestIssue5ListValuedEnums:
     def test_tc64_genre_as_int(self) -> None:
         """Non-string scalar (int) also handled gracefully."""
         data = {
-            "title": "The Matrix", "year": 1999, "rating": 9.0,
+            "title": "The Matrix",
+            "year": 1999,
+            "rating": 9.0,
             "genre": 42,  # int, not string
             "summary": "A classic movie.",
         }
@@ -422,20 +466,33 @@ class TestOrchestratorEvaluatorSafetyNet:
             raise RuntimeError("intentional evaluator crash")
 
         scenario = ScenarioDefinition(
-            id="TC-TEST", title="Exploding Evaluator", category=Category.A,
-            user_message="test prompt", description="test",
-            handle_tool_call=lambda s, c: {}, evaluate=exploding_evaluator,
+            id="TC-TEST",
+            title="Exploding Evaluator",
+            category=Category.A,
+            user_message="test prompt",
+            description="test",
+            handle_tool_call=lambda s, c: {},
+            evaluate=exploding_evaluator,
         )
 
         mock_result = ChatCompletionResult(
-            content="some answer", tool_calls=[], raw_response={}, elapsed_ms=100.0,
+            content="some answer",
+            tool_calls=[],
+            raw_response={},
+            elapsed_ms=100.0,
         )
         adapter = AsyncMock()
         adapter.chat_completion = AsyncMock(return_value=mock_result)
 
-        result = asyncio.run(run_scenario(
-            adapter, model="m", base_url="http://x", api_key=None, scenario=scenario,
-        ))
+        result = asyncio.run(
+            run_scenario(
+                adapter,
+                model="m",
+                base_url="http://x",
+                api_key=None,
+                scenario=scenario,
+            )
+        )
 
         assert result.status == ScenarioStatus.FAIL
         assert "Evaluator error" in result.summary
@@ -454,21 +511,33 @@ class TestOrchestratorEvaluatorSafetyNet:
 
         # Model returns genre as list — was crashing the entire run
         mock_result = ChatCompletionResult(
-            content=json.dumps({
-                "title": "The Matrix", "year": 1999, "rating": 9.0,
-                "genre": ["sci-fi", "action"], "summary": "A classic.",
-            }),
-            tool_calls=[], raw_response={}, elapsed_ms=100.0,
+            content=json.dumps(
+                {
+                    "title": "The Matrix",
+                    "year": 1999,
+                    "rating": 9.0,
+                    "genre": ["sci-fi", "action"],
+                    "summary": "A classic.",
+                }
+            ),
+            tool_calls=[],
+            raw_response={},
+            elapsed_ms=100.0,
         )
         adapter = AsyncMock()
         adapter.chat_completion = AsyncMock(return_value=mock_result)
 
-        result = asyncio.run(run_scenario(
-            adapter, model="m", base_url="http://x", api_key=None, scenario=tc64,
-        ))
+        result = asyncio.run(
+            run_scenario(
+                adapter,
+                model="m",
+                base_url="http://x",
+                api_key=None,
+                scenario=tc64,
+            )
+        )
 
         # Should be PARTIAL (not a crash), because the fix in the evaluator
         # itself handles list values.  The safety net is a second layer.
         assert result.status == ScenarioStatus.PARTIAL
         assert "genre" in result.summary
-

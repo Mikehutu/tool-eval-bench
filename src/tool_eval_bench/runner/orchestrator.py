@@ -63,7 +63,9 @@ def _scenario_seed_offset(scenario_id: str) -> int:
 
 
 def _maybe_inject_error(
-    result: Any, error_rate: float, rng: random.Random | None = None,
+    result: Any,
+    error_rate: float,
+    rng: random.Random | None = None,
 ) -> Any:
     """Randomly replace a mock tool response with a simulated error.
 
@@ -83,6 +85,7 @@ def _maybe_inject_error(
 # ---------------------------------------------------------------------------
 # Message helpers
 # ---------------------------------------------------------------------------
+
 
 def _initial_messages(
     user_message: str,
@@ -118,9 +121,7 @@ def _initial_messages(
         if scenario_id:
             patched = copy.deepcopy(context_pressure_messages)
             if patched and patched[0]["role"] == "user":
-                patched[0]["content"] = (
-                    f"[scenario:{scenario_id}] " + patched[0]["content"]
-                )
+                patched[0]["content"] = f"[scenario:{scenario_id}] " + patched[0]["content"]
             msgs.extend(patched)
         else:
             msgs.extend(context_pressure_messages)
@@ -199,6 +200,7 @@ def _tool_result_message(call_id: str, result: Any) -> ChatMessage:
 # Trace formatting
 # ---------------------------------------------------------------------------
 
+
 def _format_trace(
     model: str,
     scenario: ScenarioDefinition,
@@ -223,6 +225,7 @@ def _format_trace(
 # ---------------------------------------------------------------------------
 # Core: run one scenario for one model
 # ---------------------------------------------------------------------------
+
 
 async def run_scenario(
     adapter: BackendAdapter,
@@ -295,8 +298,7 @@ async def run_scenario(
             turn_start = time.perf_counter()
             # None → use defaults; [] → explicitly no tools
             scenario_tools = (
-                UNIVERSAL_TOOLS if scenario.tools_override is None
-                else scenario.tools_override
+                UNIVERSAL_TOOLS if scenario.tools_override is None else scenario.tools_override
             )
             scenario_tool_choice = scenario.tool_choice_override or "auto"
 
@@ -339,9 +341,7 @@ async def run_scenario(
 
             state.assistant_messages.append(result.content)
             messages.append(_assistant_message(result))
-            trace_lines.append(
-                f"assistant_turn_{turn}={result.content or '[tool_calls_only]'}"
-            )
+            trace_lines.append(f"assistant_turn_{turn}={result.content or '[tool_calls_only]'}")
             if result.reasoning:
                 trace_lines.append(f"assistant_reasoning_{turn}={result.reasoning}")
 
@@ -383,7 +383,9 @@ async def run_scenario(
                 # Error injection: randomly replace with simulated failure
                 if error_rate > 0:
                     mock_result = _maybe_inject_error(
-                        mock_result, error_rate, rng=error_rng,
+                        mock_result,
+                        error_rate,
+                        rng=error_rng,
                     )
 
                 state.tool_results.append(
@@ -421,7 +423,9 @@ async def run_scenario(
     # Ensure we have a final answer
     if not state.final_answer:
         state.final_answer = (
-            state.assistant_messages[-1] if state.assistant_messages else "Model did not return a final answer."
+            state.assistant_messages[-1]
+            if state.assistant_messages
+            else "Model did not return a final answer."
         )
     trace_lines.append(f"final_answer={state.final_answer}")
 
@@ -431,6 +435,7 @@ async def run_scenario(
         evaluation = scenario.evaluate(state)
     except Exception as eval_exc:
         import traceback
+
         tb_str = traceback.format_exc()
         logger.error("Evaluator error in scenario %s:\n%s", scenario.id, tb_str)
         elapsed = time.monotonic() - t0
@@ -495,6 +500,7 @@ async def run_scenario(
 # Run all scenarios for one model
 # ---------------------------------------------------------------------------
 
+
 async def run_all_scenarios(
     adapter: BackendAdapter,
     *,
@@ -550,8 +556,9 @@ async def run_all_scenarios(
             results.append(result)
             if on_scenario_result:
                 await on_scenario_result(scenario, result, idx, total)
-        return score_results(results, target_scenarios, alpha=alpha,
-                             weight_by_difficulty=weight_by_difficulty)
+        return score_results(
+            results, target_scenarios, alpha=alpha, weight_by_difficulty=weight_by_difficulty
+        )
 
     # Parallel path with semaphore-bounded concurrency
     import asyncio
@@ -562,7 +569,8 @@ async def run_all_scenarios(
             "Server saturation under load can cause timeouts that are recorded as FAIL "
             "even when the model reasoned correctly. "
             "Use --parallel 1 for reproducible quality scores.",
-            total, concurrency,
+            total,
+            concurrency,
         )
 
     sem = asyncio.Semaphore(concurrency)
@@ -610,13 +618,15 @@ async def run_all_scenarios(
             )
 
     final_results = [r for r in ordered_results if r is not None]
-    return score_results(final_results, target_scenarios, alpha=alpha,
-                         weight_by_difficulty=weight_by_difficulty)
+    return score_results(
+        final_results, target_scenarios, alpha=alpha, weight_by_difficulty=weight_by_difficulty
+    )
 
 
 # ---------------------------------------------------------------------------
 # Scoring
 # ---------------------------------------------------------------------------
+
 
 def score_results(
     results: list[ScenarioResult],
@@ -647,9 +657,9 @@ def score_results(
         if cat not in cat_scenario_counts:
             continue  # skip categories with no scenarios in this run
         cat_results = [
-            r for r in results
-            if r.scenario_id in scenario_map
-            and scenario_map[r.scenario_id].category == cat
+            r
+            for r in results
+            if r.scenario_id in scenario_map and scenario_map[r.scenario_id].category == cat
         ]
         earned = sum(r.points for r in cat_results)
         cat_max = cat_scenario_counts[cat] * 2  # 2 points per scenario
@@ -673,9 +683,7 @@ def score_results(
     total_points = sum(r.points for r in results)
     max_points = len(all_scenarios) * 2
 
-    final_score = round(
-        (total_points / max_points) * 100
-    ) if max_points > 0 else 0
+    final_score = round((total_points / max_points) * 100) if max_points > 0 else 0
 
     # Collect safety warnings for failed safety-category scenarios
     safety_warnings: list[str] = []

@@ -162,14 +162,11 @@ class IFEvalPlugin(BenchmarkPlugin):
         duration = time.monotonic() - t_start
         prompt_accuracy = prompts_passed / total * 100
         instruction_accuracy = (
-            instructions_passed / instructions_total * 100
-            if instructions_total > 0 else 0
+            instructions_passed / instructions_total * 100 if instructions_total > 0 else 0
         )
 
         # Per-constraint-type breakdown
-        constraint_stats: dict[str, dict[str, int]] = defaultdict(
-            lambda: {"passed": 0, "total": 0}
-        )
+        constraint_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"passed": 0, "total": 0})
         for r in results:
             for detail in r.get("instruction_details", []):
                 cid = detail["id"]
@@ -198,8 +195,7 @@ class IFEvalPlugin(BenchmarkPlugin):
                     cid: {
                         "passed": s["passed"],
                         "total": s["total"],
-                        "accuracy": round(s["passed"] / s["total"] * 100, 1)
-                        if s["total"] else 0,
+                        "accuracy": round(s["passed"] / s["total"] * 100, 1) if s["total"] else 0,
                     }
                     for cid, s in sorted(constraint_stats.items())
                 },
@@ -229,12 +225,14 @@ class IFEvalPlugin(BenchmarkPlugin):
         # Per-constraint-type breakdown
         ct = d.get("constraint_types", {})
         if ct:
-            lines.extend([
-                "### Per-Constraint Accuracy",
-                "",
-                "| Constraint | Passed | Total | Accuracy |",
-                "|---|---|---|---|",
-            ])
+            lines.extend(
+                [
+                    "### Per-Constraint Accuracy",
+                    "",
+                    "| Constraint | Passed | Total | Accuracy |",
+                    "|---|---|---|---|",
+                ]
+            )
             # Sort by accuracy ascending (worst first)
             sorted_ct = sorted(
                 ct.items(),
@@ -242,8 +240,7 @@ class IFEvalPlugin(BenchmarkPlugin):
             )
             for cid, stats in sorted_ct:
                 lines.append(
-                    f"| `{cid}` | {stats['passed']} | {stats['total']} | "
-                    f"{stats['accuracy']:.1f}% |"
+                    f"| `{cid}` | {stats['passed']} | {stats['total']} | {stats['accuracy']:.1f}% |"
                 )
             lines.append("")
 
@@ -254,18 +251,15 @@ class IFEvalPlugin(BenchmarkPlugin):
             header = f"{len(failures)} total"
             if len(failures) > 15:
                 header += ", showing 15"
-            lines.extend([
-                f"### Failed Prompts ({header})",
-                "",
-            ])
-            for f in show:
-                failed_ids = [
-                    d["id"] for d in f.get("instruction_details", [])
-                    if not d["passed"]
+            lines.extend(
+                [
+                    f"### Failed Prompts ({header})",
+                    "",
                 ]
-                lines.append(
-                    f"- **Key {f['key']}**: failed `{'`, `'.join(failed_ids)}`"
-                )
+            )
+            for f in show:
+                failed_ids = [d["id"] for d in f.get("instruction_details", []) if not d["passed"]]
+                lines.append(f"- **Key {f['key']}**: failed `{'`, `'.join(failed_ids)}`")
             lines.append("")
 
         return lines

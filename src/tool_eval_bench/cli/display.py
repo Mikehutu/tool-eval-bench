@@ -75,6 +75,7 @@ RATING_COLORS = {
 # Display
 # ---------------------------------------------------------------------------
 
+
 class BenchmarkDisplay:
     """Zero-flicker benchmark display.
 
@@ -114,6 +115,7 @@ class BenchmarkDisplay:
         # Version stamp
         try:
             from tool_eval_bench import __version__
+
             version_tag = f"  [dim]v{__version__}[/]"
         except ImportError:
             version_tag = ""
@@ -146,9 +148,7 @@ class BenchmarkDisplay:
 
     # -- Event handlers (called by orchestrator) --
 
-    async def on_scenario_start(
-        self, scenario: ScenarioDefinition, idx: int, total: int
-    ) -> None:
+    async def on_scenario_start(self, scenario: ScenarioDefinition, idx: int, total: int) -> None:
         self.active_scenario = scenario.id
         self._refresh_footer()
 
@@ -180,7 +180,10 @@ class BenchmarkDisplay:
         _print_category_scores(self.console, summary)
         self.console.print()
         _print_final_panel(
-            self.console, self.model, summary, time.time() - self.started_at,
+            self.console,
+            self.model,
+            summary,
+            time.time() - self.started_at,
             throughput_samples=throughput_samples,
             run_context=self.run_context,
         )
@@ -251,6 +254,7 @@ class BenchmarkDisplay:
 # ---------------------------------------------------------------------------
 # Static summary output (printed after Live stops)
 # ---------------------------------------------------------------------------
+
 
 def _print_category_scores(console: Console, summary: ModelScoreSummary) -> None:
     """Print category score bars as a static table."""
@@ -328,11 +332,15 @@ def _print_final_panel(
     # Deployability composite (only when latency data is present)
     if summary.deployability is not None and summary.responsiveness is not None:
         med_s = (summary.median_turn_ms or 0) / 1000
-        resp_color = "green" if summary.responsiveness >= 75 else (
-            "yellow" if summary.responsiveness >= 40 else "red"
+        resp_color = (
+            "green"
+            if summary.responsiveness >= 75
+            else ("yellow" if summary.responsiveness >= 40 else "red")
         )
-        deploy_color = "green" if summary.deployability >= 75 else (
-            "yellow" if summary.deployability >= 40 else "red"
+        deploy_color = (
+            "green"
+            if summary.deployability >= 75
+            else ("yellow" if summary.deployability >= 40 else "red")
         )
         content += (
             f"\n\n  [bold]Quality:[/]        {score}/100"
@@ -348,27 +356,27 @@ def _print_final_panel(
         and summary.worst_category_percent is not None
         and summary.worst_category_percent < 100
     ):
-        floor_color = "green" if summary.worst_category_percent >= 75 else (
-            "yellow" if summary.worst_category_percent >= 40 else "red"
+        floor_color = (
+            "green"
+            if summary.worst_category_percent >= 75
+            else ("yellow" if summary.worst_category_percent >= 40 else "red")
         )
         content += f"\n  [bold]Weakest:[/] [{floor_color}]{summary.worst_category}[/]"
 
     # Version stamp
     try:
         from tool_eval_bench import __version__
+
         version_tag = f"  [dim]│  tool-eval-bench v{__version__}[/]"
     except ImportError:
         version_tag = ""
 
-    content += (
-        f"\n\n  [dim]Completed in {elapsed:.1f}s[/]{version_tag}"
-    )
+    content += f"\n\n  [dim]Completed in {elapsed:.1f}s[/]{version_tag}"
 
     # Token usage summary (when server reports usage data)
     if summary.total_tokens > 0:
         content += (
-            f"\n\n  [bold]📊 Token Usage:[/]"
-            f"\n  [dim]Total:[/] {summary.total_tokens:,} tokens"
+            f"\n\n  [bold]📊 Token Usage:[/]\n  [dim]Total:[/] {summary.total_tokens:,} tokens"
         )
         if summary.token_efficiency is not None:
             content += f"  [dim]│  Efficiency: {summary.token_efficiency:.1f} pts/1K tokens[/]"
@@ -427,12 +435,15 @@ def _print_final_panel(
     border = "green" if score >= 75 else ("yellow" if score >= 40 else "red")
     if summary.safety_warnings:
         border = "red"  # always red border when safety issues exist
-    console.print(Panel(content, title="[bold]🏆 Benchmark Complete[/]", border_style=border, padding=(1, 2)))
+    console.print(
+        Panel(content, title="[bold]🏆 Benchmark Complete[/]", border_style=border, padding=(1, 2))
+    )
 
 
 # ---------------------------------------------------------------------------
 # Detailed report (used by --no-live path and for expanded diagnostics)
 # ---------------------------------------------------------------------------
+
 
 def print_final_report(
     console: Console,
@@ -476,19 +487,31 @@ def print_final_report(
                 parts.append(f"[dim]Called: {', '.join(r.tool_calls_made)}[/]")
             else:
                 parts.append("[dim]Called: (no tools)[/]")
-            expected = r.expected_behavior or (display_detail.success_case if display_detail else "")
+            expected = r.expected_behavior or (
+                display_detail.success_case if display_detail else ""
+            )
             if expected:
                 lbl = "Expected" if r.status == ScenarioStatus.FAIL else "For full pass"
                 parts.append(f"[dim]{lbl}: {expected}[/]")
             summary_text = "\n".join(parts)
 
         detail_table.add_row(
-            r.scenario_id, title, status_text,
-            f"{r.points}/2", f"[dim]{r.duration_seconds:.1f}s[/]",
+            r.scenario_id,
+            title,
+            status_text,
+            f"{r.points}/2",
+            f"[dim]{r.duration_seconds:.1f}s[/]",
             summary_text,
         )
 
     console.print(detail_table)
     console.print()
 
-    _print_final_panel(console, model, summary, elapsed, throughput_samples=throughput_samples, run_context=run_context)
+    _print_final_panel(
+        console,
+        model,
+        summary,
+        elapsed,
+        throughput_samples=throughput_samples,
+        run_context=run_context,
+    )

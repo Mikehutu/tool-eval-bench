@@ -24,6 +24,7 @@ def _find(scenarios, scenario_id):
 # TC-16: German language detection fix
 # ============================================================
 
+
 class TestTC16GermanDetection:
     """TC-16 should detect German even when weather data is error-injected."""
 
@@ -32,7 +33,9 @@ class TestTC16GermanDetection:
         scenario = _find(EXTENDED_SCENARIOS, "TC-16")
         state = _make_state(
             tool_calls=[{"name": "get_weather", "arguments": {"location": "München"}}],
-            tool_results=[{"name": "get_weather", "result": {"error": "Rate limit exceeded.", "status": 429}}],
+            tool_results=[
+                {"name": "get_weather", "result": {"error": "Rate limit exceeded.", "status": 429}}
+            ],
             final_answer=(
                 "Es tut mir leid, ich konnte die Wetterdaten für München gerade "
                 "nicht abrufen, da der Dienst vorübergehend überlastet ist. "
@@ -40,14 +43,18 @@ class TestTC16GermanDetection:
             ),
         )
         result = scenario.evaluate(state)
-        assert result.status == ScenarioStatus.PASS, f"Expected pass, got {result.status}: {result.summary}"
+        assert result.status == ScenarioStatus.PASS, (
+            f"Expected pass, got {result.status}: {result.summary}"
+        )
 
     def test_german_weather_response_still_passes(self) -> None:
         """Normal case: model gets weather data and responds in German — should pass."""
         scenario = _find(EXTENDED_SCENARIOS, "TC-16")
         state = _make_state(
             tool_calls=[{"name": "get_weather", "arguments": {"location": "München"}}],
-            tool_results=[{"name": "get_weather", "result": {"temperature": 14, "condition": "Bewölkt"}}],
+            tool_results=[
+                {"name": "get_weather", "result": {"temperature": 14, "condition": "Bewölkt"}}
+            ],
             final_answer=(
                 "Das Wetter in München ist gerade 14 Grad Celsius, "
                 "teilweise bewölkt mit einer Temperatur von 14°C."
@@ -86,6 +93,7 @@ class TestTC16GermanDetection:
 # TC-25: Error-aware conditional evaluation
 # ============================================================
 
+
 class TestTC25ErrorAware:
     """TC-25 should give partial (not fail) when weather tool returns error."""
 
@@ -94,11 +102,15 @@ class TestTC25ErrorAware:
         scenario = _find(AGENTIC_SCENARIOS, "TC-25")
         state = _make_state(
             tool_calls=[{"name": "get_weather", "arguments": {"location": "Berlin"}}],
-            tool_results=[{"name": "get_weather", "result": {"error": "Rate limit exceeded.", "status": 429}}],
+            tool_results=[
+                {"name": "get_weather", "result": {"error": "Rate limit exceeded.", "status": 429}}
+            ],
             final_answer="I'm sorry, I couldn't check the weather. Please try again.",
         )
         result = scenario.evaluate(state)
-        assert result.status == ScenarioStatus.PARTIAL, f"Expected partial, got {result.status}: {result.summary}"
+        assert result.status == ScenarioStatus.PARTIAL, (
+            f"Expected partial, got {result.status}: {result.summary}"
+        )
         assert "error" in result.summary.lower() or "fail" in result.summary.lower()
 
     def test_weather_error_with_retry_gives_partial(self) -> None:
@@ -141,7 +153,9 @@ class TestTC25ErrorAware:
         scenario = _find(AGENTIC_SCENARIOS, "TC-25")
         state = _make_state(
             tool_calls=[{"name": "get_weather", "arguments": {"location": "Berlin"}}],
-            tool_results=[{"name": "get_weather", "result": {"temperature": 5, "condition": "Clear"}}],
+            tool_results=[
+                {"name": "get_weather", "result": {"temperature": 5, "condition": "Clear"}}
+            ],
             final_answer="It's 5°C in Berlin.",
         )
         result = scenario.evaluate(state)
@@ -152,6 +166,7 @@ class TestTC25ErrorAware:
 # TC-15: Error-aware search evaluation
 # ============================================================
 
+
 class TestTC15ErrorAware:
     """TC-15 should give partial when search tool returns error and model uses knowledge."""
 
@@ -160,11 +175,15 @@ class TestTC15ErrorAware:
         scenario = _find(SCENARIOS, "TC-15")
         state = _make_state(
             tool_calls=[{"name": "web_search", "arguments": {"query": "population of Iceland"}}],
-            tool_results=[{"name": "web_search", "result": {"error": "Rate limit exceeded.", "status": 429}}],
+            tool_results=[
+                {"name": "web_search", "result": {"error": "Rate limit exceeded.", "status": 429}}
+            ],
             final_answer="Iceland's population is about 375,000. 2% is 7,500.",
         )
         result = scenario.evaluate(state)
-        assert result.status == ScenarioStatus.PARTIAL, f"Expected partial, got {result.status}: {result.summary}"
+        assert result.status == ScenarioStatus.PARTIAL, (
+            f"Expected partial, got {result.status}: {result.summary}"
+        )
         assert "fallback" in result.summary.lower() or "background" in result.summary.lower()
 
     def test_search_error_no_answer_gives_partial(self) -> None:
@@ -172,7 +191,9 @@ class TestTC15ErrorAware:
         scenario = _find(SCENARIOS, "TC-15")
         state = _make_state(
             tool_calls=[{"name": "web_search", "arguments": {"query": "population of Iceland"}}],
-            tool_results=[{"name": "web_search", "result": {"error": "Request timed out.", "status": 503}}],
+            tool_results=[
+                {"name": "web_search", "result": {"error": "Request timed out.", "status": 503}}
+            ],
             final_answer="I couldn't retrieve the population data due to a service error.",
         )
         result = scenario.evaluate(state)

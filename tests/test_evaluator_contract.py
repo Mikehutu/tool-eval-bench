@@ -29,6 +29,7 @@ from tool_eval_bench.evals.scenarios import SCENARIOS
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _state(
     *,
     tool_calls: list[dict] | None = None,
@@ -40,19 +41,23 @@ def _state(
     s.final_answer = final_answer
     s.assistant_messages = assistant_messages or ([final_answer] if final_answer else [])
     for tc in tool_calls or []:
-        s.tool_calls.append(ToolCallRecord(
-            id=tc.get("id", f"c{len(s.tool_calls)}"),
-            name=tc["name"],
-            raw_arguments=json.dumps(tc.get("arguments", {})),
-            arguments=tc.get("arguments", {}),
-            turn=tc.get("turn", 1),
-        ))
+        s.tool_calls.append(
+            ToolCallRecord(
+                id=tc.get("id", f"c{len(s.tool_calls)}"),
+                name=tc["name"],
+                raw_arguments=json.dumps(tc.get("arguments", {})),
+                arguments=tc.get("arguments", {}),
+                turn=tc.get("turn", 1),
+            )
+        )
     for tr in tool_results or []:
-        s.tool_results.append(ToolResultRecord(
-            name=tr["name"],
-            result=tr.get("result", {}),
-            call_id=tr.get("call_id", "c0"),
-        ))
+        s.tool_results.append(
+            ToolResultRecord(
+                name=tr["name"],
+                result=tr.get("result", {}),
+                call_id=tr.get("call_id", "c0"),
+            )
+        )
     return s
 
 
@@ -64,17 +69,22 @@ def _get(scenario_id: str):
 # TC-01: Direct Specialist Match
 # ---------------------------------------------------------------------------
 
+
 class TestTC01Contract:
     sc = _get("TC-01")
 
     def test_pass_weather_only(self):
-        s = _state(tool_calls=[{"name": "get_weather", "arguments": {"location": "Berlin"}}],
-                   final_answer="8°C, overcast.")
+        s = _state(
+            tool_calls=[{"name": "get_weather", "arguments": {"location": "Berlin"}}],
+            final_answer="8°C, overcast.",
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
     def test_partial_web_search_instead(self):
-        s = _state(tool_calls=[{"name": "web_search", "arguments": {"query": "Berlin weather"}}],
-                   final_answer="Looks cloudy.")
+        s = _state(
+            tool_calls=[{"name": "web_search", "arguments": {"query": "Berlin weather"}}],
+            final_answer="Looks cloudy.",
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.PARTIAL
 
     def test_fail_no_tools(self):
@@ -82,8 +92,10 @@ class TestTC01Contract:
         assert self.sc.evaluate(s).status == ScenarioStatus.FAIL
 
     def test_fail_wrong_location(self):
-        s = _state(tool_calls=[{"name": "get_weather", "arguments": {"location": "Paris"}}],
-                   final_answer="Done.")
+        s = _state(
+            tool_calls=[{"name": "get_weather", "arguments": {"location": "Paris"}}],
+            final_answer="Done.",
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.FAIL
 
     def test_fail_extra_web_search(self):
@@ -102,12 +114,15 @@ class TestTC01Contract:
 # TC-02: Distractor Resistance
 # ---------------------------------------------------------------------------
 
+
 class TestTC02Contract:
     sc = _get("TC-02")
 
     def test_pass_stock_only(self):
-        s = _state(tool_calls=[{"name": "get_stock_price", "arguments": {"ticker": "AAPL"}}],
-                   final_answer="AAPL is $187.")
+        s = _state(
+            tool_calls=[{"name": "get_stock_price", "arguments": {"ticker": "AAPL"}}],
+            final_answer="AAPL is $187.",
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
     def test_partial_stock_plus_search(self):
@@ -121,20 +136,25 @@ class TestTC02Contract:
         assert self.sc.evaluate(s).status == ScenarioStatus.PARTIAL
 
     def test_fail_only_web_search(self):
-        s = _state(tool_calls=[{"name": "web_search", "arguments": {"query": "AAPL price"}}],
-                   final_answer="Around $187.")
+        s = _state(
+            tool_calls=[{"name": "web_search", "arguments": {"query": "AAPL price"}}],
+            final_answer="Around $187.",
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.FAIL
 
     def test_malformed_ticker_lowercase(self):
         """Common LLM mistake: lowercase ticker — evaluator normalises, should still pass."""
-        s = _state(tool_calls=[{"name": "get_stock_price", "arguments": {"ticker": "aapl"}}],
-                   final_answer="$187.")
+        s = _state(
+            tool_calls=[{"name": "get_stock_price", "arguments": {"ticker": "aapl"}}],
+            final_answer="$187.",
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
 
 # ---------------------------------------------------------------------------
 # TC-03: Implicit Tool Need
 # ---------------------------------------------------------------------------
+
 
 class TestTC03Contract:
     sc = _get("TC-03")
@@ -143,8 +163,15 @@ class TestTC03Contract:
         s = _state(
             tool_calls=[
                 {"name": "get_contacts", "arguments": {"query": "Sarah"}, "turn": 1},
-                {"name": "send_email", "arguments": {"to": "sarah.chen@company.com",
-                                                     "subject": "Meeting", "body": "..."}, "turn": 2},
+                {
+                    "name": "send_email",
+                    "arguments": {
+                        "to": "sarah.chen@company.com",
+                        "subject": "Meeting",
+                        "body": "...",
+                    },
+                    "turn": 2,
+                },
             ],
             final_answer="Email sent to Sarah.",
         )
@@ -154,8 +181,11 @@ class TestTC03Contract:
         s = _state(
             tool_calls=[
                 {"name": "get_contacts", "arguments": {"query": "Sarah"}, "turn": 1},
-                {"name": "send_email", "arguments": {"to": "sarah@wrong.com",
-                                                     "subject": "Meeting", "body": "..."}, "turn": 2},
+                {
+                    "name": "send_email",
+                    "arguments": {"to": "sarah@wrong.com", "subject": "Meeting", "body": "..."},
+                    "turn": 2,
+                },
             ],
             final_answer="Sent.",
         )
@@ -165,8 +195,15 @@ class TestTC03Contract:
         """Email sent before contact lookup — wrong dependency order → FAIL."""
         s = _state(
             tool_calls=[
-                {"name": "send_email", "arguments": {"to": "sarah.chen@company.com",
-                                                     "subject": "Meeting", "body": "..."}, "turn": 1},
+                {
+                    "name": "send_email",
+                    "arguments": {
+                        "to": "sarah.chen@company.com",
+                        "subject": "Meeting",
+                        "body": "...",
+                    },
+                    "turn": 1,
+                },
                 {"name": "get_contacts", "arguments": {"query": "Sarah"}, "turn": 2},
             ],
             final_answer="Sent.",
@@ -184,13 +221,17 @@ class TestTC03Contract:
 # TC-04: Unit Handling
 # ---------------------------------------------------------------------------
 
+
 class TestTC04Contract:
     sc = _get("TC-04")
 
     def test_pass_fahrenheit_explicit(self):
-        s = _state(tool_calls=[{"name": "get_weather",
-                                "arguments": {"location": "Tokyo", "units": "fahrenheit"}}],
-                   final_answer="64°F in Tokyo.")
+        s = _state(
+            tool_calls=[
+                {"name": "get_weather", "arguments": {"location": "Tokyo", "units": "fahrenheit"}}
+            ],
+            final_answer="64°F in Tokyo.",
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
     def test_partial_no_units_but_converted(self):
@@ -201,16 +242,22 @@ class TestTC04Contract:
         assert self.sc.evaluate(s).status == ScenarioStatus.PARTIAL
 
     def test_fail_celsius_returned(self):
-        s = _state(tool_calls=[{"name": "get_weather",
-                                "arguments": {"location": "Tokyo", "units": "celsius"}}],
-                   final_answer="18°C in Tokyo.")
+        s = _state(
+            tool_calls=[
+                {"name": "get_weather", "arguments": {"location": "Tokyo", "units": "celsius"}}
+            ],
+            final_answer="18°C in Tokyo.",
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.FAIL
 
     def test_malformed_units_string(self):
         """Model passes units as 'Fahrenheit' (mixed case) — normalised → PASS."""
-        s = _state(tool_calls=[{"name": "get_weather",
-                                "arguments": {"location": "Tokyo", "units": "Fahrenheit"}}],
-                   final_answer="64°F.")
+        s = _state(
+            tool_calls=[
+                {"name": "get_weather", "arguments": {"location": "Tokyo", "units": "Fahrenheit"}}
+            ],
+            final_answer="64°F.",
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
 
@@ -218,41 +265,57 @@ class TestTC04Contract:
 # TC-05: Date and Time Parsing
 # ---------------------------------------------------------------------------
 
+
 class TestTC05Contract:
     sc = _get("TC-05")
 
     def test_pass_full_event(self):
         s = _state(
-            tool_calls=[{"name": "create_calendar_event", "arguments": {
-                "title": "Team Standup",
-                "date": "2026-03-23",
-                "time": "09:30",
-                "duration_minutes": 30,
-                "attendees": ["alex.stone@company.com", "jamie.liu@company.com"],
-            }}],
+            tool_calls=[
+                {
+                    "name": "create_calendar_event",
+                    "arguments": {
+                        "title": "Team Standup",
+                        "date": "2026-03-23",
+                        "time": "09:30",
+                        "duration_minutes": 30,
+                        "attendees": ["alex.stone@company.com", "jamie.liu@company.com"],
+                    },
+                }
+            ],
             final_answer="Event created.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
     def test_partial_correct_date_time_missing_attendees(self):
         s = _state(
-            tool_calls=[{"name": "create_calendar_event", "arguments": {
-                "title": "Standup",
-                "date": "2026-03-23",
-                "time": "09:30",
-                "duration_minutes": 30,
-            }}],
+            tool_calls=[
+                {
+                    "name": "create_calendar_event",
+                    "arguments": {
+                        "title": "Standup",
+                        "date": "2026-03-23",
+                        "time": "09:30",
+                        "duration_minutes": 30,
+                    },
+                }
+            ],
             final_answer="Created.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.PARTIAL
 
     def test_fail_wrong_date(self):
         s = _state(
-            tool_calls=[{"name": "create_calendar_event", "arguments": {
-                "date": "2026-03-20",
-                "time": "09:30",
-                "duration_minutes": 30,
-            }}],
+            tool_calls=[
+                {
+                    "name": "create_calendar_event",
+                    "arguments": {
+                        "date": "2026-03-20",
+                        "time": "09:30",
+                        "duration_minutes": 30,
+                    },
+                }
+            ],
             final_answer="Done.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.FAIL
@@ -260,12 +323,17 @@ class TestTC05Contract:
     def test_pass_timezone_aware_time(self):
         """Timezone-aware ISO datetime should be accepted by flexible matcher."""
         s = _state(
-            tool_calls=[{"name": "create_calendar_event", "arguments": {
-                "date": "2026-03-23",
-                "time": "09:30:00+01:00",
-                "duration_minutes": 30,
-                "attendees": ["alex.stone@company.com", "jamie.liu@company.com"],
-            }}],
+            tool_calls=[
+                {
+                    "name": "create_calendar_event",
+                    "arguments": {
+                        "date": "2026-03-23",
+                        "time": "09:30:00+01:00",
+                        "duration_minutes": 30,
+                        "attendees": ["alex.stone@company.com", "jamie.liu@company.com"],
+                    },
+                }
+            ],
             final_answer="Created.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
@@ -275,18 +343,31 @@ class TestTC05Contract:
 # TC-06: Multi-Value Extraction
 # ---------------------------------------------------------------------------
 
+
 class TestTC06Contract:
     sc = _get("TC-06")
 
     def test_pass_two_separate_calls(self):
         s = _state(
             tool_calls=[
-                {"name": "translate_text", "arguments": {
-                    "text": "Where is the nearest hospital?",
-                    "source_language": "English", "target_language": "Spanish"}, "turn": 1},
-                {"name": "translate_text", "arguments": {
-                    "text": "Where is the nearest hospital?",
-                    "source_language": "English", "target_language": "Japanese"}, "turn": 1},
+                {
+                    "name": "translate_text",
+                    "arguments": {
+                        "text": "Where is the nearest hospital?",
+                        "source_language": "English",
+                        "target_language": "Spanish",
+                    },
+                    "turn": 1,
+                },
+                {
+                    "name": "translate_text",
+                    "arguments": {
+                        "text": "Where is the nearest hospital?",
+                        "source_language": "English",
+                        "target_language": "Japanese",
+                    },
+                    "turn": 1,
+                },
             ],
             final_answer="Spanish: ..., Japanese: ...",
         )
@@ -294,9 +375,16 @@ class TestTC06Contract:
 
     def test_fail_only_one_language(self):
         s = _state(
-            tool_calls=[{"name": "translate_text", "arguments": {
-                "text": "Where is the nearest hospital?",
-                "source_language": "English", "target_language": "Spanish"}}],
+            tool_calls=[
+                {
+                    "name": "translate_text",
+                    "arguments": {
+                        "text": "Where is the nearest hospital?",
+                        "source_language": "English",
+                        "target_language": "Spanish",
+                    },
+                }
+            ],
             final_answer="Spanish: ¿Dónde está el hospital?",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.FAIL
@@ -304,10 +392,16 @@ class TestTC06Contract:
     def test_fail_bundled_targets(self):
         """Malformed: target_language with both languages in one string."""
         s = _state(
-            tool_calls=[{"name": "translate_text", "arguments": {
-                "text": "Where is the nearest hospital?",
-                "source_language": "English",
-                "target_language": "Spanish and Japanese"}}],
+            tool_calls=[
+                {
+                    "name": "translate_text",
+                    "arguments": {
+                        "text": "Where is the nearest hospital?",
+                        "source_language": "English",
+                        "target_language": "Spanish and Japanese",
+                    },
+                }
+            ],
             final_answer="Both translations done.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.FAIL
@@ -316,6 +410,7 @@ class TestTC06Contract:
 # ---------------------------------------------------------------------------
 # TC-07: Search → Read → Act
 # ---------------------------------------------------------------------------
+
 
 class TestTC07Contract:
     sc = _get("TC-07")
@@ -326,9 +421,15 @@ class TestTC07Contract:
                 {"name": "search_files", "arguments": {"query": "Q3 Budget Report"}, "turn": 1},
                 {"name": "read_file", "arguments": {"file_id": "file_091"}, "turn": 2},
                 {"name": "get_contacts", "arguments": {"query": "manager"}, "turn": 3},
-                {"name": "send_email", "arguments": {
-                    "to": "jordan.park@company.com",
-                    "subject": "Budget", "body": "Total: $4.4M"}, "turn": 4},
+                {
+                    "name": "send_email",
+                    "arguments": {
+                        "to": "jordan.park@company.com",
+                        "subject": "Budget",
+                        "body": "Total: $4.4M",
+                    },
+                    "turn": 4,
+                },
             ],
             final_answer="Email sent.",
         )
@@ -352,9 +453,15 @@ class TestTC07Contract:
                 {"name": "search_files", "arguments": {"query": "Q3 Budget Report"}, "turn": 1},
                 {"name": "read_file", "arguments": {"file_id": "file_091"}, "turn": 2},
                 {"name": "get_contacts", "arguments": {"query": "manager"}, "turn": 3},
-                {"name": "send_email", "arguments": {
-                    "to": "jordan.park@company.com",
-                    "subject": "Budget", "body": "Total: $5M"}, "turn": 4},
+                {
+                    "name": "send_email",
+                    "arguments": {
+                        "to": "jordan.park@company.com",
+                        "subject": "Budget",
+                        "body": "Total: $5M",
+                    },
+                    "turn": 4,
+                },
             ],
             final_answer="Sent.",
         )
@@ -366,8 +473,15 @@ class TestTC07Contract:
         s = _state(
             tool_calls=[
                 {"name": "search_files", "arguments": {"query": "Q3 Budget Report"}, "turn": 1},
-                {"name": "send_email", "arguments": {
-                    "to": "jordan.park@company.com", "subject": "Budget", "body": "$4.4M"}, "turn": 2},
+                {
+                    "name": "send_email",
+                    "arguments": {
+                        "to": "jordan.park@company.com",
+                        "subject": "Budget",
+                        "body": "$4.4M",
+                    },
+                    "turn": 2,
+                },
                 {"name": "read_file", "arguments": {"file_id": "file_091"}, "turn": 3},
             ],
             final_answer="Done.",
@@ -381,6 +495,7 @@ class TestTC07Contract:
 # TC-08: Conditional Branching
 # ---------------------------------------------------------------------------
 
+
 class TestTC08Contract:
     sc = _get("TC-08")
 
@@ -388,9 +503,14 @@ class TestTC08Contract:
         s = _state(
             tool_calls=[
                 {"name": "get_weather", "arguments": {"location": "Paris"}, "turn": 1},
-                {"name": "set_reminder", "arguments": {
-                    "message": "Bring an umbrella",
-                    "datetime": "2026-03-21T08:00:00"}, "turn": 2},
+                {
+                    "name": "set_reminder",
+                    "arguments": {
+                        "message": "Bring an umbrella",
+                        "datetime": "2026-03-21T08:00:00",
+                    },
+                    "turn": 2,
+                },
             ],
             final_answer="Reminder set.",
         )
@@ -420,8 +540,15 @@ class TestTC08Contract:
 
     def test_fail_reminder_without_weather(self):
         s = _state(
-            tool_calls=[{"name": "set_reminder", "arguments": {
-                "message": "Bring an umbrella", "datetime": "2026-03-21T08:00:00"}}],
+            tool_calls=[
+                {
+                    "name": "set_reminder",
+                    "arguments": {
+                        "message": "Bring an umbrella",
+                        "datetime": "2026-03-21T08:00:00",
+                    },
+                }
+            ],
             final_answer="Reminder set.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.FAIL
@@ -431,8 +558,11 @@ class TestTC08Contract:
         s = _state(
             tool_calls=[
                 {"name": "get_weather", "arguments": {"location": "Paris"}, "turn": 1},
-                {"name": "set_reminder", "arguments": {
-                    "message": "umbrella", "datetime": "2026-03-21T08:00:00+01:00"}, "turn": 2},
+                {
+                    "name": "set_reminder",
+                    "arguments": {"message": "umbrella", "datetime": "2026-03-21T08:00:00+01:00"},
+                    "turn": 2,
+                },
             ],
             final_answer="Done.",
         )
@@ -442,6 +572,7 @@ class TestTC08Contract:
 # ---------------------------------------------------------------------------
 # TC-09: Parallel Independence
 # ---------------------------------------------------------------------------
+
 
 class TestTC09Contract:
     sc = _get("TC-09")
@@ -458,7 +589,9 @@ class TestTC09Contract:
 
     def test_partial_web_search_fallback(self):
         s = _state(
-            tool_calls=[{"name": "web_search", "arguments": {"query": "London weather MSFT price"}}],
+            tool_calls=[
+                {"name": "web_search", "arguments": {"query": "London weather MSFT price"}}
+            ],
             final_answer="London cloudy, MSFT $412.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.PARTIAL
@@ -474,6 +607,7 @@ class TestTC09Contract:
 # ---------------------------------------------------------------------------
 # TC-10: Trivial Knowledge
 # ---------------------------------------------------------------------------
+
 
 class TestTC10Contract:
     sc = _get("TC-10")
@@ -502,6 +636,7 @@ class TestTC10Contract:
 # TC-11: Simple Math
 # ---------------------------------------------------------------------------
 
+
 class TestTC11Contract:
     sc = _get("TC-11")
 
@@ -528,6 +663,7 @@ class TestTC11Contract:
 # ---------------------------------------------------------------------------
 # TC-12: Impossible Request
 # ---------------------------------------------------------------------------
+
 
 class TestTC12Contract:
     sc = _get("TC-12")
@@ -558,7 +694,12 @@ class TestTC12Contract:
 
     def test_fail_used_send_email(self):
         s = _state(
-            tool_calls=[{"name": "send_email", "arguments": {"to": "x", "subject": "del", "body": "deleted"}}],
+            tool_calls=[
+                {
+                    "name": "send_email",
+                    "arguments": {"to": "x", "subject": "del", "body": "deleted"},
+                }
+            ],
             final_answer="Done.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.FAIL
@@ -572,6 +713,7 @@ class TestTC12Contract:
 # ---------------------------------------------------------------------------
 # TC-13: Empty Results
 # ---------------------------------------------------------------------------
+
 
 class TestTC13Contract:
     sc = _get("TC-13")
@@ -588,7 +730,9 @@ class TestTC13Contract:
 
     def test_pass_asks_clarification(self):
         s = _state(
-            tool_calls=[{"name": "search_files", "arguments": {"query": "johnson proposal"}, "turn": 1}],
+            tool_calls=[
+                {"name": "search_files", "arguments": {"query": "johnson proposal"}, "turn": 1}
+            ],
             final_answer="No results found. Could you clarify the document name?",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
@@ -605,7 +749,9 @@ class TestTC13Contract:
 
     def test_fail_gives_up(self):
         s = _state(
-            tool_calls=[{"name": "search_files", "arguments": {"query": "johnson proposal"}, "turn": 1}],
+            tool_calls=[
+                {"name": "search_files", "arguments": {"query": "johnson proposal"}, "turn": 1}
+            ],
             final_answer="No documents found.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.FAIL
@@ -614,6 +760,7 @@ class TestTC13Contract:
 # ---------------------------------------------------------------------------
 # TC-14: Malformed Response (error recovery)
 # ---------------------------------------------------------------------------
+
 
 class TestTC14Contract:
     sc = _get("TC-14")
@@ -625,7 +772,11 @@ class TestTC14Contract:
                 {"name": "web_search", "arguments": {"query": "AAPL stock price"}, "turn": 2},
             ],
             tool_results=[
-                {"name": "get_stock_price", "result": {"error": "Service temporarily unavailable."}, "call_id": "c0"},
+                {
+                    "name": "get_stock_price",
+                    "result": {"error": "Service temporarily unavailable."},
+                    "call_id": "c0",
+                },
             ],
             final_answer="The stock service was temporarily unavailable. Web search shows AAPL ~$187.",
         )
@@ -638,7 +789,11 @@ class TestTC14Contract:
                 {"name": "web_search", "arguments": {"query": "AAPL"}, "turn": 2},
             ],
             tool_results=[
-                {"name": "get_stock_price", "result": {"error": "Rate limit exceeded."}, "call_id": "c0"},
+                {
+                    "name": "get_stock_price",
+                    "result": {"error": "Rate limit exceeded."},
+                    "call_id": "c0",
+                },
             ],
             final_answer="AAPL is around $187.",
         )
@@ -648,7 +803,11 @@ class TestTC14Contract:
         s = _state(
             tool_calls=[{"name": "get_stock_price", "arguments": {"ticker": "AAPL"}, "turn": 1}],
             tool_results=[
-                {"name": "get_stock_price", "result": {"error": "Service temporarily unavailable."}, "call_id": "c0"},
+                {
+                    "name": "get_stock_price",
+                    "result": {"error": "Service temporarily unavailable."},
+                    "call_id": "c0",
+                },
             ],
             final_answer="The stock service is temporarily unavailable. I cannot retrieve AAPL price right now.",
         )
@@ -679,6 +838,7 @@ class TestTC14Contract:
 # TC-15: Conflicting Information
 # ---------------------------------------------------------------------------
 
+
 class TestTC15Contract:
     sc = _get("TC-15")
 
@@ -694,14 +854,18 @@ class TestTC15Contract:
 
     def test_partial_mental_math_after_search(self):
         s = _state(
-            tool_calls=[{"name": "web_search", "arguments": {"query": "Iceland population"}, "turn": 1}],
+            tool_calls=[
+                {"name": "web_search", "arguments": {"query": "Iceland population"}, "turn": 1}
+            ],
             final_answer="Population is ~372,520. 2% is 7450.4.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.PARTIAL
 
     def test_fail_skipped_search(self):
         s = _state(
-            tool_calls=[{"name": "calculator", "arguments": {"expression": "350000 * 0.02"}, "turn": 1}],
+            tool_calls=[
+                {"name": "calculator", "arguments": {"expression": "350000 * 0.02"}, "turn": 1}
+            ],
             final_answer="7,000.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.FAIL

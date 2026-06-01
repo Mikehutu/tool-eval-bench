@@ -21,6 +21,7 @@ from tool_eval_bench.schema import get_schema
 # format_result tests
 # ---------------------------------------------------------------------------
 
+
 class TestFormatResult:
     """Test the versioned envelope wrapper."""
 
@@ -88,6 +89,7 @@ class TestFormatResult:
 # ---------------------------------------------------------------------------
 # ARGS_SCHEMA tests
 # ---------------------------------------------------------------------------
+
 
 class TestArgsSchema:
     """Test the machine-readable argument schema."""
@@ -163,14 +165,14 @@ class TestArgsSchema:
 
         assert not missing, (
             "The following CLI args are public (not in _HIDDEN_ARGS) but missing "
-            "from ARGS_SCHEMA in schema.py — add them:\n  "
-            + "\n  ".join(sorted(missing))
+            "from ARGS_SCHEMA in schema.py — add them:\n  " + "\n  ".join(sorted(missing))
         )
 
 
 # ---------------------------------------------------------------------------
 # run_benchmark tests (mocked service)
 # ---------------------------------------------------------------------------
+
 
 class TestRunBenchmark:
     """Test the programmatic run_benchmark entry point."""
@@ -179,24 +181,24 @@ class TestRunBenchmark:
     def mock_service(self):
         """Create a mock BenchmarkService that returns a fake run_data."""
         service = MagicMock()
-        service.run_benchmark = AsyncMock(return_value={
-            "run_id": "mock-run",
-            "status": "completed",
-            "config": {"model": "test-model"},
-            "scores": {
-                "final_score": 100,
-                "max_points": 30,
-                "rating": "★★★★★ Excellent",
-            },
-            "metadata": {},
-        })
+        service.run_benchmark = AsyncMock(
+            return_value={
+                "run_id": "mock-run",
+                "status": "completed",
+                "config": {"model": "test-model"},
+                "scores": {
+                    "final_score": 100,
+                    "max_points": 30,
+                    "rating": "★★★★★ Excellent",
+                },
+                "metadata": {},
+            }
+        )
         return service
 
     @pytest.mark.asyncio
     async def test_returns_versioned_envelope(self, mock_service):
-        with patch(
-            "tool_eval_bench.api.BenchmarkService", return_value=mock_service
-        ):
+        with patch("tool_eval_bench.api.BenchmarkService", return_value=mock_service):
             result = await run_benchmark(
                 model="test-model",
                 base_url="http://localhost:8000",
@@ -210,9 +212,7 @@ class TestRunBenchmark:
     async def test_short_flag_uses_core_scenarios(self, mock_service):
         from tool_eval_bench.evals.scenarios import SCENARIOS
 
-        with patch(
-            "tool_eval_bench.api.BenchmarkService", return_value=mock_service
-        ):
+        with patch("tool_eval_bench.api.BenchmarkService", return_value=mock_service):
             await run_benchmark(
                 model="test-model",
                 base_url="http://localhost:8000",
@@ -224,9 +224,7 @@ class TestRunBenchmark:
 
     @pytest.mark.asyncio
     async def test_persist_false_skips_storage(self, mock_service):
-        with patch(
-            "tool_eval_bench.api.BenchmarkService", return_value=mock_service
-        ) as mock_cls:
+        with patch("tool_eval_bench.api.BenchmarkService", return_value=mock_service) as mock_cls:
             await run_benchmark(
                 model="test-model",
                 base_url="http://localhost:8000",
@@ -239,9 +237,7 @@ class TestRunBenchmark:
     async def test_callbacks_forwarded(self, mock_service):
         start_cb = AsyncMock()
         result_cb = AsyncMock()
-        with patch(
-            "tool_eval_bench.api.BenchmarkService", return_value=mock_service
-        ):
+        with patch("tool_eval_bench.api.BenchmarkService", return_value=mock_service):
             await run_benchmark(
                 model="test-model",
                 base_url="http://localhost:8000",
@@ -257,6 +253,7 @@ class TestRunBenchmark:
 # ---------------------------------------------------------------------------
 # JSONL progress callbacks (from cli/bench.py)
 # ---------------------------------------------------------------------------
+
 
 class TestStderrProgress:
     """Test the JSONL progress event callbacks."""
@@ -308,6 +305,7 @@ class TestStderrProgress:
 # _emit_json_output tests
 # ---------------------------------------------------------------------------
 
+
 class TestEmitJsonOutput:
     """Test JSON output to stdout and file."""
 
@@ -356,6 +354,7 @@ class TestEmitJsonOutput:
 # Headless model detection (P0 agent-friendliness)
 # ---------------------------------------------------------------------------
 
+
 class TestHeadlessModelDetection:
     """Test that --json mode auto-selects models without interactive prompts."""
 
@@ -383,7 +382,9 @@ class TestHeadlessModelDetection:
         with patch("tool_eval_bench.cli.bench.asyncio") as mock_asyncio:
             mock_asyncio.run.return_value = (mock_response, False)
             api_id, display = _detect_model(
-                "http://localhost:8000", None, console,
+                "http://localhost:8000",
+                None,
+                console,
                 headless=True,
             )
 
@@ -408,9 +409,7 @@ class TestHeadlessModelDetection:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "data": [{"id": "only-model"}]
-        }
+        mock_response.json.return_value = {"data": [{"id": "only-model"}]}
         mock_response.raise_for_status = MagicMock()
 
         console = Console(file=StringIO(), width=200, no_color=True)
@@ -418,7 +417,9 @@ class TestHeadlessModelDetection:
         with patch("tool_eval_bench.cli.bench.asyncio") as mock_asyncio:
             mock_asyncio.run.return_value = (mock_response, False)
             api_id, display = _detect_model(
-                "http://localhost:8000", None, console,
+                "http://localhost:8000",
+                None,
+                console,
                 headless=True,
             )
 
@@ -466,6 +467,7 @@ class TestHeadlessError:
 # Server auto-discovery
 # ---------------------------------------------------------------------------
 
+
 class TestServerDiscovery:
     """Test automatic inference server port scanning."""
 
@@ -475,7 +477,10 @@ class TestServerDiscovery:
         with patch("tool_eval_bench.cli.bench.asyncio") as mock_asyncio:
             # Inner _probe returns (url, backend, server_name, port)
             mock_asyncio.run.return_value = (
-                "http://localhost:8000", "vllm", "vLLM", 8000,
+                "http://localhost:8000",
+                "vllm",
+                "vLLM",
+                8000,
             )
 
             result = _discover_server(headless=True)
@@ -522,6 +527,7 @@ class TestServerDiscovery:
 # Probe server readiness
 # ---------------------------------------------------------------------------
 
+
 class TestProbeServer:
     """Test the --probe readiness check."""
 
@@ -533,9 +539,7 @@ class TestProbeServer:
         from tool_eval_bench.cli.bench import _probe_server
 
         mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "data": [{"id": "test-model"}]
-        }
+        mock_resp.json.return_value = {"data": [{"id": "test-model"}]}
 
         console = Console(file=StringIO(), width=200, no_color=True)
 
@@ -578,6 +582,7 @@ class TestProbeServer:
 # Stdout cleanliness in --json mode
 # ---------------------------------------------------------------------------
 
+
 class TestJsonStdoutCleanliness:
     """Verify that non-JSON output is suppressed when --json is active."""
 
@@ -595,12 +600,13 @@ class TestJsonStdoutCleanliness:
         args = MagicMock()
         args.no_warmup = False
         args.json = False
-        assert (not args.no_warmup and not args.json)
+        assert not args.no_warmup and not args.json
 
 
 # ---------------------------------------------------------------------------
 # BenchmarkService persistence bypass (regression test)
 # ---------------------------------------------------------------------------
+
 
 class TestServicePersistence:
     """Verify that repo=None / reporter=None correctly skips persistence."""
@@ -624,6 +630,7 @@ class TestServicePersistence:
 # ---------------------------------------------------------------------------
 # Backend detection from response headers
 # ---------------------------------------------------------------------------
+
 
 class TestBackendDetection:
     """Test _detect_backend_from_response."""
@@ -678,6 +685,7 @@ class TestBackendDetection:
 # Async re-export in __init__.py
 # ---------------------------------------------------------------------------
 
+
 class TestAsyncReExport:
     """Verify that the top-level run_benchmark is properly async."""
 
@@ -692,6 +700,7 @@ class TestAsyncReExport:
 # ---------------------------------------------------------------------------
 # Error constants (domain/errors.py)
 # ---------------------------------------------------------------------------
+
 
 class TestErrorConstants:
     """Verify the structured error taxonomy is consistent."""
@@ -710,7 +719,7 @@ class TestErrorConstants:
         for code in codes:
             assert isinstance(code, str)
             assert code == code.lower()  # all lowercase
-            assert " " not in code        # no spaces
+            assert " " not in code  # no spaces
 
     def test_no_duplicate_codes(self):
         from tool_eval_bench.domain import errors
@@ -729,6 +738,7 @@ class TestErrorConstants:
 # ---------------------------------------------------------------------------
 # RunRepository context manager
 # ---------------------------------------------------------------------------
+
 
 class TestRunRepositoryContextManager:
     """Verify RunRepository supports 'with' usage."""
@@ -752,6 +762,7 @@ class TestRunRepositoryContextManager:
         # SQLite connections may not have a reliable .closed attribute,
         # but attempting an operation should fail
         import sqlite3
+
         try:
             conn.execute("SELECT 1")
             # Some SQLite builds don't raise on closed connections
@@ -762,6 +773,7 @@ class TestRunRepositoryContextManager:
 # ---------------------------------------------------------------------------
 # async_tools: JSON safety
 # ---------------------------------------------------------------------------
+
 
 class TestAsyncToolsJsonSafety:
     """Verify format_async_status produces valid JSON for all branches."""
@@ -807,6 +819,7 @@ class TestAsyncToolsJsonSafety:
 # --dry-run output
 # ---------------------------------------------------------------------------
 
+
 class TestDryRun:
     """Verify --dry-run produces correct scenario lists."""
 
@@ -817,7 +830,10 @@ class TestDryRun:
         from tool_eval_bench.cli.bench import _resolve_scenarios
 
         args = argparse.Namespace(
-            short=False, hardmode=False, scenarios=None, categories=None,
+            short=False,
+            hardmode=False,
+            scenarios=None,
+            categories=None,
         )
         scenarios = _resolve_scenarios(args)
         assert len(scenarios) == 69
@@ -829,7 +845,10 @@ class TestDryRun:
         from tool_eval_bench.cli.bench import _resolve_scenarios
 
         args = argparse.Namespace(
-            short=True, hardmode=False, scenarios=None, categories=None,
+            short=True,
+            hardmode=False,
+            scenarios=None,
+            categories=None,
         )
         scenarios = _resolve_scenarios(args)
         assert len(scenarios) == 15
@@ -841,7 +860,10 @@ class TestDryRun:
         from tool_eval_bench.cli.bench import _resolve_scenarios
 
         args = argparse.Namespace(
-            short=False, hardmode=False, scenarios=None, categories=["A"],
+            short=False,
+            hardmode=False,
+            scenarios=None,
+            categories=["A"],
         )
         scenarios = _resolve_scenarios(args)
         assert all(s.category.value == "A" for s in scenarios)

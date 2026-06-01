@@ -91,10 +91,7 @@ class MMLUPlugin(BenchmarkPlugin):
             for s in subjects_filter:
                 # Allow category names like "STEM" to expand to all subjects
                 if s in CATEGORIES:
-                    expanded.update(
-                        subj for subj, cat in SUBJECT_CATEGORIES.items()
-                        if cat == s
-                    )
+                    expanded.update(subj for subj, cat in SUBJECT_CATEGORIES.items() if cat == s)
                 else:
                     expanded.add(s)
             all_items = [it for it in all_items if it.subject in expanded]
@@ -239,12 +236,14 @@ class MMLUPlugin(BenchmarkPlugin):
         # Category breakdown
         cats = d.get("categories", {})
         if cats:
-            lines.extend([
-                "### Per-Category Accuracy",
-                "",
-                "| Category | Correct | Total | Accuracy |",
-                "|---|---|---|---|",
-            ])
+            lines.extend(
+                [
+                    "### Per-Category Accuracy",
+                    "",
+                    "| Category | Correct | Total | Accuracy |",
+                    "|---|---|---|---|",
+                ]
+            )
             for cat in CATEGORIES:
                 if cat in cats:
                     c = cats[cat]
@@ -268,12 +267,14 @@ class MMLUPlugin(BenchmarkPlugin):
             header = f"{len(failures)} total"
             if len(failures) > 20:
                 header += ", showing 20"
-            lines.extend([
-                f"### Failed Questions ({header})",
-                "",
-                "| # | Subject | Expected | Got | Method |",
-                "|---|---|---|---|---|",
-            ])
+            lines.extend(
+                [
+                    f"### Failed Questions ({header})",
+                    "",
+                    "| # | Subject | Expected | Got | Method |",
+                    "|---|---|---|---|---|",
+                ]
+            )
             for f in show:
                 lines.append(
                     f"| {f['index']} | {f['subject']} | "

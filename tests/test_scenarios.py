@@ -4,7 +4,6 @@ These test the evaluators directly without needing a live model,
 by constructing ScenarioState objects manually.
 """
 
-
 from conftest import make_state as _make_state
 
 from tool_eval_bench.domain.scenarios import (
@@ -35,19 +34,38 @@ class TestScenarioRegistry:
 
     def test_all_scenarios_total(self) -> None:
         from tool_eval_bench.evals.scenarios import ALL_SCENARIOS
-        assert len(ALL_SCENARIOS) == 69  # 15 base + 6 extended + 25 agentic + 4 large-toolset + 9 planning + 4 adversarial + 6 structured
+
+        assert (
+            len(ALL_SCENARIOS) == 69
+        )  # 15 base + 6 extended + 25 agentic + 4 large-toolset + 9 planning + 4 adversarial + 6 structured
 
     def test_all_ids_unique(self) -> None:
         from tool_eval_bench.evals.scenarios import ALL_SCENARIOS
+
         ids = [s.id for s in ALL_SCENARIOS]
         assert len(ids) == len(set(ids))
 
     def test_all_categories_present(self) -> None:
         from tool_eval_bench.evals.scenarios import ALL_SCENARIOS
+
         cats = {s.category for s in ALL_SCENARIOS}
-        expected = {Category.A, Category.B, Category.C, Category.D, Category.E,
-                    Category.F, Category.G, Category.H, Category.I, Category.J, Category.K,
-                    Category.L, Category.M, Category.N, Category.O}
+        expected = {
+            Category.A,
+            Category.B,
+            Category.C,
+            Category.D,
+            Category.E,
+            Category.F,
+            Category.G,
+            Category.H,
+            Category.I,
+            Category.J,
+            Category.K,
+            Category.L,
+            Category.M,
+            Category.N,
+            Category.O,
+        }
         assert cats == expected
 
 
@@ -106,7 +124,9 @@ class TestTC12ImpossibleRequest:
 
     def test_fail_tool_used(self) -> None:
         state = _make_state(
-            tool_calls=[{"name": "send_email", "arguments": {"to": "x", "subject": "y", "body": "z"}}],
+            tool_calls=[
+                {"name": "send_email", "arguments": {"to": "x", "subject": "y", "body": "z"}}
+            ],
             final_answer="Done!",
         )
         result = self.scenario.evaluate(state)
@@ -119,6 +139,7 @@ class TestTC35ContradictoryParams:
     @staticmethod
     def _get_scenario():
         from tool_eval_bench.evals.scenarios import ALL_SCENARIOS
+
         return next(s for s in ALL_SCENARIOS if s.id == "TC-35")
 
     def test_pass_no_calc_with_explanation(self) -> None:
@@ -152,6 +173,7 @@ class TestTC36MissingInfo:
     @staticmethod
     def _get_scenario():
         from tool_eval_bench.evals.scenarios import ALL_SCENARIOS
+
         return next(s for s in ALL_SCENARIOS if s.id == "TC-36")
 
     def test_pass_asks_for_details(self) -> None:
@@ -165,7 +187,12 @@ class TestTC36MissingInfo:
     def test_fail_sends_without_confirmation(self) -> None:
         s = self._get_scenario()
         state = _make_state(
-            tool_calls=[{"name": "send_email", "arguments": {"to": "boss@co.com", "subject": "Hello", "body": "..."}}],
+            tool_calls=[
+                {
+                    "name": "send_email",
+                    "arguments": {"to": "boss@co.com", "subject": "Hello", "body": "..."},
+                }
+            ],
             final_answer="Email sent!",
         )
         result = s.evaluate(state)
@@ -323,11 +350,23 @@ class TestSafetyGating:
                 # Pass first 7, fail the rest
                 idx = k_scenarios.index(s)
                 if idx < 7:
-                    results.append(ScenarioResult(scenario_id=s.id, status=ScenarioStatus.PASS, points=2, summary="ok"))
+                    results.append(
+                        ScenarioResult(
+                            scenario_id=s.id, status=ScenarioStatus.PASS, points=2, summary="ok"
+                        )
+                    )
                 else:
-                    results.append(ScenarioResult(scenario_id=s.id, status=ScenarioStatus.FAIL, points=0, summary="fail"))
+                    results.append(
+                        ScenarioResult(
+                            scenario_id=s.id, status=ScenarioStatus.FAIL, points=0, summary="fail"
+                        )
+                    )
             else:
-                results.append(ScenarioResult(scenario_id=s.id, status=ScenarioStatus.PASS, points=2, summary="ok"))
+                results.append(
+                    ScenarioResult(
+                        scenario_id=s.id, status=ScenarioStatus.PASS, points=2, summary="ok"
+                    )
+                )
 
         summary = score_results(results, ALL_SCENARIOS)
         assert "safety-capped" not in summary.rating
@@ -371,8 +410,12 @@ class TestTrialAggregation:
         from tool_eval_bench.domain.scenarios import ModelScoreSummary
 
         summary = ModelScoreSummary(
-            scenario_results=[], category_scores=[],
-            final_score=80, total_points=40, max_points=50, rating="Good",
+            scenario_results=[],
+            category_scores=[],
+            final_score=80,
+            total_points=40,
+            max_points=50,
+            rating="Good",
         )
         assert _aggregate_trials([summary]) == {}
 
@@ -385,14 +428,24 @@ class TestTrialAggregation:
         )
 
         sr = ScenarioResult(scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="ok")
-        cs = CategoryScore(category=Category.A, label="Tool Selection", earned=6, max_points=6, percent=100.0)
+        cs = CategoryScore(
+            category=Category.A, label="Tool Selection", earned=6, max_points=6, percent=100.0
+        )
         s1 = ModelScoreSummary(
-            scenario_results=[sr], category_scores=[cs],
-            final_score=100, total_points=6, max_points=6, rating="Excellent",
+            scenario_results=[sr],
+            category_scores=[cs],
+            final_score=100,
+            total_points=6,
+            max_points=6,
+            rating="Excellent",
         )
         s2 = ModelScoreSummary(
-            scenario_results=[sr], category_scores=[cs],
-            final_score=100, total_points=6, max_points=6, rating="Excellent",
+            scenario_results=[sr],
+            category_scores=[cs],
+            final_score=100,
+            total_points=6,
+            max_points=6,
+            rating="Excellent",
         )
         agg = _aggregate_trials([s1, s2])
         assert agg["trials"] == 2
@@ -408,18 +461,34 @@ class TestTrialAggregation:
             ScenarioResult,
         )
 
-        sr1 = ScenarioResult(scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="ok")
-        sr2 = ScenarioResult(scenario_id="TC-01", status=ScenarioStatus.FAIL, points=0, summary="fail")
-        cs1 = CategoryScore(category=Category.A, label="Tool Selection", earned=6, max_points=6, percent=100.0)
-        cs2 = CategoryScore(category=Category.A, label="Tool Selection", earned=4, max_points=6, percent=67.0)
+        sr1 = ScenarioResult(
+            scenario_id="TC-01", status=ScenarioStatus.PASS, points=2, summary="ok"
+        )
+        sr2 = ScenarioResult(
+            scenario_id="TC-01", status=ScenarioStatus.FAIL, points=0, summary="fail"
+        )
+        cs1 = CategoryScore(
+            category=Category.A, label="Tool Selection", earned=6, max_points=6, percent=100.0
+        )
+        cs2 = CategoryScore(
+            category=Category.A, label="Tool Selection", earned=4, max_points=6, percent=67.0
+        )
 
         s1 = ModelScoreSummary(
-            scenario_results=[sr1], category_scores=[cs1],
-            final_score=100, total_points=6, max_points=6, rating="Excellent",
+            scenario_results=[sr1],
+            category_scores=[cs1],
+            final_score=100,
+            total_points=6,
+            max_points=6,
+            rating="Excellent",
         )
         s2 = ModelScoreSummary(
-            scenario_results=[sr2], category_scores=[cs2],
-            final_score=67, total_points=4, max_points=6, rating="Adequate",
+            scenario_results=[sr2],
+            category_scores=[cs2],
+            final_score=67,
+            total_points=4,
+            max_points=6,
+            rating="Adequate",
         )
         agg = _aggregate_trials([s1, s2])
         assert agg["trials"] == 2
@@ -450,9 +519,17 @@ class TestWorstCategory:
         for s in SCENARIOS:
             # Fail all category A scenarios, pass everything else
             if s.category == Category.A:
-                results.append(ScenarioResult(scenario_id=s.id, status=ScenarioStatus.FAIL, points=0, summary="fail"))
+                results.append(
+                    ScenarioResult(
+                        scenario_id=s.id, status=ScenarioStatus.FAIL, points=0, summary="fail"
+                    )
+                )
             else:
-                results.append(ScenarioResult(scenario_id=s.id, status=ScenarioStatus.PASS, points=2, summary="pass"))
+                results.append(
+                    ScenarioResult(
+                        scenario_id=s.id, status=ScenarioStatus.PASS, points=2, summary="pass"
+                    )
+                )
 
         summary = score_results(results, SCENARIOS)
         assert summary.worst_category_percent == 0
@@ -520,5 +597,3 @@ class TestReferenceDate:
         # Verify the day computation logic
         day = datetime.strptime("2025-12-25", "%Y-%m-%d").strftime("%A")
         assert day == "Thursday"
-
-

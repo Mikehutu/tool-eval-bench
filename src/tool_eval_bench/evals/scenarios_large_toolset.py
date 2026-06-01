@@ -50,11 +50,17 @@ from tool_eval_bench.evals.helpers import (
 # Category L — Toolset Scale
 # ===================================================================
 
+
 def _tc37_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_weather":
         return _noise(
-            {"location": "Berlin", "temperature": 8, "units": "celsius",
-             "condition": "Overcast", "humidity": 72},
+            {
+                "location": "Berlin",
+                "temperature": 8,
+                "units": "celsius",
+                "condition": "Overcast",
+                "humidity": 72,
+            },
             "get_weather",
         )
     if call.name == "web_search":
@@ -76,14 +82,14 @@ def _tc37_eval(state: ScenarioState) -> ScenarioEvaluation:
     Must use get_weather and ignore 50+ distractors.
     """
     used_weather = _has_tool_call(
-        state, "get_weather",
+        state,
+        "get_weather",
         lambda c: _includes_text(c.arguments.get("location"), "berlin"),
     )
     used_web = _has_tool_call(state, "web_search")
     total_calls = len(state.tool_calls)
     domain_tools_used = [
-        c.name for c in state.tool_calls
-        if c.name not in ("get_weather", "web_search")
+        c.name for c in state.tool_calls if c.name not in ("get_weather", "web_search")
     ]
 
     if used_weather and total_calls == 1:
@@ -103,6 +109,7 @@ def _tc37_eval(state: ScenarioState) -> ScenarioEvaluation:
 # Category L — Toolset Scale
 # ===================================================================
 
+
 def _tc38_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "search_files":
         return _noise(
@@ -111,14 +118,19 @@ def _tc38_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
         )
     if call.name == "read_file":
         return _noise(
-            {"content": "Department budgets: Engineering $2.1M, Marketing $800K, "
-             "Sales $1.5M. Total: $4.4M"},
+            {
+                "content": "Department budgets: Engineering $2.1M, Marketing $800K, "
+                "Sales $1.5M. Total: $4.4M"
+            },
             "read_file",
         )
     if call.name == "get_contacts":
         return _noise(
-            {"results": [{"name": "Jordan Park", "email": "jordan.park@company.com",
-                          "role": "manager"}]},
+            {
+                "results": [
+                    {"name": "Jordan Park", "email": "jordan.park@company.com", "role": "manager"}
+                ]
+            },
             "get_contacts",
         )
     if call.name == "send_email":
@@ -148,58 +160,61 @@ def _tc38_eval(state: ScenarioState) -> ScenarioEvaluation:
     """
     steps = 0
     if _has_tool_call(
-        state, "search_files",
-        lambda c: _includes_text(c.arguments.get("query"), "q3 budget report")
-        or _includes_text(c.arguments.get("query"), "budget"),
+        state,
+        "search_files",
+        lambda c: (
+            _includes_text(c.arguments.get("query"), "q3 budget report")
+            or _includes_text(c.arguments.get("query"), "budget")
+        ),
     ):
         steps += 1
     if _has_tool_call(
-        state, "read_file",
+        state,
+        "read_file",
         lambda c: _normalize(_as_str(c.arguments.get("file_id"))) == "file_091",
     ):
         steps += 1
     if _has_tool_call(
-        state, "get_contacts",
+        state,
+        "get_contacts",
         lambda c: _includes_text(c.arguments.get("query"), "manager"),
     ):
         steps += 1
     if _has_tool_call(
-        state, "send_email",
+        state,
+        "send_email",
         lambda c: (
             _normalize(_as_str(c.arguments.get("to"))) == "jordan.park@company.com"
-            and (_includes_text(c.arguments.get("body"), "4.4m")
-                 or _includes_text(c.arguments.get("body"), "$4.4m"))
+            and (
+                _includes_text(c.arguments.get("body"), "4.4m")
+                or _includes_text(c.arguments.get("body"), "$4.4m")
+            )
         ),
     ):
         steps += 1
 
     # Check for domain-tool contamination
     domain_calls = [
-        c.name for c in state.tool_calls
-        if c.name not in ("search_files", "read_file", "get_contacts",
-                          "send_email", "web_search")
+        c.name
+        for c in state.tool_calls
+        if c.name not in ("search_files", "read_file", "get_contacts", "send_email", "web_search")
     ]
 
     if steps == 4 and not domain_calls:
         return _pass("Completed the full 4-step chain correctly from 52 tools.")
     if steps == 4 and domain_calls:
         extras = ", ".join(domain_calls[:3])
-        return _partial(
-            f"Completed the chain but also called irrelevant tools: {extras}"
-        )
+        return _partial(f"Completed the chain but also called irrelevant tools: {extras}")
     if steps >= 3:
-        return _partial(
-            f"Completed {steps}/4 steps of the chain in a 52-tool namespace."
-        )
-    return _fail(
-        f"Only completed {steps}/4 steps — struggled with the crowded namespace."
-    )
+        return _partial(f"Completed {steps}/4 steps of the chain in a 52-tool namespace.")
+    return _fail(f"Only completed {steps}/4 steps — struggled with the crowded namespace.")
 
 
 # ===================================================================
 # TC-39: Restraint Under Tool Abundance
 # Category L — Toolset Scale
 # ===================================================================
+
 
 def _tc39_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     """Any tool call here is unnecessary — the answer is trivially 30."""
@@ -249,39 +264,49 @@ def _tc39_eval(state: ScenarioState) -> ScenarioEvaluation:
 # Category L — Toolset Scale
 # ===================================================================
 
+
 def _tc40_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_order_status":
         order_id = _as_str(call.arguments.get("order_id", ""))
         if _includes_text(order_id, "sarah") or _includes_text(order_id, "chen"):
-            return _noise({
-                "order_id": "ORD-2026-1847",
-                "customer": "Sarah Chen",
-                "status": "shipped",
-                "items": [
-                    {"name": "Wireless Keyboard", "qty": 1, "price": 79.99},
-                    {"name": "USB-C Hub", "qty": 1, "price": 45.00},
-                ],
-                "tracking_number": "1Z999AA10123456784",
-                "estimated_delivery": "2026-03-25",
-            }, "get_order_status")
+            return _noise(
+                {
+                    "order_id": "ORD-2026-1847",
+                    "customer": "Sarah Chen",
+                    "status": "shipped",
+                    "items": [
+                        {"name": "Wireless Keyboard", "qty": 1, "price": 79.99},
+                        {"name": "USB-C Hub", "qty": 1, "price": 45.00},
+                    ],
+                    "tracking_number": "1Z999AA10123456784",
+                    "estimated_delivery": "2026-03-25",
+                },
+                "get_order_status",
+            )
         return _noise({"error": f"Order not found: {order_id}"}, "get_order_status")
     if call.name == "get_shipping_status":
-        return _noise({
-            "tracking_number": _as_str(call.arguments.get("tracking_number", "")),
-            "status": "in_transit",
-            "carrier": "UPS",
-            "last_location": "Chicago, IL",
-        }, "get_shipping_status")
+        return _noise(
+            {
+                "tracking_number": _as_str(call.arguments.get("tracking_number", "")),
+                "status": "in_transit",
+                "carrier": "UPS",
+                "last_location": "Chicago, IL",
+            },
+            "get_shipping_status",
+        )
     if call.name == "get_customer_profile":
         customer_id = _as_str(call.arguments.get("customer_id", ""))
         if _includes_text(customer_id, "sarah") or _includes_text(customer_id, "chen"):
-            return _noise({
-                "customer_id": "CUST-8821",
-                "name": "Sarah Chen",
-                "email": "sarah.chen@customer.com",
-                "tier": "premium",
-                "orders": ["ORD-2026-1847", "ORD-2026-1512"],
-            }, "get_customer_profile")
+            return _noise(
+                {
+                    "customer_id": "CUST-8821",
+                    "name": "Sarah Chen",
+                    "email": "sarah.chen@customer.com",
+                    "tier": "premium",
+                    "orders": ["ORD-2026-1847", "ORD-2026-1512"],
+                },
+                "get_customer_profile",
+            )
         return _noise(
             {"error": f"Customer not found: {customer_id}"},
             "get_customer_profile",
@@ -304,7 +329,8 @@ def _tc40_eval(state: ScenarioState) -> ScenarioEvaluation:
     get_customer_profile, get_contacts. Model must pick the right one.
     """
     used_order = _has_tool_call(
-        state, "get_order_status",
+        state,
+        "get_order_status",
         lambda c: (
             _includes_text(c.arguments.get("order_id"), "sarah")
             or _includes_text(c.arguments.get("order_id"), "chen")
@@ -317,27 +343,21 @@ def _tc40_eval(state: ScenarioState) -> ScenarioEvaluation:
 
     answer = state.final_answer.lower()
     mentions_status = any(
-        w in answer for w in ("shipped", "order", "ORD-2026-1847".lower(),
-                              "keyboard", "usb-c", "tracking")
+        w in answer
+        for w in ("shipped", "order", "ORD-2026-1847".lower(), "keyboard", "usb-c", "tracking")
     )
 
     if used_order and total_calls == 1 and mentions_status:
-        return _pass(
-            "Selected get_order_status precisely from similar-named tools."
-        )
+        return _pass("Selected get_order_status precisely from similar-named tools.")
     if used_order and total_calls == 1:
-        return _pass(
-            "Used get_order_status correctly — answered from 52 tools."
-        )
+        return _pass("Used get_order_status correctly — answered from 52 tools.")
     if used_order and used_customer and total_calls == 2:
         return _partial(
             "Used get_order_status + get_customer_profile — "
             "customer lookup was unnecessary but not wrong."
         )
     if used_order and total_calls > 2:
-        extras = ", ".join(
-            c.name for c in state.tool_calls if c.name != "get_order_status"
-        )
+        extras = ", ".join(c.name for c in state.tool_calls if c.name != "get_order_status")
         return _partial(f"Found the right tool but also called: {extras}")
     if not used_order and used_shipping:
         return _partial(
@@ -354,9 +374,7 @@ def _tc40_eval(state: ScenarioState) -> ScenarioEvaluation:
             "Used get_contacts (internal directory) instead of "
             "get_order_status — wrong domain entirely."
         )
-    return _fail(
-        "Did not use get_order_status to check the customer's order."
-    )
+    return _fail("Did not use get_order_status to check the customer's order.")
 
 
 # ===================================================================
@@ -365,35 +383,47 @@ def _tc40_eval(state: ScenarioState) -> ScenarioEvaluation:
 
 LARGE_TOOLSET_SCENARIOS: list[ScenarioDefinition] = [
     ScenarioDefinition(
-        id="TC-37", title="Needle in a Haystack", category=Category.L,
+        id="TC-37",
+        title="Needle in a Haystack",
+        category=Category.L,
         user_message="What's the weather like in Berlin right now?",
         description="Select get_weather from 52 tools, ignoring 50+ distractors.",
-        handle_tool_call=_tc37_handle, evaluate=_tc37_eval,
+        handle_tool_call=_tc37_handle,
+        evaluate=_tc37_eval,
         tools_override=LARGE_TOOLSET,
         difficulty=3,
     ),
     ScenarioDefinition(
-        id="TC-38", title="Multi-Step Crowded Namespace", category=Category.L,
+        id="TC-38",
+        title="Multi-Step Crowded Namespace",
+        category=Category.L,
         user_message="Find the Q3 budget report and email the total to my manager.",
         description="Complete a 4-step chain using correct tools from 52 options.",
-        handle_tool_call=_tc38_handle, evaluate=_tc38_eval,
+        handle_tool_call=_tc38_handle,
+        evaluate=_tc38_eval,
         tools_override=LARGE_TOOLSET,
         difficulty=4,
     ),
     ScenarioDefinition(
-        id="TC-39", title="Restraint Under Abundance", category=Category.L,
+        id="TC-39",
+        title="Restraint Under Abundance",
+        category=Category.L,
         user_message="What is 15% of 200?",
         description="Answer trivial arithmetic directly with 52 tools tempting you.",
-        handle_tool_call=_tc39_handle, evaluate=_tc39_eval,
+        handle_tool_call=_tc39_handle,
+        evaluate=_tc39_eval,
         tools_override=LARGE_TOOLSET,
         difficulty=3,
     ),
     ScenarioDefinition(
-        id="TC-40", title="Domain Confusion", category=Category.L,
+        id="TC-40",
+        title="Domain Confusion",
+        category=Category.L,
         user_message="Get the current status of the order for customer Sarah Chen.",
         description="Select get_order_status from similar-named tools "
-                    "(get_shipping_status, get_customer_profile, get_contacts).",
-        handle_tool_call=_tc40_handle, evaluate=_tc40_eval,
+        "(get_shipping_status, get_customer_profile, get_contacts).",
+        handle_tool_call=_tc40_handle,
+        evaluate=_tc40_eval,
         tools_override=LARGE_TOOLSET,
         difficulty=3,
     ),

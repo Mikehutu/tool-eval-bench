@@ -93,7 +93,9 @@ def test_load_via_datasets_lib_with_mock() -> None:
     with patch.dict("sys.modules", {"datasets": MagicMock(load_dataset=mock_load)}):
         progress_calls: list[tuple[int, int]] = []
         result = load_via_datasets_lib(
-            "openai/gsm8k", "main", "test",
+            "openai/gsm8k",
+            "main",
+            "test",
             on_progress=lambda d, t: progress_calls.append((d, t)),
         )
 
@@ -126,11 +128,7 @@ def _mock_fetch_factory(pages: list[list[dict]], total: int):
     def mock_fetch(url, *, max_retries=5, on_retry=None):
         nonlocal call_count
         if "info?" in url:
-            return {
-                "dataset_info": {
-                    "splits": {"test": {"num_examples": total}}
-                }
-            }
+            return {"dataset_info": {"splits": {"test": {"num_examples": total}}}}
         # Paginated rows request
         page_idx = min(call_count, len(pages) - 1)
         rows = [{"row_idx": i, "row": r} for i, r in enumerate(pages[page_idx])]
@@ -149,9 +147,13 @@ def test_download_rows_paginated_basic() -> None:
         total=3,
     )
 
-    with patch("tool_eval_bench.plugins.hf_utils._fetch_with_retry", mock), \
-         patch("tool_eval_bench.plugins.hf_utils.get_dataset_info",
-               return_value={"dataset_info": {"splits": {"test": {"num_examples": 3}}}}):
+    with (
+        patch("tool_eval_bench.plugins.hf_utils._fetch_with_retry", mock),
+        patch(
+            "tool_eval_bench.plugins.hf_utils.get_dataset_info",
+            return_value={"dataset_info": {"splits": {"test": {"num_examples": 3}}}},
+        ),
+    ):
         rows = download_rows_paginated("ds", "cfg", "test", page_size=10)
 
     assert len(rows) == 3
@@ -164,10 +166,7 @@ def test_download_rows_paginated_with_partial_resume(tmp_path: Path) -> None:
 
     partial = tmp_path / "test.partial.jsonl"
     # Write 2 already-downloaded rows
-    partial.write_text(
-        json.dumps({"q": "a"}) + "\n" +
-        json.dumps({"q": "b"}) + "\n"
-    )
+    partial.write_text(json.dumps({"q": "a"}) + "\n" + json.dumps({"q": "b"}) + "\n")
 
     # Mock should only be called for the remaining 1 row
     mock = _mock_fetch_factory(
@@ -175,11 +174,17 @@ def test_download_rows_paginated_with_partial_resume(tmp_path: Path) -> None:
         total=3,
     )
 
-    with patch("tool_eval_bench.plugins.hf_utils._fetch_with_retry", mock), \
-         patch("tool_eval_bench.plugins.hf_utils.get_dataset_info",
-               return_value={"dataset_info": {"splits": {"test": {"num_examples": 3}}}}):
+    with (
+        patch("tool_eval_bench.plugins.hf_utils._fetch_with_retry", mock),
+        patch(
+            "tool_eval_bench.plugins.hf_utils.get_dataset_info",
+            return_value={"dataset_info": {"splits": {"test": {"num_examples": 3}}}},
+        ),
+    ):
         rows = download_rows_paginated(
-            "ds", "cfg", "test",
+            "ds",
+            "cfg",
+            "test",
             page_size=10,
             partial_path=partial,
         )
@@ -194,17 +199,24 @@ def test_download_rows_paginated_complete_partial(tmp_path: Path) -> None:
 
     partial = tmp_path / "test.partial.jsonl"
     partial.write_text(
-        json.dumps({"q": "a"}) + "\n" +
-        json.dumps({"q": "b"}) + "\n" +
-        json.dumps({"q": "c"}) + "\n"
+        json.dumps({"q": "a"})
+        + "\n"
+        + json.dumps({"q": "b"})
+        + "\n"
+        + json.dumps({"q": "c"})
+        + "\n"
     )
 
     # The mock_fetch should NOT be called — partial cache is already complete
 
-    with patch("tool_eval_bench.plugins.hf_utils.get_dataset_info",
-               return_value={"dataset_info": {"splits": {"test": {"num_examples": 3}}}}):
+    with patch(
+        "tool_eval_bench.plugins.hf_utils.get_dataset_info",
+        return_value={"dataset_info": {"splits": {"test": {"num_examples": 3}}}},
+    ):
         rows = download_rows_paginated(
-            "ds", "cfg", "test",
+            "ds",
+            "cfg",
+            "test",
             page_size=10,
             partial_path=partial,
         )
@@ -223,11 +235,17 @@ def test_download_rows_paginated_progress_callback() -> None:
 
     calls: list[tuple[int, int]] = []
 
-    with patch("tool_eval_bench.plugins.hf_utils._fetch_with_retry", mock), \
-         patch("tool_eval_bench.plugins.hf_utils.get_dataset_info",
-               return_value={"dataset_info": {"splits": {"test": {"num_examples": 2}}}}):
+    with (
+        patch("tool_eval_bench.plugins.hf_utils._fetch_with_retry", mock),
+        patch(
+            "tool_eval_bench.plugins.hf_utils.get_dataset_info",
+            return_value={"dataset_info": {"splits": {"test": {"num_examples": 2}}}},
+        ),
+    ):
         download_rows_paginated(
-            "ds", "cfg", "test",
+            "ds",
+            "cfg",
+            "test",
             page_size=10,
             on_progress=lambda d, t: calls.append((d, t)),
         )

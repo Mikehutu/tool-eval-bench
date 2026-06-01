@@ -32,10 +32,7 @@ FEW_SHOT_EXAMPLES: list[dict[str, str]] = [
             "If there are 3 cars in the parking lot and 2 more cars arrive, "
             "how many cars are in the parking lot?"
         ),
-        "answer": (
-            "There are originally 3 cars. 2 more cars arrive. 3 + 2 = 5.\n"
-            "#### 5"
-        ),
+        "answer": ("There are originally 3 cars. 2 more cars arrive. 3 + 2 = 5.\n#### 5"),
     },
     {
         "question": (
@@ -98,8 +95,7 @@ FEW_SHOT_EXAMPLES: list[dict[str, str]] = [
     },
     {
         "question": (
-            "Olivia has $23. She bought five bagels for $3 each. How much "
-            "money does she have left?"
+            "Olivia has $23. She bought five bagels for $3 each. How much money does she have left?"
         ),
         "answer": (
             "Olivia had 23 dollars. 5 bagels for 3 dollars each is "

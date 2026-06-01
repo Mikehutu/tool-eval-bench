@@ -160,6 +160,7 @@ async def test_e2e_multiple_scenarios() -> None:
 
     class MultiMockAdapter(BackendAdapter):
         """Responds to every scenario with a direct answer (no tools)."""
+
         async def chat_completion(self, **kwargs: Any) -> ChatCompletionResult:
             return ChatCompletionResult(
                 content="Here's the information you requested.",
@@ -245,6 +246,7 @@ async def test_e2e_random_tool_model_scores_low() -> None:
 
     class RandomToolAdapter(BackendAdapter):
         """Always calls 'calculator' regardless of the scenario, then answers."""
+
         def __init__(self) -> None:
             self._calls: dict[int, int] = {}  # per-instance call counter
 
@@ -295,9 +297,11 @@ async def test_e2e_text_only_model_fails_all_tool_scenarios() -> None:
     from tool_eval_bench.evals.scenarios import SCENARIOS
 
     # Categories A, B, C all require tool usage
-    tool_scenarios = [s for s in SCENARIOS if s.id in ("TC-01", "TC-02", "TC-03",
-                                                       "TC-04", "TC-05", "TC-06",
-                                                       "TC-07", "TC-08", "TC-09")]
+    tool_scenarios = [
+        s
+        for s in SCENARIOS
+        if s.id in ("TC-01", "TC-02", "TC-03", "TC-04", "TC-05", "TC-06", "TC-07", "TC-08", "TC-09")
+    ]
     assert len(tool_scenarios) == 9
 
     class TextOnlyAdapter(BackendAdapter):
@@ -373,7 +377,8 @@ async def test_e2e_no_think_threaded_to_adapter() -> None:
                     content="",
                     tool_calls=[
                         ProviderToolCall(
-                            id="cap_1", name="get_weather",
+                            id="cap_1",
+                            name="get_weather",
                             arguments_str=json.dumps({"location": "Berlin"}),
                         )
                     ],
@@ -423,7 +428,8 @@ async def test_e2e_sampling_params_threaded_to_adapter() -> None:
                     content="",
                     tool_calls=[
                         ProviderToolCall(
-                            id="cap_1", name="get_weather",
+                            id="cap_1",
+                            name="get_weather",
                             arguments_str=json.dumps({"location": "Berlin"}),
                         )
                     ],
@@ -451,4 +457,3 @@ async def test_e2e_sampling_params_threaded_to_adapter() -> None:
         assert extra.get("top_k") == 40
         assert extra.get("min_p") == 0.05
         repo.close()
-

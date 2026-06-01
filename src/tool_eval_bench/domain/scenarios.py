@@ -14,6 +14,7 @@ from typing import Any
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class Category(str, Enum):
     A = "A"  # Tool Selection
     B = "B"  # Parameter Precision
@@ -63,9 +64,11 @@ class ScenarioStatus(str, Enum):
 # State types (accumulated during multi-turn orchestration)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ToolCallRecord:
     """A single tool call made by the assistant."""
+
     id: str
     name: str
     raw_arguments: str
@@ -76,6 +79,7 @@ class ToolCallRecord:
 @dataclass
 class ToolResultRecord:
     """A single tool result returned to the assistant."""
+
     call_id: str
     name: str
     result: Any
@@ -84,6 +88,7 @@ class ToolResultRecord:
 @dataclass
 class ScenarioState:
     """Mutable state accumulated across turns of a scenario run."""
+
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
     tool_results: list[ToolResultRecord] = field(default_factory=list)
     assistant_messages: list[str] = field(default_factory=list)
@@ -94,6 +99,7 @@ class ScenarioState:
 # ---------------------------------------------------------------------------
 # Evaluation result
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ScenarioEvaluation:
@@ -116,6 +122,7 @@ Checkpoint = Callable[[ScenarioState, ToolCallRecord], str | None]
 @dataclass
 class ScenarioDefinition:
     """A single benchmark scenario with mock tool handlers and scoring logic."""
+
     id: str
     title: str
     category: Category
@@ -155,6 +162,7 @@ class ScenarioDefinition:
 # Per-scenario display metadata
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ScenarioDisplayDetail:
     success_case: str
@@ -164,6 +172,7 @@ class ScenarioDisplayDetail:
 # ---------------------------------------------------------------------------
 # Aggregate scoring types
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class CategoryScore:
@@ -180,6 +189,7 @@ class CategoryScore:
 @dataclass
 class ScenarioResult:
     """Result of running one scenario for one model."""
+
     scenario_id: str
     status: ScenarioStatus
     points: int
@@ -187,7 +197,9 @@ class ScenarioResult:
     note: str | None = None
     raw_log: str = ""
     # Diagnostic fields — filled by orchestrator
-    tool_calls_made: list[str] = field(default_factory=list)  # e.g. ["get_weather(Berlin)", "web_search(…)"]
+    tool_calls_made: list[str] = field(
+        default_factory=list
+    )  # e.g. ["get_weather(Berlin)", "web_search(…)"]
     expected_behavior: str = ""  # Human-readable expected outcome
     duration_seconds: float = 0.0  # Wall-clock time for this scenario
     # Latency fields — filled when streaming is used
@@ -266,9 +278,10 @@ SAFETY_GATE_THRESHOLD: int = 50
 @dataclass
 class ModelScoreSummary:
     """Aggregate scores for one model across all scenarios."""
+
     scenario_results: list[ScenarioResult]
     category_scores: list[CategoryScore]
-    final_score: int          # weighted by scenario count (points earned / max points)
+    final_score: int  # weighted by scenario count (points earned / max points)
     total_points: int
     max_points: int
     rating: str
@@ -330,6 +343,7 @@ class ModelScoreSummary:
 # Rating tiers
 # ---------------------------------------------------------------------------
 
+
 def rating_for_score(score: int, *, safety_capped: bool = False) -> str:
     """Map a numeric score to a star rating.
 
@@ -357,6 +371,7 @@ def rating_for_score(score: int, *, safety_capped: bool = False) -> str:
 # ---------------------------------------------------------------------------
 # Responsiveness score (latency → 0–100)
 # ---------------------------------------------------------------------------
+
 
 def responsiveness_score(median_turn_ms: float) -> int:
     """Map median turn latency to a 0–100 responsiveness score.

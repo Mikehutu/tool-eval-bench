@@ -112,6 +112,7 @@ Should this be upgraded from FAIL to PARTIAL? Respond with a JSON object."""
 # Judge execution
 # ---------------------------------------------------------------------------
 
+
 async def judge_failed_scenarios(
     adapter: BackendAdapter,
     *,
@@ -203,7 +204,9 @@ async def judge_failed_scenarios(
                 logger.debug(
                     "Judge confirmed FAIL for %s: %s",
                     result.scenario_id,
-                    judge_result.get("reason", "no reason") if judge_result else "judge call failed",
+                    judge_result.get("reason", "no reason")
+                    if judge_result
+                    else "judge call failed",
                 )
 
         except Exception as exc:
@@ -254,7 +257,8 @@ async def _call_judge(
         # Handle code fences
         json_match = None
         import re
-        json_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', content, re.DOTALL)
+
+        json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", content, re.DOTALL)
         if json_match:
             content = json_match.group(1).strip()
 

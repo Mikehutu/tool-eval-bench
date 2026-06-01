@@ -246,14 +246,14 @@ _ASSISTANT_RESPONSES = [
 ]
 
 # Conservative defaults
-_RESERVED_FOR_OUTPUT = 4096     # max_tokens for generation
+_RESERVED_FOR_OUTPUT = 4096  # max_tokens for generation
 _RESERVED_FOR_SCENARIO = 12000  # tool definitions + system prompt + user message +
-                                 # multi-turn conversation growth + token estimation
-                                 # margin.  The server counts tool schemas against
-                                 # the context window — the 52-tool LARGE_TOOLSET
-                                 # alone is ~6000 tokens.  The extra margin (~4K)
-                                 # absorbs char→token estimation error so that
-                                 # ratio=1.0 can still succeed.
+# multi-turn conversation growth + token estimation
+# margin.  The server counts tool schemas against
+# the context window — the 52-tool LARGE_TOOLSET
+# alone is ~6000 tokens.  The extra margin (~4K)
+# absorbs char→token estimation error so that
+# ratio=1.0 can still succeed.
 _CHARS_PER_TOKEN_ESTIMATE = 4.0
 _TOKENS_PER_FILLER_CHUNK = 2048
 
@@ -262,13 +262,15 @@ _TOKENS_PER_FILLER_CHUNK = 2048
 # Config
 # ---------------------------------------------------------------------------
 
+
 @dataclass(slots=True)
 class ContextPressureConfig:
     """Configuration for context pressure pre-filling."""
-    ratio: float = 0.75           # Fill this fraction of the available context
+
+    ratio: float = 0.75  # Fill this fraction of the available context
     context_size: int | None = None  # Override auto-detected context size
-    fill_tokens: int = 0          # Computed: actual tokens to fill
-    detected_context: int = 0     # Actual context size used
+    fill_tokens: int = 0  # Computed: actual tokens to fill
+    detected_context: int = 0  # Actual context size used
 
     def summary(self) -> str:
         """Human-readable summary for display."""
@@ -281,6 +283,7 @@ class ContextPressureConfig:
 # ---------------------------------------------------------------------------
 # Context size detection
 # ---------------------------------------------------------------------------
+
 
 def _headers(api_key: str | None) -> dict[str, str]:
     headers: dict[str, str] = {"Content-Type": "application/json"}
@@ -299,21 +302,21 @@ def _metrics_url(base_url: str) -> str:
 
 # Regex to extract num_gpu_blocks and block_size from vllm:cache_config_info
 _CACHE_CONFIG_RE = re.compile(
-    r'^vllm:cache_config_info\{[^}]*'
+    r"^vllm:cache_config_info\{[^}]*"
     r'num_gpu_blocks="(\d+)"'
-    r'[^}]*?'
+    r"[^}]*?"
     r'block_size="(\d+)"'
-    r'[^}]*\}',
+    r"[^}]*\}",
     re.MULTILINE,
 )
 
 # Fallback: try the reverse label order (block_size before num_gpu_blocks)
 _CACHE_CONFIG_RE_ALT = re.compile(
-    r'^vllm:cache_config_info\{[^}]*'
+    r"^vllm:cache_config_info\{[^}]*"
     r'block_size="(\d+)"'
-    r'[^}]*?'
+    r"[^}]*?"
     r'num_gpu_blocks="(\d+)"'
-    r'[^}]*\}',
+    r"[^}]*\}",
     re.MULTILINE,
 )
 
@@ -374,7 +377,9 @@ async def detect_kv_capacity(
     capacity = num_blocks * block_size
     logger.info(
         "Detected KV cache capacity: %d tokens (%d blocks × %d block_size)",
-        capacity, num_blocks, block_size,
+        capacity,
+        num_blocks,
+        block_size,
     )
     return capacity
 
@@ -432,6 +437,7 @@ async def detect_context_size(
 # ---------------------------------------------------------------------------
 # Server-side tokenization (vLLM /tokenize endpoint)
 # ---------------------------------------------------------------------------
+
 
 def _tokenize_url(base_url: str) -> str:
     """Build the /tokenize URL."""
@@ -498,6 +504,7 @@ async def count_messages_tokens(
 # Fill budget calculation
 # ---------------------------------------------------------------------------
 
+
 def compute_fill_budget(
     context_size: int,
     ratio: float,
@@ -519,7 +526,8 @@ def compute_fill_budget(
         logger.warning(
             "Context size %d is too small for pressure testing "
             "(need at least %d for output + scenario overhead)",
-            context_size, _RESERVED_FOR_OUTPUT + _RESERVED_FOR_SCENARIO,
+            context_size,
+            _RESERVED_FOR_OUTPUT + _RESERVED_FOR_SCENARIO,
         )
         return 0
     fill = int(available * max(0.0, min(1.0, ratio)))
@@ -535,6 +543,7 @@ def compute_fill_budget(
 # Filler message builder
 # ---------------------------------------------------------------------------
 
+
 def _inject_noise(text: str, rng: random.Random) -> str:
     """Inject random noise tokens throughout the text to defeat prefix caching.
 
@@ -546,7 +555,9 @@ def _inject_noise(text: str, rng: random.Random) -> str:
         lambda: f"[ticket SRE-{rng.randint(1000, 9999)}]",
         lambda: f"({rng.randint(1, 28)}/{rng.randint(1, 12)}/{rng.randint(2023, 2026)})",
         lambda: f"[v{rng.randint(1, 9)}.{rng.randint(0, 99)}.{rng.randint(0, 9)}]",
-        lambda: f"(node {rng.randint(1, 255)}.{rng.randint(0, 255)}.{rng.randint(0, 255)}.{rng.randint(1, 254)})",
+        lambda: (
+            f"(node {rng.randint(1, 255)}.{rng.randint(0, 255)}.{rng.randint(0, 255)}.{rng.randint(1, 254)})"
+        ),
         lambda: f"[{rng.choice(['WARN', 'INFO', 'DEBUG', 'TRACE'])} {rng.randint(100, 999)}ms]",
         lambda: f"(batch {rng.randint(1, 500)}/{rng.randint(500, 1000)})",
         lambda: f"[id:{rng.randint(100000, 999999):x}]",
@@ -672,8 +683,10 @@ def build_pressure_messages(
             break
 
         filler_text = _build_filler_text(
-            chunk_size, chunk_idx=chunk_idx,
-            paragraph_order=paragraph_order, rng=rng,
+            chunk_size,
+            chunk_idx=chunk_idx,
+            paragraph_order=paragraph_order,
+            rng=rng,
         )
 
         # Unique prefix per chunk to bust prefix caching
@@ -704,7 +717,9 @@ def build_pressure_messages(
 
     logger.info(
         "Built %d pressure messages (~%d estimated tokens in %d turn pairs)",
-        len(messages), tokens_used, chunk_idx,
+        len(messages),
+        tokens_used,
+        chunk_idx,
     )
     return messages
 
@@ -733,12 +748,10 @@ async def calibrate_pressure_messages(
     actual = await count_messages_tokens(messages, base_url, model, api_key)
     if actual is None:
         # Tokenizer unavailable — return char-based estimate
-        est = sum(
-            len(m.get("content", "")) / _CHARS_PER_TOKEN_ESTIMATE
-            for m in messages
-        )
+        est = sum(len(m.get("content", "")) / _CHARS_PER_TOKEN_ESTIMATE for m in messages)
         logger.debug(
-            "Tokenizer unavailable, using char estimate: ~%d tokens", int(est),
+            "Tokenizer unavailable, using char estimate: ~%d tokens",
+            int(est),
         )
         return messages, int(est)
 
@@ -747,7 +760,9 @@ async def calibrate_pressure_messages(
         # Within 2% — close enough
         logger.info(
             "Filler calibration: %d actual tokens vs %d target (%.1f%% off, OK)",
-            actual, target_tokens, abs(delta) / target_tokens * 100,
+            actual,
+            target_tokens,
+            abs(delta) / target_tokens * 100,
         )
         return messages, actual
 
@@ -778,7 +793,9 @@ async def calibrate_pressure_messages(
         final = recounted if recounted is not None else actual - delta
         logger.info(
             "Filler calibrated: %d → %d tokens (target %d, %.1f%% accuracy)",
-            actual, final, target_tokens,
+            actual,
+            final,
+            target_tokens,
             (1 - abs(final - target_tokens) / target_tokens) * 100,
         )
         return messages, final
@@ -786,12 +803,15 @@ async def calibrate_pressure_messages(
     # Under target — extend the last user message with more filler
     shortfall = -delta
     import time
+
     if seed is not None:
         cal_rng = random.Random(seed ^ hash(target_tokens) ^ 0xCA1)
     else:
         cal_rng = random.Random(time.time_ns())
     extra_text = _build_filler_text(
-        shortfall, chunk_idx=999, rng=cal_rng,
+        shortfall,
+        chunk_idx=999,
+        rng=cal_rng,
     )
     # Find last user message and append
     for i in range(len(messages) - 1, -1, -1):
@@ -803,7 +823,9 @@ async def calibrate_pressure_messages(
     final = recounted if recounted is not None else actual + shortfall
     logger.info(
         "Filler calibrated: %d → %d tokens (target %d, %.1f%% accuracy)",
-        actual, final, target_tokens,
+        actual,
+        final,
+        target_tokens,
         (1 - abs(final - target_tokens) / target_tokens) * 100,
     )
     return messages, final
@@ -812,6 +834,7 @@ async def calibrate_pressure_messages(
 # ---------------------------------------------------------------------------
 # High-level: detect + build
 # ---------------------------------------------------------------------------
+
 
 async def prepare_context_pressure(
     base_url: str,
@@ -854,13 +877,16 @@ async def prepare_context_pressure(
         # --context-pressure 0.9 on a 256K model with 117K KV cache would
         # try to fill 221K tokens — exceeding what the server can handle.
         kv_capacity = await detect_kv_capacity(
-            base_url, api_key, metrics_url=metrics_url,
+            base_url,
+            api_key,
+            metrics_url=metrics_url,
         )
         if kv_capacity is not None and kv_capacity < ctx_size:
             logger.info(
-                "Capping context size from %d (max_model_len) to %d "
-                "(KV cache capacity: %d blocks)",
-                ctx_size, kv_capacity, kv_capacity // 16,
+                "Capping context size from %d (max_model_len) to %d (KV cache capacity: %d blocks)",
+                ctx_size,
+                kv_capacity,
+                kv_capacity // 16,
             )
             ctx_size = kv_capacity
 

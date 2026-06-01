@@ -19,6 +19,7 @@ from tool_eval_bench.adapters.base import BackendAdapter
 # Universal result container
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class BenchmarkResult:
     """Universal result container returned by every benchmark plugin.
@@ -81,6 +82,7 @@ OnPluginProgress = Callable[[int, int, dict[str, Any]], Awaitable[None]]
 # ---------------------------------------------------------------------------
 # Plugin interface
 # ---------------------------------------------------------------------------
+
 
 class BenchmarkPlugin(ABC):
     """Interface that every pluggable benchmark module must implement."""

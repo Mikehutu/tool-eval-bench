@@ -35,6 +35,7 @@ def _seeded_id(prefix: str, seed: int) -> str:
 # Per-tool enrichment functions
 # ---------------------------------------------------------------------------
 
+
 def enrich_weather(payload: dict[str, Any]) -> dict[str, Any]:
     """Add realistic metadata to weather responses."""
     seed = _seed_from_payload(payload, "weather")
@@ -61,15 +62,17 @@ def enrich_search(payload: dict[str, Any]) -> dict[str, Any]:
     results = payload.get("results", [])
     enriched_results = []
     for i, r in enumerate(results):
-        enriched_results.append({
-            **r,
-            "url": f"https://example.com/result/{i + 1}",
-            "rank": i + 1,
-            "relevance_score": round(0.95 - i * 0.05, 2),
-            "published_date": "2026-03-18",
-            "source_domain": "example.com",
-            "language": "en",
-        })
+        enriched_results.append(
+            {
+                **r,
+                "url": f"https://example.com/result/{i + 1}",
+                "rank": i + 1,
+                "relevance_score": round(0.95 - i * 0.05, 2),
+                "published_date": "2026-03-18",
+                "source_domain": "example.com",
+                "language": "en",
+            }
+        )
     return {
         "results": enriched_results,
         "total_results": 1200 + seed % 200,
@@ -89,16 +92,18 @@ def enrich_file_search(payload: dict[str, Any]) -> dict[str, Any]:
     results = payload.get("results", [])
     enriched_results = []
     for r in results:
-        enriched_results.append({
-            **r,
-            "size_bytes": 28_416,
-            "modified_at": "2026-03-15T09:22:11Z",
-            "created_at": "2026-02-10T14:00:00Z",
-            "owner": "system",
-            "path": f"/documents/{r.get('name', 'unknown')}",
-            "permissions": "read",
-            "content_type": "application/octet-stream",
-        })
+        enriched_results.append(
+            {
+                **r,
+                "size_bytes": 28_416,
+                "modified_at": "2026-03-15T09:22:11Z",
+                "created_at": "2026-02-10T14:00:00Z",
+                "owner": "system",
+                "path": f"/documents/{r.get('name', 'unknown')}",
+                "permissions": "read",
+                "content_type": "application/octet-stream",
+            }
+        )
     return {
         "results": enriched_results,
         "total_matches": len(results),
@@ -164,16 +169,18 @@ def enrich_contacts(payload: dict[str, Any]) -> dict[str, Any]:
     results = payload.get("results", [])
     enriched_results = []
     for i, r in enumerate(results):
-        enriched_results.append({
-            **r,
-            "id": f"contact_{1000 + i}",
-            "department": "Engineering",
-            "phone": "+1-555-0100",
-            "title": "Team Member",
-            "last_contacted": "2026-03-18T15:30:00Z",
-            "notes": "",
-            "source": "directory",
-        })
+        enriched_results.append(
+            {
+                **r,
+                "id": f"contact_{1000 + i}",
+                "department": "Engineering",
+                "phone": "+1-555-0100",
+                "title": "Team Member",
+                "last_contacted": "2026-03-18T15:30:00Z",
+                "notes": "",
+                "source": "directory",
+            }
+        )
     return {
         "results": enriched_results,
         "total_contacts": len(results),

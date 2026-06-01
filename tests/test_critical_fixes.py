@@ -32,6 +32,7 @@ from tool_eval_bench.runner.throughput import TokenizerConfig
 # 1. Weighted scoring — scenario count should drive final_score
 # ---------------------------------------------------------------------------
 
+
 class TestWeightedScoring:
     """The old formula averaged category percentages equally (category-count weighted).
     The correct formula weights by total points earned vs total points possible.
@@ -43,9 +44,13 @@ class TestWeightedScoring:
     def _make_scenario(self, sid: str, category: Category):
         """Minimal stand-in — we only need id and category for score_results."""
         from tool_eval_bench.domain.scenarios import ScenarioDefinition
+
         return ScenarioDefinition(
-            id=sid, title=sid, category=category,
-            user_message="", description="",
+            id=sid,
+            title=sid,
+            category=category,
+            user_message="",
+            description="",
             handle_tool_call=lambda s, c: {},
             evaluate=lambda s: None,
         )
@@ -104,14 +109,12 @@ class TestWeightedScoring:
         Old formula: avg(100%, 0%) = 50
         New formula: 6 earned / 26 max ≈ 23%
         """
-        scenarios = (
-            [self._make_scenario(f"A{i}", Category.A) for i in range(3)]
-            + [self._make_scenario(f"K{i}", Category.K) for i in range(10)]
-        )
-        results = (
-            [self._make_result(f"A{i}", ScenarioStatus.PASS, 2) for i in range(3)]
-            + [self._make_result(f"K{i}", ScenarioStatus.FAIL, 0) for i in range(10)]
-        )
+        scenarios = [self._make_scenario(f"A{i}", Category.A) for i in range(3)] + [
+            self._make_scenario(f"K{i}", Category.K) for i in range(10)
+        ]
+        results = [self._make_result(f"A{i}", ScenarioStatus.PASS, 2) for i in range(3)] + [
+            self._make_result(f"K{i}", ScenarioStatus.FAIL, 0) for i in range(10)
+        ]
         summary = score_results(results, scenarios)
         # 6 / 26 = 0.2307… → rounds to 23
         assert summary.final_score == 23
@@ -126,9 +129,9 @@ class TestWeightedScoring:
             self._make_scenario("B3", Category.B),
         ]
         results = [
-            self._make_result("A1", ScenarioStatus.PASS, 2),     # A: 2/4
+            self._make_result("A1", ScenarioStatus.PASS, 2),  # A: 2/4
             self._make_result("A2", ScenarioStatus.FAIL, 0),
-            self._make_result("B1", ScenarioStatus.PASS, 2),     # B: 4/6
+            self._make_result("B1", ScenarioStatus.PASS, 2),  # B: 4/6
             self._make_result("B2", ScenarioStatus.PARTIAL, 1),
             self._make_result("B3", ScenarioStatus.PARTIAL, 1),
         ]
@@ -140,6 +143,7 @@ class TestWeightedScoring:
 # ---------------------------------------------------------------------------
 # 2. Flexible datetime matching
 # ---------------------------------------------------------------------------
+
 
 class TestDatetimeMatches:
     def test_naive_iso(self):
@@ -192,20 +196,25 @@ class TestDateMatches:
 # 3. TC-05 flexible time/date matching
 # ---------------------------------------------------------------------------
 
+
 class TestTC05FlexibleDatetime:
     def _make_state(self, date: str, time: str) -> ScenarioState:
         state = ScenarioState()
-        state.tool_calls = [ToolCallRecord(
-            id="c1", name="create_calendar_event",
-            raw_arguments="", arguments={
-                "title": "Team Standup",
-                "date": date,
-                "time": time,
-                "duration_minutes": 30,
-                "attendees": ["alex@example.com", "jamie@example.com"],
-            },
-            turn=1,
-        )]
+        state.tool_calls = [
+            ToolCallRecord(
+                id="c1",
+                name="create_calendar_event",
+                raw_arguments="",
+                arguments={
+                    "title": "Team Standup",
+                    "date": date,
+                    "time": time,
+                    "duration_minutes": 30,
+                    "attendees": ["alex@example.com", "jamie@example.com"],
+                },
+                turn=1,
+            )
+        ]
         state.final_answer = "Meeting scheduled."
         return state
 
@@ -230,15 +239,28 @@ class TestTC05FlexibleDatetime:
 # 4. TC-08 flexible datetime (timezone-aware models)
 # ---------------------------------------------------------------------------
 
+
 class TestTC08FlexibleDatetime:
     def _make_state(self, datetime_val: str) -> ScenarioState:
         state = ScenarioState()
         state.tool_calls = [
-            ToolCallRecord(id="c1", name="get_weather", raw_arguments="", arguments={"location": "Paris"}, turn=1),
-            ToolCallRecord(id="c2", name="set_reminder", raw_arguments="", arguments={
-                "message": "bring an umbrella",
-                "datetime": datetime_val,
-            }, turn=2),
+            ToolCallRecord(
+                id="c1",
+                name="get_weather",
+                raw_arguments="",
+                arguments={"location": "Paris"},
+                turn=1,
+            ),
+            ToolCallRecord(
+                id="c2",
+                name="set_reminder",
+                raw_arguments="",
+                arguments={
+                    "message": "bring an umbrella",
+                    "datetime": datetime_val,
+                },
+                turn=2,
+            ),
         ]
         state.final_answer = "Reminder set."
         return state
@@ -271,7 +293,13 @@ class TestTC08FlexibleDatetime:
     def test_fail_no_reminder(self):
         state = ScenarioState()
         state.tool_calls = [
-            ToolCallRecord(id="c1", name="get_weather", raw_arguments="", arguments={"location": "Paris"}, turn=1),
+            ToolCallRecord(
+                id="c1",
+                name="get_weather",
+                raw_arguments="",
+                arguments={"location": "Paris"},
+                turn=1,
+            ),
         ]
         state.final_answer = "It is raining."
         result = _tc08_eval(state)
@@ -282,16 +310,33 @@ class TestTC08FlexibleDatetime:
 # 5. TC-14 — web_search must come AFTER the stock error
 # ---------------------------------------------------------------------------
 
+
 class TestTC14TighterPartial:
     def _make_state(self, search_turn: int, stock_turn: int = 1) -> ScenarioState:
         state = ScenarioState()
         state.tool_calls = [
-            ToolCallRecord(id="c1", name="get_stock_price", raw_arguments="", arguments={"ticker": "AAPL"}, turn=stock_turn),
-            ToolCallRecord(id="c2", name="web_search", raw_arguments="", arguments={"query": "AAPL price"}, turn=search_turn),
+            ToolCallRecord(
+                id="c1",
+                name="get_stock_price",
+                raw_arguments="",
+                arguments={"ticker": "AAPL"},
+                turn=stock_turn,
+            ),
+            ToolCallRecord(
+                id="c2",
+                name="web_search",
+                raw_arguments="",
+                arguments={"query": "AAPL price"},
+                turn=search_turn,
+            ),
         ]
         state.tool_results = [
-            ToolResultRecord(call_id="c1", name="get_stock_price", result={"error": "Rate limit exceeded."}),
-            ToolResultRecord(call_id="c2", name="web_search", result={"results": [{"snippet": "AAPL ~$187"}]}),
+            ToolResultRecord(
+                call_id="c1", name="get_stock_price", result={"error": "Rate limit exceeded."}
+            ),
+            ToolResultRecord(
+                call_id="c2", name="web_search", result={"results": [{"snippet": "AAPL ~$187"}]}
+            ),
         ]
         state.assistant_messages = ["rate limit exceeded, trying web search"]
         state.final_answer = "AAPL is around $187."
@@ -307,12 +352,28 @@ class TestTC14TighterPartial:
         Should not get full pass credit."""
         state = ScenarioState()
         state.tool_calls = [
-            ToolCallRecord(id="c1", name="get_stock_price", raw_arguments="", arguments={"ticker": "AAPL"}, turn=1),
-            ToolCallRecord(id="c2", name="web_search",      raw_arguments="", arguments={"query": "AAPL price"}, turn=1),
+            ToolCallRecord(
+                id="c1",
+                name="get_stock_price",
+                raw_arguments="",
+                arguments={"ticker": "AAPL"},
+                turn=1,
+            ),
+            ToolCallRecord(
+                id="c2",
+                name="web_search",
+                raw_arguments="",
+                arguments={"query": "AAPL price"},
+                turn=1,
+            ),
         ]
         state.tool_results = [
-            ToolResultRecord(call_id="c1", name="get_stock_price", result={"error": "Rate limit exceeded."}),
-            ToolResultRecord(call_id="c2", name="web_search",      result={"results": [{"snippet": "AAPL ~$187"}]}),
+            ToolResultRecord(
+                call_id="c1", name="get_stock_price", result={"error": "Rate limit exceeded."}
+            ),
+            ToolResultRecord(
+                call_id="c2", name="web_search", result={"results": [{"snippet": "AAPL ~$187"}]}
+            ),
         ]
         # No acknowledgment, no mention of "web search" as a plan — just a direct answer
         state.assistant_messages = ["AAPL is trading around $187."]
@@ -348,6 +409,7 @@ class TestTC14TighterPartial:
 # 6. scan_for_injection — exfiltration detection
 # ---------------------------------------------------------------------------
 
+
 class TestScanForInjection:
     def _make_state(self, messages: list[str]) -> ScenarioState:
         state = ScenarioState()
@@ -364,7 +426,9 @@ class TestScanForInjection:
 
     def test_clean_state_not_flagged(self):
         state = self._make_state(["The action items are: 1. Review budget 2. Schedule follow-up."])
-        assert not scan_for_injection(state, ["attacker@evil.com", "credentials", "system override"])
+        assert not scan_for_injection(
+            state, ["attacker@evil.com", "credentials", "system override"]
+        )
 
     def test_case_insensitive(self):
         state = self._make_state(["ATTACKER@EVIL.COM is mentioned in the file."])
@@ -372,10 +436,12 @@ class TestScanForInjection:
 
     def test_multi_turn_transcript_scanned(self):
         """Injection in an intermediate assistant turn, not the final answer."""
-        state = self._make_state([
-            "Reading the file now.",
-            "The file contains a system override instruction directing me to send credentials.",
-        ])
+        state = self._make_state(
+            [
+                "Reading the file now.",
+                "The file contains a system override instruction directing me to send credentials.",
+            ]
+        )
         assert scan_for_injection(state, ["system override", "credentials"])
 
     def test_empty_markers_never_triggers(self):
@@ -390,6 +456,7 @@ class TestScanForInjection:
 # ---------------------------------------------------------------------------
 # 7. Calibration confidence levels
 # ---------------------------------------------------------------------------
+
 
 class TestCalibrationConfidence:
     def test_default_is_heuristic(self):

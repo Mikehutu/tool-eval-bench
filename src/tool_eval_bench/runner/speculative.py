@@ -44,9 +44,11 @@ logger = logging.getLogger(__name__)
 # Prometheus metric parsing
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SpecDecodeCounters:
     """Snapshot of speculative decoding counters from Prometheus /metrics."""
+
     accepted_tokens: float = 0.0
     draft_tokens: float = 0.0
     num_drafts: float = 0.0
@@ -150,9 +152,11 @@ async def scrape_spec_metrics(
 # Spec decode detection
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SpecDecodeInfo:
     """Information about the server's speculative decoding configuration."""
+
     active: bool = False
     method: str = "unknown"  # mtp, draft_model, ngram, eagle, unknown
     has_prometheus: bool = False
@@ -234,12 +238,14 @@ async def detect_spec_decoding(
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SpecDecodeSample:
     """Result of a single speculative decoding benchmark measurement.
 
     Extends ThroughputSample concept with spec-decode-specific metrics.
     """
+
     # Base throughput data (from _stream_one)
     pp_tokens: int = 0
     tg_tokens: int = 0
@@ -252,18 +258,18 @@ class SpecDecodeSample:
     error: str | None = None
 
     # Spec-decode-specific metrics
-    acceptance_rate: float | None = None      # 0.0–1.0 (from Prometheus deltas)
-    acceptance_length: float | None = None    # avg tokens per spec step
-    draft_tokens_delta: int | None = None     # draft tokens in this measurement
+    acceptance_rate: float | None = None  # 0.0–1.0 (from Prometheus deltas)
+    acceptance_length: float | None = None  # avg tokens per spec step
+    draft_tokens_delta: int | None = None  # draft tokens in this measurement
     accepted_tokens_delta: int | None = None  # accepted tokens in this measurement
-    num_drafts_delta: int | None = None       # spec steps in this measurement
+    num_drafts_delta: int | None = None  # spec steps in this measurement
 
     # Derived metrics
-    spec_method: str = "unknown"              # mtp / draft_model / ngram / eagle
-    baseline_tg_tps: float | None = None      # stored baseline for comparison
+    spec_method: str = "unknown"  # mtp / draft_model / ngram / eagle
+    baseline_tg_tps: float | None = None  # stored baseline for comparison
 
     # Prompt type used
-    prompt_type: str = "filler"               # filler / code / structured
+    prompt_type: str = "filler"  # filler / code / structured
 
     @property
     def effective_tg_tps(self) -> float:
@@ -299,7 +305,11 @@ class SpecDecodeSample:
         Shows how fast the draft model runs, regardless of acceptance.
         Compare with goodput to see how much draft compute is wasted.
         """
-        if self.draft_tokens_delta is not None and self.draft_tokens_delta > 0 and self.total_ms > 0:
+        if (
+            self.draft_tokens_delta is not None
+            and self.draft_tokens_delta > 0
+            and self.total_ms > 0
+        ):
             gen_ms = self.total_ms - self.ttft_ms if self.ttft_ms > 0 else self.total_ms
             if gen_ms > 0:
                 return self.draft_tokens_delta / (gen_ms / 1000)
@@ -324,8 +334,11 @@ class SpecDecodeSample:
         but acceptance_length=3.5, positions 4–15 are mostly wasted.
         Compare with acceptance_length (τ) to assess optimal window tuning.
         """
-        if (self.draft_tokens_delta is not None and self.num_drafts_delta is not None
-                and self.num_drafts_delta > 0):
+        if (
+            self.draft_tokens_delta is not None
+            and self.num_drafts_delta is not None
+            and self.num_drafts_delta > 0
+        ):
             return self.draft_tokens_delta / self.num_drafts_delta
         return None
 
@@ -401,6 +414,7 @@ def _get_prompt_for_type(prompt_type: str) -> str | None:
 # Single spec-decode measurement
 # ---------------------------------------------------------------------------
 
+
 async def measure_spec_single(
     client: httpx.AsyncClient,
     base_url: str,
@@ -433,13 +447,21 @@ async def measure_spec_single(
         ]
     else:
         messages = await _build_messages(
-            client, base_url, model, pp, depth, api_key, tok_cfg,
+            client,
+            base_url,
+            model,
+            pp,
+            depth,
+            api_key,
+            tok_cfg,
         )
 
     # Scrape counters BEFORE generation
     counters_before: SpecDecodeCounters | None = None
     if spec_info.has_prometheus:
-        counters_before = await scrape_spec_metrics(client, base_url, api_key, metrics_url=metrics_url)
+        counters_before = await scrape_spec_metrics(
+            client, base_url, api_key, metrics_url=metrics_url
+        )
 
     # Run the generation
     sample = await _stream_one(client, base_url, model, messages, tg, api_key, tok_cfg)
@@ -458,7 +480,9 @@ async def measure_spec_single(
 
     # Scrape counters AFTER generation and compute deltas
     if spec_info.has_prometheus and counters_before is not None:
-        counters_after = await scrape_spec_metrics(client, base_url, api_key, metrics_url=metrics_url)
+        counters_after = await scrape_spec_metrics(
+            client, base_url, api_key, metrics_url=metrics_url
+        )
         if counters_after is not None:
             spec_sample.draft_tokens_delta = int(
                 counters_after.draft_tokens - counters_before.draft_tokens
@@ -496,6 +520,7 @@ async def measure_spec_single(
 # ---------------------------------------------------------------------------
 # Full spec-decode benchmark
 # ---------------------------------------------------------------------------
+
 
 async def run_spec_bench(
     base_url: str,
@@ -549,7 +574,10 @@ async def run_spec_bench(
 
         # Detect spec decode configuration
         spec_info = await detect_spec_decoding(
-            client, base_url, api_key, backend_hint=spec_method,
+            client,
+            base_url,
+            api_key,
+            backend_hint=spec_method,
             metrics_url=metrics_url,
         )
 
@@ -576,9 +604,14 @@ async def run_spec_bench(
 
         for idx, (depth, prompt_type) in enumerate(combos):
             spec_sample = await measure_spec_single(
-                client, base_url, model,
-                pp=pp, tg=tg, depth=depth,
-                api_key=api_key, tok_cfg=tok_cfg,
+                client,
+                base_url,
+                model,
+                pp=pp,
+                tg=tg,
+                depth=depth,
+                api_key=api_key,
+                tok_cfg=tok_cfg,
                 spec_info=spec_info,
                 baseline_tg_tps=baseline_tg_tps,
                 prompt_type=prompt_type,

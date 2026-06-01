@@ -20,6 +20,7 @@ from tool_eval_bench.evals.scenarios_hardmode import (
 # Registry tests
 # ===========================================================================
 
+
 class TestHardmodeRegistry:
     """Registry-level checks."""
 
@@ -45,12 +46,14 @@ class TestHardmodeRegistry:
 
     def test_not_in_all_scenarios(self):
         from tool_eval_bench.evals.scenarios import ALL_SCENARIOS
+
         hardmode_ids = {s.id for s in HARDMODE_SCENARIOS}
         all_ids = {s.id for s in ALL_SCENARIOS}
         assert hardmode_ids.isdisjoint(all_ids)
 
     def test_in_all_scenarios_with_hardmode(self):
         from tool_eval_bench.evals.scenarios import ALL_SCENARIOS_WITH_HARDMODE
+
         hardmode_ids = {s.id for s in HARDMODE_SCENARIOS}
         combined_ids = {s.id for s in ALL_SCENARIOS_WITH_HARDMODE}
         assert hardmode_ids.issubset(combined_ids)
@@ -65,17 +68,21 @@ class TestHardmodeRegistry:
 # Helpers
 # ===========================================================================
 
+
 def _get_scenario(sid: str):
     return next(s for s in HARDMODE_SCENARIOS if s.id == sid)
 
 
 def _make_call(name: str, args: dict, turn: int = 1) -> ToolCallRecord:
-    return ToolCallRecord(id=f"call_{name}_{turn}", name=name, raw_arguments=str(args), arguments=args, turn=turn)
+    return ToolCallRecord(
+        id=f"call_{name}_{turn}", name=name, raw_arguments=str(args), arguments=args, turn=turn
+    )
 
 
 # ===========================================================================
 # TC-70: Adversarial Near-Duplicate Tools
 # ===========================================================================
+
 
 class TestTC70AdversarialTools:
     """TC-70: Adversarial near-duplicate tools."""
@@ -154,6 +161,7 @@ class TestTC70AdversarialTools:
 # ===========================================================================
 # TC-71: Ambiguous Recipient
 # ===========================================================================
+
 
 class TestTC71AmbiguousRecipient:
     """TC-71: Ambiguous recipient — 3 Jordans."""
@@ -234,7 +242,9 @@ class TestTC71AmbiguousRecipient:
         c0 = _make_call("get_contacts", {"query": "Jordan"}, turn=1)
         sc.handle_tool_call(state, c0)
         state.tool_calls.append(c0)
-        for i, addr in enumerate(["jordan.park@company.com", "jordan.lee@company.com", "jordan.kim@company.com"]):
+        for i, addr in enumerate(
+            ["jordan.park@company.com", "jordan.lee@company.com", "jordan.kim@company.com"]
+        ):
             c = _make_call("send_email", {"to": addr, "body": "Report"}, turn=2 + i)
             sc.handle_tool_call(state, c)
             state.tool_calls.append(c)
@@ -246,6 +256,7 @@ class TestTC71AmbiguousRecipient:
 # ===========================================================================
 # TC-72: Cascading Error Recovery
 # ===========================================================================
+
 
 class TestTC72CascadingRecovery:
     """TC-72: Cascading error recovery."""
@@ -278,7 +289,9 @@ class TestTC72CascadingRecovery:
         c2 = _make_call("read_file", {"file_id": "file_405"}, turn=2)
         sc.handle_tool_call(state, c2)
         state.tool_calls.append(c2)
-        c3 = _make_call("send_email", {"to": "dana@company.com", "body": "Total budget $1.2M"}, turn=3)
+        c3 = _make_call(
+            "send_email", {"to": "dana@company.com", "body": "Total budget $1.2M"}, turn=3
+        )
         sc.handle_tool_call(state, c3)
         state.tool_calls.append(c3)
         result = sc.evaluate(state)
@@ -329,6 +342,7 @@ class TestTC72CascadingRecovery:
 # TC-73: Multi-Constraint Composition
 # ===========================================================================
 
+
 class TestTC73MultiConstraint:
     """TC-73: Multi-constraint composition."""
 
@@ -336,7 +350,9 @@ class TestTC73MultiConstraint:
         sc = _get_scenario("TC-73")
         state = ScenarioState()
         # Search
-        c1 = _make_call("web_search", {"query": "vegan restaurant Berlin near Alexanderplatz"}, turn=1)
+        c1 = _make_call(
+            "web_search", {"query": "vegan restaurant Berlin near Alexanderplatz"}, turn=1
+        )
         sc.handle_tool_call(state, c1)
         state.tool_calls.append(c1)
         state.assistant_messages.append(
@@ -348,10 +364,14 @@ class TestTC73MultiConstraint:
         sc.handle_tool_call(state, c2)
         state.tool_calls.append(c2)
         # Email
-        c3 = _make_call("send_email", {
-            "to": "lisa.mueller@company.com",
-            "body": "I recommend Green Kitchen Berlin for Sunday."
-        }, turn=3)
+        c3 = _make_call(
+            "send_email",
+            {
+                "to": "lisa.mueller@company.com",
+                "body": "I recommend Green Kitchen Berlin for Sunday.",
+            },
+            turn=3,
+        )
         sc.handle_tool_call(state, c3)
         state.tool_calls.append(c3)
         state.final_answer = "I've emailed the Green Kitchen recommendation to Lisa."
@@ -428,10 +448,11 @@ class TestTC73MultiConstraint:
         c2 = _make_call("get_contacts", {"query": "Lisa"}, turn=2)
         sc.handle_tool_call(state, c2)
         state.tool_calls.append(c2)
-        c3 = _make_call("send_email", {
-            "to": "lisa.mueller@company.com",
-            "body": "I recommend Green Kitchen Berlin."
-        }, turn=3)
+        c3 = _make_call(
+            "send_email",
+            {"to": "lisa.mueller@company.com", "body": "I recommend Green Kitchen Berlin."},
+            turn=3,
+        )
         sc.handle_tool_call(state, c3)
         state.tool_calls.append(c3)
         state.final_answer = "Done — emailed Lisa the Green Kitchen recommendation."
@@ -445,6 +466,7 @@ class TestTC73MultiConstraint:
 # TC-74: Stateful Multi-Turn Corrections
 # ===========================================================================
 
+
 class TestTC74StatefulCorrections:
     """TC-74: Stateful multi-turn corrections."""
 
@@ -456,11 +478,11 @@ class TestTC74StatefulCorrections:
         """Each follow-up introduces a specific correction."""
         sc = _get_scenario("TC-74")
         fups = [m.lower() for m in sc.follow_up_messages]
-        assert any("product review" in f for f in fups)   # title change
-        assert any("wednesday" in f for f in fups)         # date change
-        assert any("sarah" in f for f in fups)             # new attendee
-        assert any("45" in f for f in fups)                # duration change
-        assert any("2pm" in f for f in fups)               # time change
+        assert any("product review" in f for f in fups)  # title change
+        assert any("wednesday" in f for f in fups)  # date change
+        assert any("sarah" in f for f in fups)  # new attendee
+        assert any("45" in f for f in fups)  # duration change
+        assert any("2pm" in f for f in fups)  # time change
 
     def test_pass_all_corrections(self):
         sc = _get_scenario("TC-74")
@@ -470,13 +492,17 @@ class TestTC74StatefulCorrections:
         sc.handle_tool_call(state, c1)
         state.tool_calls.append(c1)
         # Final event with all corrections applied
-        c2 = _make_call("create_calendar_event", {
-            "title": "Product Review",
-            "date": "2026-03-25",
-            "time": "14:00",
-            "duration_minutes": 45,
-            "attendees": ["mark.chen@company.com", "sarah.jones@company.com"],
-        }, turn=5)
+        c2 = _make_call(
+            "create_calendar_event",
+            {
+                "title": "Product Review",
+                "date": "2026-03-25",
+                "time": "14:00",
+                "duration_minutes": 45,
+                "attendees": ["mark.chen@company.com", "sarah.jones@company.com"],
+            },
+            turn=5,
+        )
         sc.handle_tool_call(state, c2)
         state.tool_calls.append(c2)
         result = sc.evaluate(state)
@@ -489,12 +515,16 @@ class TestTC74StatefulCorrections:
         c1 = _make_call("get_contacts", {"query": "sarah"}, turn=3)
         sc.handle_tool_call(state, c1)
         state.tool_calls.append(c1)
-        c2 = _make_call("create_calendar_event", {
-            "title": "Product Review",
-            "date": "2026-03-25",
-            "time": "10:00",  # Forgot the 2pm correction
-            "duration_minutes": 30,  # Forgot the 45min correction
-        }, turn=5)
+        c2 = _make_call(
+            "create_calendar_event",
+            {
+                "title": "Product Review",
+                "date": "2026-03-25",
+                "time": "10:00",  # Forgot the 2pm correction
+                "duration_minutes": 30,  # Forgot the 45min correction
+            },
+            turn=5,
+        )
         sc.handle_tool_call(state, c2)
         state.tool_calls.append(c2)
         result = sc.evaluate(state)
@@ -512,12 +542,16 @@ class TestTC74StatefulCorrections:
         """Model creates initial event and ignores all corrections."""
         sc = _get_scenario("TC-74")
         state = ScenarioState()
-        c1 = _make_call("create_calendar_event", {
-            "title": "Team Sync",
-            "date": "2026-03-24",
-            "time": "10:00",
-            "duration_minutes": 30,
-        }, turn=1)
+        c1 = _make_call(
+            "create_calendar_event",
+            {
+                "title": "Team Sync",
+                "date": "2026-03-24",
+                "time": "10:00",
+                "duration_minutes": 30,
+            },
+            turn=1,
+        )
         sc.handle_tool_call(state, c1)
         state.tool_calls.append(c1)
         result = sc.evaluate(state)

@@ -164,7 +164,7 @@ class TestSpecDecodeSample:
         s = SpecDecodeSample(
             tg_tokens=100,
             total_ms=2000,  # 2 seconds total
-            ttft_ms=500,    # 0.5s TTFT → 1.5s gen time
+            ttft_ms=500,  # 0.5s TTFT → 1.5s gen time
         )
         # 100 tokens / 1.5s = 66.67 t/s
         assert s.effective_tg_tps == pytest.approx(100 / 1.5, rel=0.01)
@@ -256,7 +256,9 @@ class TestSpecDecodeSample:
     def test_draft_tps_zero_draft_tokens(self):
         """Zero draft tokens → None."""
         s = SpecDecodeSample(
-            tg_tokens=100, total_ms=2000, draft_tokens_delta=0,
+            tg_tokens=100,
+            total_ms=2000,
+            draft_tokens_delta=0,
         )
         assert s.draft_tps is None
 
@@ -304,8 +306,8 @@ class TestSpecDecodeSample:
     def test_draft_window_vs_acceptance_length(self):
         """Window and τ together reveal utilization."""
         s = SpecDecodeSample(
-            draft_tokens_delta=315,   # 15 tokens drafted per step
-            accepted_tokens_delta=70, # ~3.33 accepted per step
+            draft_tokens_delta=315,  # 15 tokens drafted per step
+            accepted_tokens_delta=70,  # ~3.33 accepted per step
             num_drafts_delta=21,
             acceptance_rate=70 / 315,
             acceptance_length=70 / 21,  # set by measure_spec_single
@@ -345,9 +347,9 @@ class TestThroughputSampleEffective:
         """Effective t/s should use wall-clock time, not stream timing."""
         s = ThroughputSample(
             tg_tokens=128,
-            total_ms=4000,   # 4s total
-            ttft_ms=1000,    # 1s TTFT → 3s gen
-            tg_tps=30.0,     # stream-measured (could differ)
+            total_ms=4000,  # 4s total
+            ttft_ms=1000,  # 1s TTFT → 3s gen
+            tg_tps=30.0,  # stream-measured (could differ)
         )
         # 128 / 3.0 = 42.67 — different from stream tg_tps
         assert s.effective_tg_tps == pytest.approx(128 / 3.0, rel=0.01)
@@ -413,10 +415,12 @@ class TestDetectSpecDecodingVLLMNonRegression:
     async def test_vllm_spec_decode_detected(self):
         """vLLM with spec_decode in /metrics → active, has_prometheus, NOT has_per_request_timings."""
         import httpx
+
         body = "spec_decode_num_accepted_tokens 100\nspec_decode_num_draft_tokens 200\n"
         transport = httpx.MockTransport(lambda r: httpx.Response(200, text=body))
         async with httpx.AsyncClient(transport=transport) as client:
             from tool_eval_bench.runner.speculative import detect_spec_decoding
+
             info = await detect_spec_decoding(client, "http://host:8000/v1")
         assert info.active is True
         assert info.has_prometheus is True
@@ -426,10 +430,12 @@ class TestDetectSpecDecodingVLLMNonRegression:
     async def test_vllm_spec_decode_with_hint(self):
         """vLLM with spec_decode + --spec-method=mtp → active, has_prometheus, NOT has_per_request_timings."""
         import httpx
+
         body = "spec_decode_mtp_tokens 100\nspec_decode_num_draft_tokens 200\n"
         transport = httpx.MockTransport(lambda r: httpx.Response(200, text=body))
         async with httpx.AsyncClient(transport=transport) as client:
             from tool_eval_bench.runner.speculative import detect_spec_decoding
+
             info = await detect_spec_decoding(client, "http://host:8000/v1", backend_hint="mtp")
         assert info.active is True
         assert info.has_prometheus is True
@@ -444,9 +450,11 @@ class TestDetectSpecDecodingVLLMNonRegression:
         which would incorrectly claim llama.cpp-style timings for vLLM.
         """
         import httpx
+
         transport = httpx.MockTransport(lambda r: httpx.Response(404))
         async with httpx.AsyncClient(transport=transport) as client:
             from tool_eval_bench.runner.speculative import detect_spec_decoding
+
             info = await detect_spec_decoding(client, "http://host:8000/v1", backend_hint="mtp")
         assert info.active is True
         assert info.has_prometheus is False
@@ -457,11 +465,13 @@ class TestDetectSpecDecodingVLLMNonRegression:
     async def test_vllm_no_spec_decode(self):
         """vLLM without speculative decoding → nothing active."""
         import httpx
+
         # vLLM metrics without spec_decode counters
         body = "vllm:prompt_tokens_total 50000\nvllm:generation_tokens_total 12000\n"
         transport = httpx.MockTransport(lambda r: httpx.Response(200, text=body))
         async with httpx.AsyncClient(transport=transport) as client:
             from tool_eval_bench.runner.speculative import detect_spec_decoding
+
             info = await detect_spec_decoding(client, "http://host:8000/v1")
         assert info.active is False
         assert info.has_prometheus is False
@@ -471,10 +481,12 @@ class TestDetectSpecDecodingVLLMNonRegression:
     async def test_llamacpp_with_hint(self):
         """llama.cpp with llamacpp: metrics + --spec-method=mtp → active, has_per_request_timings."""
         import httpx
+
         body = "llamacpp:prompt_tokens_total 19345\nllamacpp:tokens_predicted_total 1157\n"
         transport = httpx.MockTransport(lambda r: httpx.Response(200, text=body))
         async with httpx.AsyncClient(transport=transport) as client:
             from tool_eval_bench.runner.speculative import detect_spec_decoding
+
             info = await detect_spec_decoding(client, "http://host:8000/v1", backend_hint="mtp")
         assert info.active is True
         assert info.has_prometheus is False
@@ -485,10 +497,12 @@ class TestDetectSpecDecodingVLLMNonRegression:
     async def test_llamacpp_without_hint(self):
         """llama.cpp without hint → NOT active (can't confirm spec decode from /metrics alone)."""
         import httpx
+
         body = "llamacpp:prompt_tokens_total 19345\nllamacpp:tokens_predicted_total 1157\n"
         transport = httpx.MockTransport(lambda r: httpx.Response(200, text=body))
         async with httpx.AsyncClient(transport=transport) as client:
             from tool_eval_bench.runner.speculative import detect_spec_decoding
+
             info = await detect_spec_decoding(client, "http://host:8000/v1")
         assert info.active is False  # can't confirm spec decode without hint
         assert info.has_per_request_timings is True  # but we know the backend
@@ -612,14 +626,14 @@ class TestLlamaCppTimings:
             tg_tokens=128,
             total_ms=3000,
             ttft_ms=200,
-            draft_n=100,        # llama.cpp timings present
+            draft_n=100,  # llama.cpp timings present
             draft_n_accepted=80,
         )
         spec = SpecDecodeSample.from_throughput_sample(ts, spec_method="mtp")
 
         # Simulate Prometheus data being available (vLLM path)
-        spec.draft_tokens_delta = 200      # from Prometheus
-        spec.accepted_tokens_delta = 150   # from Prometheus
+        spec.draft_tokens_delta = 200  # from Prometheus
+        spec.accepted_tokens_delta = 150  # from Prometheus
         spec.acceptance_rate = 150 / 200
 
         # Now the fallback check should NOT override

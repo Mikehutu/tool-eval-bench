@@ -61,9 +61,10 @@ def _fetch_with_retry(
                     if on_retry:
                         on_retry(attempt, max_retries, wait)
                     logger.warning(
-                        "HTTP 429 (rate limited) on attempt %d/%d — "
-                        "waiting %.1fs before retry",
-                        attempt, max_retries, wait,
+                        "HTTP 429 (rate limited) on attempt %d/%d — waiting %.1fs before retry",
+                        attempt,
+                        max_retries,
+                        wait,
                     )
                     time.sleep(wait)
                     backoff = min(backoff * 2, _MAX_BACKOFF_S)
@@ -75,7 +76,10 @@ def _fetch_with_retry(
                     on_retry(attempt, max_retries, backoff)
                 logger.warning(
                     "HTTP %d on attempt %d/%d — waiting %.1fs",
-                    exc.code, attempt, max_retries, backoff,
+                    exc.code,
+                    attempt,
+                    max_retries,
+                    backoff,
                 )
                 time.sleep(backoff)
                 backoff = min(backoff * 2, _MAX_BACKOFF_S)
@@ -87,7 +91,10 @@ def _fetch_with_retry(
                     on_retry(attempt, max_retries, backoff)
                 logger.warning(
                     "Network error on attempt %d/%d (%s) — waiting %.1fs",
-                    attempt, max_retries, exc, backoff,
+                    attempt,
+                    max_retries,
+                    exc,
+                    backoff,
                 )
                 time.sleep(backoff)
                 backoff = min(backoff * 2, _MAX_BACKOFF_S)
@@ -100,10 +107,7 @@ def get_dataset_info(
     config: str,
 ) -> dict[str, Any]:
     """Fetch dataset info (splits, sizes) from HuggingFace."""
-    url = (
-        f"https://datasets-server.huggingface.co/info"
-        f"?dataset={dataset}&config={config}"
-    )
+    url = f"https://datasets-server.huggingface.co/info?dataset={dataset}&config={config}"
     return _fetch_with_retry(url)
 
 
@@ -173,7 +177,9 @@ def download_rows_paginated(
             if offset > 0:
                 logger.info(
                     "Resuming download from row %d/%d (%.0f%%)",
-                    offset, total, offset / total * 100,
+                    offset,
+                    total,
+                    offset / total * 100,
                 )
                 if on_progress:
                     on_progress(offset, total)
@@ -235,7 +241,9 @@ def load_via_datasets_lib(
 
     logger.info(
         "Using 'datasets' library for %s/%s %s (fast path, no rate limits)",
-        dataset, config, split,
+        dataset,
+        config,
+        split,
     )
 
     try:
@@ -243,7 +251,10 @@ def load_via_datasets_lib(
     except Exception as exc:
         logger.warning(
             "datasets library failed for %s/%s %s: %s — falling back to REST API",
-            dataset, config, split, exc,
+            dataset,
+            config,
+            split,
+            exc,
         )
         return None
 
@@ -259,4 +270,3 @@ def load_via_datasets_lib(
         on_progress(total, total)
 
     return rows
-

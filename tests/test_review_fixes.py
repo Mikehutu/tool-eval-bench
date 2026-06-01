@@ -222,7 +222,9 @@ class TestMarkdownReporter:
             raw_log="model→get_weather→result",
         )
         cs = CategoryScore(
-            category=__import__("tool_eval_bench.domain.scenarios", fromlist=["Category"]).Category.A,
+            category=__import__(
+                "tool_eval_bench.domain.scenarios", fromlist=["Category"]
+            ).Category.A,
             label="Tool Selection",
             earned=2,
             max_points=2,
@@ -299,8 +301,12 @@ class TestMarkdownReporter:
         from tool_eval_bench.storage.reports import MarkdownReporter
 
         summary = ModelScoreSummary(
-            scenario_results=[], category_scores=[],
-            final_score=0, total_points=0, max_points=0, rating="★ Poor",
+            scenario_results=[],
+            category_scores=[],
+            final_score=0,
+            total_points=0,
+            max_points=0,
+            rating="★ Poor",
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -333,12 +339,15 @@ class TestReferenceDateValidation:
 
         with pytest.raises(ValueError, match="Invalid --reference-date"):
             import asyncio
-            asyncio.run(service.run_benchmark(
-                model="test",
-                backend="vllm",
-                base_url="http://localhost:9999",
-                reference_date="not-a-date",
-            ))
+
+            asyncio.run(
+                service.run_benchmark(
+                    model="test",
+                    backend="vllm",
+                    base_url="http://localhost:9999",
+                    reference_date="not-a-date",
+                )
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -351,12 +360,14 @@ class TestBootstrapCI:
 
     def test_single_value_returns_point(self) -> None:
         from tool_eval_bench.cli.bench import _bootstrap_ci
+
         lo, hi = _bootstrap_ci([85.0])
         assert lo == 85.0
         assert hi == 85.0
 
     def test_identical_values(self) -> None:
         from tool_eval_bench.cli.bench import _bootstrap_ci
+
         lo, hi = _bootstrap_ci([90.0, 90.0, 90.0, 90.0])
         assert lo == 90.0
         assert hi == 90.0
@@ -365,6 +376,7 @@ class TestBootstrapCI:
         from statistics import mean
 
         from tool_eval_bench.cli.bench import _bootstrap_ci
+
         values = [80.0, 85.0, 90.0, 82.0, 88.0]
         lo, hi = _bootstrap_ci(values)
         m = mean(values)
@@ -372,6 +384,7 @@ class TestBootstrapCI:
 
     def test_ci_narrows_with_low_variance(self) -> None:
         from tool_eval_bench.cli.bench import _bootstrap_ci
+
         narrow = _bootstrap_ci([89.0, 90.0, 91.0, 90.0, 90.0])
         wide = _bootstrap_ci([60.0, 80.0, 100.0, 70.0, 90.0])
         narrow_range = narrow[1] - narrow[0]
@@ -381,6 +394,7 @@ class TestBootstrapCI:
     def test_deterministic(self) -> None:
         """Same input → same CI (uses seeded RNG)."""
         from tool_eval_bench.cli.bench import _bootstrap_ci
+
         r1 = _bootstrap_ci([70.0, 80.0, 90.0])
         r2 = _bootstrap_ci([70.0, 80.0, 90.0])
         assert r1 == r2
@@ -389,13 +403,15 @@ class TestBootstrapCI:
 class TestMedian:
     def test_odd(self) -> None:
         from tool_eval_bench.cli.bench import _median
+
         assert _median([1.0, 3.0, 5.0]) == 3.0
 
     def test_even(self) -> None:
         from tool_eval_bench.cli.bench import _median
+
         assert _median([1.0, 2.0, 3.0, 4.0]) == 2.5
 
     def test_single(self) -> None:
         from tool_eval_bench.cli.bench import _median
-        assert _median([42.0]) == 42.0
 
+        assert _median([42.0]) == 42.0

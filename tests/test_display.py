@@ -52,19 +52,21 @@ def _make_summary(
     results = []
     statuses = [ScenarioStatus.PASS, ScenarioStatus.PARTIAL, ScenarioStatus.FAIL]
     for i in range(num_results):
-        results.append(ScenarioResult(
-            scenario_id=f"TC-{i + 1:02d}",
-            status=statuses[i % 3],
-            points=[2, 1, 0][i % 3],
-            summary=f"Scenario {i + 1} result.",
-            tool_calls_made=["get_weather"] if i % 3 == 0 else [],
-            expected_behavior="Expected behavior for TC-01",
-            duration_seconds=10.0 + i,
-            ttft_ms=50.0 + i * 10,
-            turn_count=1 + (i % 3),
-            prompt_tokens=1000,
-            completion_tokens=500,
-        ))
+        results.append(
+            ScenarioResult(
+                scenario_id=f"TC-{i + 1:02d}",
+                status=statuses[i % 3],
+                points=[2, 1, 0][i % 3],
+                summary=f"Scenario {i + 1} result.",
+                tool_calls_made=["get_weather"] if i % 3 == 0 else [],
+                expected_behavior="Expected behavior for TC-01",
+                duration_seconds=10.0 + i,
+                ttft_ms=50.0 + i * 10,
+                turn_count=1 + (i % 3),
+                prompt_tokens=1000,
+                completion_tokens=500,
+            )
+        )
 
     category_scores = [
         CategoryScore(Category.A, "A Tool Selection", 4, 6, 66.7),
@@ -407,26 +409,32 @@ class TestRatingColors:
 
     def test_excellent_color(self) -> None:
         from tool_eval_bench.cli.display import RATING_COLORS
+
         assert RATING_COLORS["★★★★★ Excellent"] == "bold green"
 
     def test_good_color(self) -> None:
         from tool_eval_bench.cli.display import RATING_COLORS
+
         assert RATING_COLORS["★★★★ Good"] == "bold cyan"
 
     def test_adequate_color(self) -> None:
         from tool_eval_bench.cli.display import RATING_COLORS
+
         assert RATING_COLORS["★★★ Adequate"] == "bold yellow"
 
     def test_safety_capped_color(self) -> None:
         from tool_eval_bench.cli.display import RATING_COLORS
+
         assert RATING_COLORS["★★★ Adequate (safety-capped)"] == "bold red"
 
     def test_weak_color(self) -> None:
         from tool_eval_bench.cli.display import RATING_COLORS
+
         assert RATING_COLORS["★★ Weak"] == "bold red"
 
     def test_poor_color(self) -> None:
         from tool_eval_bench.cli.display import RATING_COLORS
+
         assert RATING_COLORS["★ Poor"] == "bold red"
 
 
@@ -441,14 +449,12 @@ class TestFormatResultLine:
     def _make_display(self) -> MagicMock:
         """Create a MagicMock for BenchmarkDisplay with _format_result_line accessible."""
 
-
         display = MagicMock(spec=BenchmarkDisplay)
         display.scenarios = SCENARIOS
         return display
 
     def test_pass_result_shows_green(self) -> None:
         display = self._make_display()
-
 
         scenario = SCENARIOS[0]
         result = ScenarioResult(
@@ -473,7 +479,6 @@ class TestFormatResultLine:
     def test_fail_result_shows_red_and_summary(self) -> None:
         display = self._make_display()
 
-
         scenario = SCENARIOS[0]
         result = ScenarioResult(
             scenario_id="TC-01",
@@ -493,7 +498,6 @@ class TestFormatResultLine:
     def test_partial_result_shows_yellow(self) -> None:
         display = self._make_display()
 
-
         scenario = SCENARIOS[0]
         result = ScenarioResult(
             scenario_id="TC-01",
@@ -512,7 +516,6 @@ class TestFormatResultLine:
     def test_multi_turn_shows_turn_count(self) -> None:
         display = self._make_display()
 
-
         scenario = SCENARIOS[0]
         result = ScenarioResult(
             scenario_id="TC-01",
@@ -530,7 +533,6 @@ class TestFormatResultLine:
 
     def test_no_ttft_shows_no_latency(self) -> None:
         display = self._make_display()
-
 
         scenario = SCENARIOS[0]
         result = ScenarioResult(
@@ -558,7 +560,6 @@ class TestBuildFooter:
 
     def test_initial_state_shows_waiting(self) -> None:
 
-
         display = BenchmarkDisplay(
             model="test-model",
             backend="vllm",
@@ -574,7 +575,6 @@ class TestBuildFooter:
         assert "Waiting" in text
 
     def test_complete_shows_checkmark(self) -> None:
-
 
         display = BenchmarkDisplay(
             model="test-model",
@@ -599,7 +599,6 @@ class TestBuildFooter:
 
     def test_active_scenario_shows_scenario_name(self) -> None:
 
-
         display = BenchmarkDisplay(
             model="test-model",
             backend="vllm",
@@ -615,7 +614,6 @@ class TestBuildFooter:
         assert "TC-05" in text
 
     def test_progress_bar_shows_count(self) -> None:
-
 
         display = BenchmarkDisplay(
             model="test-model",
@@ -661,7 +659,10 @@ class TestPrintFinalReportThroughput:
         concurrent_sample.concurrency = 2
         concurrent_sample.error = None
         print_final_report(
-            console, "test-model", summary, elapsed=120.5,
+            console,
+            "test-model",
+            summary,
+            elapsed=120.5,
             throughput_samples=[single_sample, concurrent_sample],
         )
 
@@ -680,7 +681,10 @@ class TestPrintFinalReportThroughput:
         c2 = MagicMock(pp_tps=200, tg_tps=100, ttft_ms=200, concurrency=2, error=None)
         c4 = MagicMock(pp_tps=300, tg_tps=150, ttft_ms=300, concurrency=4, error=None)
         print_final_report(
-            console, "test-model", summary, elapsed=120.5,
+            console,
+            "test-model",
+            summary,
+            elapsed=120.5,
             throughput_samples=[c1, c2, c4],
         )
 

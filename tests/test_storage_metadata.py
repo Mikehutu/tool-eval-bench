@@ -28,13 +28,15 @@ def test_list_runs(tmp_path: Path) -> None:
     repo = RunRepository(db_path=str(tmp_path / "bench.sqlite"))
 
     for i in range(3):
-        repo.upsert_scenario_run({
-            "run_id": f"r{i}",
-            "status": "completed",
-            "config": {"model": "test-model", "backend": "vllm"},
-            "scores": {},
-            "metadata": {},
-        })
+        repo.upsert_scenario_run(
+            {
+                "run_id": f"r{i}",
+                "status": "completed",
+                "config": {"model": "test-model", "backend": "vllm"},
+                "scores": {},
+                "metadata": {},
+            }
+        )
 
     runs = repo.list(limit=10)
     assert len(runs) == 3
@@ -45,16 +47,20 @@ def test_list_runs(tmp_path: Path) -> None:
 
 def test_upsert_replaces_config_for_resumed_run(tmp_path: Path) -> None:
     repo = RunRepository(db_path=str(tmp_path / "bench.sqlite"))
-    repo.upsert_scenario_run({
-        "run_id": "resumed",
-        "config": {"model": "test-model", "scenario_ids": ["TC-01"]},
-        "scores": {"final_score": 50},
-    })
-    repo.upsert_scenario_run({
-        "run_id": "resumed",
-        "config": {"model": "test-model", "scenario_ids": ["TC-01", "TC-02"]},
-        "scores": {"final_score": 100},
-    })
+    repo.upsert_scenario_run(
+        {
+            "run_id": "resumed",
+            "config": {"model": "test-model", "scenario_ids": ["TC-01"]},
+            "scores": {"final_score": 50},
+        }
+    )
+    repo.upsert_scenario_run(
+        {
+            "run_id": "resumed",
+            "config": {"model": "test-model", "scenario_ids": ["TC-01", "TC-02"]},
+            "scores": {"final_score": 100},
+        }
+    )
 
     out = repo.get("resumed")
     assert out is not None

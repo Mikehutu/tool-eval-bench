@@ -29,13 +29,20 @@ from tool_eval_bench.evals.scenarios_extended import EXTENDED_SCENARIOS
 from tool_eval_bench.evals.scenarios_large_toolset import LARGE_TOOLSET_SCENARIOS
 from tool_eval_bench.evals.scenarios_planning import PLANNING_SCENARIOS
 
-ALL = (SCENARIOS + EXTENDED_SCENARIOS + AGENTIC_SCENARIOS + LARGE_TOOLSET_SCENARIOS
-       + PLANNING_SCENARIOS + ADVERSARIAL_SCENARIOS)
+ALL = (
+    SCENARIOS
+    + EXTENDED_SCENARIOS
+    + AGENTIC_SCENARIOS
+    + LARGE_TOOLSET_SCENARIOS
+    + PLANNING_SCENARIOS
+    + ADVERSARIAL_SCENARIOS
+)
 
 
 # ---------------------------------------------------------------------------
 # Empty state tests — every evaluator should handle gracefully
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("scenario", ALL, ids=[s.id for s in ALL])
 def test_empty_state_does_not_crash(scenario):
@@ -60,11 +67,13 @@ def test_empty_string_answer_does_not_crash(scenario):
 # Massive tool call lists
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("scenario", ALL[:10], ids=[s.id for s in ALL[:10]])
 def test_50_tool_calls_does_not_crash(scenario):
     """Evaluator should handle 50 tool calls without crashing or hanging."""
-    calls = [_make_call(name="calculator", arguments={"expression": "1+1"}, turn=i)
-             for i in range(50)]
+    calls = [
+        _make_call(name="calculator", arguments={"expression": "1+1"}, turn=i) for i in range(50)
+    ]
     state = _make_state(tool_calls=calls, final_answer="The result is 2.")
     result = scenario.evaluate(state)
     assert isinstance(result, ScenarioEvaluation)
@@ -74,6 +83,7 @@ def test_50_tool_calls_does_not_crash(scenario):
 # ---------------------------------------------------------------------------
 # Malformed arguments
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("scenario", ALL[:10], ids=[s.id for s in ALL[:10]])
 def test_empty_arguments_dict(scenario):
@@ -97,6 +107,7 @@ def test_none_value_arguments(scenario):
 # Unicode and special characters
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("scenario", ALL[:10], ids=[s.id for s in ALL[:10]])
 def test_unicode_answer(scenario):
     """Evaluator should handle unicode/emoji in final answer."""
@@ -118,6 +129,7 @@ def test_unicode_tool_arguments(scenario):
 # Very long answers (performance)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("scenario", ALL[:5], ids=[s.id for s in ALL[:5]])
 def test_very_long_answer(scenario):
     """Evaluator should handle a 100KB answer without excessive runtime."""
@@ -131,36 +143,43 @@ def test_very_long_answer(scenario):
 # Heuristic function robustness
 # ---------------------------------------------------------------------------
 
+
 class TestContainsRefusal:
     """Expanded refusal pattern coverage."""
 
-    @pytest.mark.parametrize("phrase", [
-        "I cannot do that.",
-        "I can't help with that.",
-        "I'm sorry, I don't have that ability.",
-        "Unfortunately, that functionality isn't available.",
-        "I'm unable to perform this action.",
-        "That's not something I can do.",
-        "I'm afraid I don't have access to that.",
-        "This is beyond my capabilities.",
-        "That is outside the scope of my tools.",
-        "I don't have the capability to delete emails.",
-        "No appropriate tool exists for this operation.",
-        "I regrettably must decline this request.",
-        "There is no way to accomplish that.",
-        "The requested functionality does not exist.",
-        "That isn't part of my available toolset.",
-        "I lack the necessary tools.",
-    ])
+    @pytest.mark.parametrize(
+        "phrase",
+        [
+            "I cannot do that.",
+            "I can't help with that.",
+            "I'm sorry, I don't have that ability.",
+            "Unfortunately, that functionality isn't available.",
+            "I'm unable to perform this action.",
+            "That's not something I can do.",
+            "I'm afraid I don't have access to that.",
+            "This is beyond my capabilities.",
+            "That is outside the scope of my tools.",
+            "I don't have the capability to delete emails.",
+            "No appropriate tool exists for this operation.",
+            "I regrettably must decline this request.",
+            "There is no way to accomplish that.",
+            "The requested functionality does not exist.",
+            "That isn't part of my available toolset.",
+            "I lack the necessary tools.",
+        ],
+    )
     def test_detects_refusal(self, phrase):
         assert contains_refusal(phrase), f"Failed to detect refusal: {phrase!r}"
 
-    @pytest.mark.parametrize("phrase", [
-        "Here is the weather for Berlin.",
-        "The temperature is 8 degrees.",
-        "I found 3 results for your search.",
-        "The file has been updated successfully.",
-    ])
+    @pytest.mark.parametrize(
+        "phrase",
+        [
+            "Here is the weather for Berlin.",
+            "The temperature is 8 degrees.",
+            "I found 3 results for your search.",
+            "The file has been updated successfully.",
+        ],
+    )
     def test_no_false_positives(self, phrase):
         assert not contains_refusal(phrase), f"False positive on: {phrase!r}"
 
@@ -168,26 +187,32 @@ class TestContainsRefusal:
 class TestAsksForClarification:
     """Expanded clarification detection."""
 
-    @pytest.mark.parametrize("phrase", [
-        "Which report did you mean?",
-        "Could you clarify which Sarah you're referring to?",
-        "Please provide the recipient's email address.",
-        "Did you mean the Q2 or Q3 report?",
-        "Could you specify the file name?",
-        "Before I proceed, could you confirm the date?",
-        "I'd need to know the recipient's name first.",
-        "Just to confirm — should I send this to everyone?",
-        "There are multiple options available. Which would you prefer?",
-        "I'm not sure which file you're referring to.",
-    ])
+    @pytest.mark.parametrize(
+        "phrase",
+        [
+            "Which report did you mean?",
+            "Could you clarify which Sarah you're referring to?",
+            "Please provide the recipient's email address.",
+            "Did you mean the Q2 or Q3 report?",
+            "Could you specify the file name?",
+            "Before I proceed, could you confirm the date?",
+            "I'd need to know the recipient's name first.",
+            "Just to confirm — should I send this to everyone?",
+            "There are multiple options available. Which would you prefer?",
+            "I'm not sure which file you're referring to.",
+        ],
+    )
     def test_detects_clarification(self, phrase):
         assert asks_for_clarification(phrase), f"Failed to detect clarification: {phrase!r}"
 
-    @pytest.mark.parametrize("phrase", [
-        "The weather in Berlin is 8°C.",
-        "I've sent the email successfully.",
-        "Here are the search results.",
-    ])
+    @pytest.mark.parametrize(
+        "phrase",
+        [
+            "The weather in Berlin is 8°C.",
+            "I've sent the email successfully.",
+            "Here are the search results.",
+        ],
+    )
     def test_no_false_positives(self, phrase):
         assert not asks_for_clarification(phrase), f"False positive on: {phrase!r}"
 
@@ -195,6 +220,7 @@ class TestAsksForClarification:
 # ---------------------------------------------------------------------------
 # Verify every evaluator returns valid summary text
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("scenario", ALL, ids=[s.id for s in ALL])
 def test_evaluation_has_nonempty_summary(scenario):
