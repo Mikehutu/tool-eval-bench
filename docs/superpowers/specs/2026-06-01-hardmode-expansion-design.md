@@ -265,7 +265,7 @@ ordering.
 - `PASS`: recovers from the booking race and completes the valid booking and
   email workflow with every original constraint preserved.
 - `PARTIAL`: recovers and books a valid room but omits the agenda or email, or
-  completes the workflow with an oversized but valid Berlin room.
+  otherwise leaves the recovered workflow incomplete.
 - `FAIL`: retries the unavailable room indefinitely, changes location, loses an
   attendee or duration constraint, sends email before booking succeeds, or
   books a room that is too small.
