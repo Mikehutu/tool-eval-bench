@@ -203,7 +203,7 @@ tool-eval-bench --model gemma4 --backend vllm --base-url http://localhost:8080
 --alpha WEIGHT         Quality/speed weight for deployability score (0.0–1.0, default: 0.7)
 --reference-date DATE  Override benchmark reference date (YYYY-MM-DD, default: 2026-03-20)
 --seed N               Random seed passed to server (controls logit sampling only — does not guarantee full run-to-run reproducibility; KV-cache and CUDA non-determinism still apply)
---parallel N           Run N scenarios concurrently (default: 1). Values >1 may cause server-load timeouts recorded as FAIL — use --parallel 1 for reliable quality scores
+--parallel N           Run N scenarios/questions concurrently (default: 1). Applies to tool-call scenarios and plugin benchmarks (GSM8K, MMLU, IFEval). Values >1 may cause server-load timeouts recorded as FAIL — use --parallel 1 for reliable quality scores
 --json                 Output raw JSON
 --json-file PATH       Write JSON to PATH instead of stdout (implies --json)
 --dry-run              List scenarios that would run, then exit (no server needed)
@@ -701,7 +701,7 @@ tool-eval-bench --compare <run_id_a> <run_id_b>
 
 ```bash
 ruff check .       # lint
-pytest             # 1,706 tests — scenario evaluators, plugins, storage, CLI, adapter
+pytest             # 1,744 tests — scenario evaluators, plugins, storage, CLI, adapter
                    # includes --cov-fail-under=55 coverage gate (current: 63%)
 ```
 

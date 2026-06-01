@@ -2,7 +2,7 @@
 
 All notable changes to `tool-eval-bench` are documented here.
 
-## [Unreleased]
+## [2.0.1] — 2026-06-01
 
 ### Added
 
@@ -16,6 +16,16 @@ All notable changes to `tool-eval-bench` are documented here.
   same-turn parallel tool-call telemetry and optional per-call state
   checkpoints. Parallel execution is not required for correctness, preserving
   compatibility with backends such as llama.cpp.
+
+### Fixed
+
+- **`--parallel` ignored by GSM8K, MMLU, and IFEval** — the `--parallel N`
+  flag only applied to the tool-call scenario orchestrator; plugin benchmarks
+  always ran sequentially (`concurrency=1`). Now all three plugin `run()`
+  calls receive `concurrency=args.parallel`, enabling concurrent API requests.
+  The plugins already had semaphore-based concurrency internally — only the
+  CLI wiring was missing.
+
 
 ## [2.0.0] — 2026-05-31
 

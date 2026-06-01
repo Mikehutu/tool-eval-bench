@@ -1219,6 +1219,8 @@ def _run_gsm8k_benchmark(
     limit = args.gsm8k_limit
     shuffle = args.gsm8k_shuffle
     seed = getattr(args, "seed", None)
+    parallel = args.parallel
+    parallel_label = f" · parallel {parallel}" if parallel > 1 else ""
     limit_label = "all 1319" if limit == 0 else f"{limit}"
 
     console.print()
@@ -1226,7 +1228,7 @@ def _run_gsm8k_benchmark(
         Panel(
             f"[bold]{display_name}[/]\n"
             f"[dim]{n_shots}-shot CoT · {limit_label} questions"
-            f"{' · shuffled' if shuffle else ''}[/]",
+            f"{' · shuffled' if shuffle else ''}{parallel_label}[/]",
             title="[bold]📐 GSM8K — Grade School Math[/]",
             border_style="bright_magenta",
         )
@@ -1375,6 +1377,7 @@ def _run_gsm8k_benchmark(
                 n_shots=n_shots,
                 limit=limit,
                 shuffle=shuffle,
+                concurrency=args.parallel,
                 _preloaded_items=dataset_items,
             )
             result_holder.append(result)
@@ -1536,11 +1539,14 @@ def _run_mmlu_benchmark(
     subjects_list = [s.strip() for s in subjects_str.split(",")] if subjects_str else None
     subjects_label = f" · subjects: {subjects_str}" if subjects_str else ""
 
+    parallel = args.parallel
+    parallel_label = f" · parallel {parallel}" if parallel > 1 else ""
+
     console.print()
     console.print(
         Panel(
             f"[bold]{display_name}[/]\n"
-            f"[dim]{n_shots}-shot · {limit_label} questions{subjects_label}[/]",
+            f"[dim]{n_shots}-shot · {limit_label} questions{subjects_label}{parallel_label}[/]",
             title="[bold]🧠 MMLU — Massive Multitask Language Understanding[/]",
             border_style="bright_blue",
         )
@@ -1715,6 +1721,7 @@ def _run_mmlu_benchmark(
                 n_shots=n_shots,
                 limit=limit,
                 subjects=subjects_list,
+                concurrency=args.parallel,
                 _preloaded_items=preloaded,
             )
             result_holder.append(result)
@@ -1857,10 +1864,13 @@ def _run_ifeval_benchmark(
     seed = getattr(args, "seed", None)
     limit_label = "all 541" if limit == 0 else f"{limit}"
 
+    parallel = args.parallel
+    parallel_label = f" · parallel {parallel}" if parallel > 1 else ""
+
     console.print()
     console.print(
         Panel(
-            f"[bold]{display_name}[/]\n[dim]{limit_label} prompts · 25 constraint types[/]",
+            f"[bold]{display_name}[/]\n[dim]{limit_label} prompts · 25 constraint types{parallel_label}[/]",
             title="[bold]📋 IFEval — Instruction Following Evaluation[/]",
             border_style="bright_green",
         )
@@ -2017,6 +2027,7 @@ def _run_ifeval_benchmark(
                 extra_params=extra_params,
                 on_progress=on_progress,
                 limit=limit,
+                concurrency=args.parallel,
                 _preloaded_items=dataset_items,
             )
             result_holder.append(result)
