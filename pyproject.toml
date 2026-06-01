@@ -83,3 +83,21 @@ filterwarnings = [
     "ignore:unclosed event loop:ResourceWarning",
     "ignore:coroutine .* was never awaited:RuntimeWarning",
 ]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = [
+    "src/tool_eval_bench/runner/llama_benchy.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+

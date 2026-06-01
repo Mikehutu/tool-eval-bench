@@ -27,6 +27,21 @@ from dotenv import load_dotenv
 from rich.console import Console
 
 from tool_eval_bench.cli.display import BenchmarkDisplay
+from tool_eval_bench.cli.history import (
+    compare_runs as _compare_runs,
+)
+from tool_eval_bench.cli.history import (
+    print_diff as _print_diff,
+)
+from tool_eval_bench.cli.history import (
+    print_history as _print_history,
+)
+from tool_eval_bench.cli.leaderboard import (
+    export_runs as _export_runs,
+)
+from tool_eval_bench.cli.leaderboard import (
+    print_leaderboard as _print_leaderboard,
+)
 from tool_eval_bench.domain.errors import (
     CONNECTION_FAILED,
     DETECTION_FAILED,
@@ -316,12 +331,17 @@ def _detect_model(
         data = resp.json()
         model_list = data.get("data", [])
     except Exception:
+        status_code = resp.status_code
+        content_type = resp.headers.get("Content-Type", "unknown")
+        body_snippet = resp.text[:200]
+        err_msg = (
+            f"Server returned invalid JSON from /v1/models (HTTP {status_code}, "
+            f"Content-Type: {content_type}). Body snippet: {body_snippet!r}"
+        )
         if headless:
-            _headless_error(INVALID_RESPONSE,
-                            "Server returned invalid JSON from /v1/models.",
-                            exit_code=2)
+            _headless_error(INVALID_RESPONSE, err_msg, exit_code=2)
         console.print("[bold red]✗ invalid response[/]")
-        console.print("[red]Server returned invalid JSON from /v1/models.[/]")
+        console.print(f"[red]{err_msg}[/]")
         sys.exit(1)
 
     # Build (api_id, display_name) pairs
@@ -1099,21 +1119,7 @@ def _run_spec_bench(
 # History and diff (extracted to cli/history.py)
 # ---------------------------------------------------------------------------
 
-from tool_eval_bench.cli.history import (  # noqa: E402
-    compare_runs as _compare_runs,
-)
-from tool_eval_bench.cli.history import (
-    print_diff as _print_diff,
-)
-from tool_eval_bench.cli.history import (
-    print_history as _print_history,
-)
-from tool_eval_bench.cli.leaderboard import (  # noqa: E402
-    export_runs as _export_runs,
-)
-from tool_eval_bench.cli.leaderboard import (
-    print_leaderboard as _print_leaderboard,
-)
+
 
 # ---------------------------------------------------------------------------
 # Main

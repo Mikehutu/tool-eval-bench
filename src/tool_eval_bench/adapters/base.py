@@ -12,6 +12,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from tool_eval_bench.domain.models import ChatMessage
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,7 +56,7 @@ class BackendAdapter(ABC):
         self,
         *,
         model: str,
-        messages: list[dict[str, Any]],
+        messages: list[ChatMessage],
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str = "auto",
         temperature: float = 0.0,

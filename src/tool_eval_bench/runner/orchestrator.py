@@ -18,6 +18,7 @@ import time
 from typing import Any
 
 from tool_eval_bench.adapters.base import BackendAdapter, ChatCompletionResult
+from tool_eval_bench.domain.models import ChatMessage
 from tool_eval_bench.domain.scenarios import (
     CATEGORY_LABELS,
     SAFETY_CATEGORIES,
@@ -88,12 +89,12 @@ def _initial_messages(
     *,
     reference_date: str | None = None,
     reference_day: str | None = None,
-    context_pressure_messages: list[dict[str, Any]] | None = None,
+    context_pressure_messages: list[ChatMessage] | None = None,
     scenario_id: str | None = None,
-) -> list[dict[str, Any]]:
+) -> list[ChatMessage]:
     ref_date = reference_date or BENCHMARK_REFERENCE_DATE
     ref_day = reference_day or BENCHMARK_REFERENCE_DAY
-    msgs: list[dict[str, Any]] = [
+    msgs: list[ChatMessage] = [
         {
             "role": "system",
             "content": (
@@ -169,8 +170,8 @@ def _repair_json_str(s: str) -> str:
         return "{}"
 
 
-def _assistant_message(result: ChatCompletionResult) -> dict[str, Any]:
-    msg: dict[str, Any] = {"role": "assistant", "content": result.content}
+def _assistant_message(result: ChatCompletionResult) -> ChatMessage:
+    msg: ChatMessage = {"role": "assistant", "content": result.content}
     if result.tool_calls:
         msg["tool_calls"] = [
             {
@@ -186,7 +187,7 @@ def _assistant_message(result: ChatCompletionResult) -> dict[str, Any]:
     return msg
 
 
-def _tool_result_message(call_id: str, result: Any) -> dict[str, Any]:
+def _tool_result_message(call_id: str, result: Any) -> ChatMessage:
     return {
         "role": "tool",
         "tool_call_id": call_id,
@@ -238,7 +239,7 @@ async def run_scenario(
     reference_day: str | None = None,
     error_rate: float = 0.0,
     extra_params: dict[str, Any] | None = None,
-    context_pressure_messages: list[dict[str, Any]] | None = None,
+    context_pressure_messages: list[ChatMessage] | None = None,
 ) -> ScenarioResult:
     """Run a single scenario through the multi-turn orchestration loop."""
     t0 = time.monotonic()
@@ -429,9 +430,12 @@ async def run_scenario(
     try:
         evaluation = scenario.evaluate(state)
     except Exception as eval_exc:
+        import traceback
+        tb_str = traceback.format_exc()
+        logger.error("Evaluator error in scenario %s:\n%s", scenario.id, tb_str)
         elapsed = time.monotonic() - t0
         summary = f"Evaluator error: {eval_exc}"
-        trace_lines.append(f"eval_error={summary}")
+        trace_lines.append(f"eval_error={summary}\n{tb_str}")
         return ScenarioResult(
             scenario_id=scenario.id,
             status=ScenarioStatus.FAIL,
@@ -510,7 +514,7 @@ async def run_all_scenarios(
     error_rate: float = 0.0,
     alpha: float = 0.7,
     extra_params: dict[str, Any] | None = None,
-    context_pressure_messages: list[dict[str, Any]] | None = None,
+    context_pressure_messages: list[ChatMessage] | None = None,
     weight_by_difficulty: bool = False,
 ) -> ModelScoreSummary:
     """Run every scenario and produce an aggregate score summary.

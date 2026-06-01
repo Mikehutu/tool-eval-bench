@@ -15,6 +15,7 @@ from typing import Any
 import httpx
 
 from tool_eval_bench.adapters.base import BackendAdapter, ChatCompletionResult, ProviderToolCall
+from tool_eval_bench.domain.models import ChatMessage
 from tool_eval_bench.utils.urls import chat_completions_url as _chat_completions_url
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ class OpenAICompatibleAdapter(BackendAdapter):
         self,
         *,
         model: str,
-        messages: list[dict[str, Any]],
+        messages: list[ChatMessage],
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str = "auto",
         temperature: float = 0.0,
@@ -145,12 +146,13 @@ class OpenAICompatibleAdapter(BackendAdapter):
             # server failures and must propagate.
             if exc.response.status_code >= 500:
                 raise
+            body_text = exc.response.text[:200].strip()
             logger.warning(
                 "Server returned %d for %s: %s",
-                exc.response.status_code, url, exc.response.text[:200],
+                exc.response.status_code, url, body_text,
             )
             return ChatCompletionResult(
-                content=f"[server error {exc.response.status_code}]",
+                content=f"[server error {exc.response.status_code}] {body_text}",
                 tool_calls=[],
                 raw_response={},
                 elapsed_ms=elapsed_ms,
@@ -190,13 +192,14 @@ class OpenAICompatibleAdapter(BackendAdapter):
                 elapsed_ms = (time.perf_counter() - started) * 1000
                 if exc.response.status_code >= 500:
                     raise
+                body_bytes = await exc.response.aread()
+                body_text = body_bytes.decode("utf-8", errors="replace")[:200].strip()
                 logger.warning(
                     "Stream request returned %d for %s: %s",
-                    exc.response.status_code, url,
-                    (await exc.response.aread()).decode("utf-8", errors="replace")[:200],
+                    exc.response.status_code, url, body_text,
                 )
                 return ChatCompletionResult(
-                    content=f"[server error {exc.response.status_code}]",
+                    content=f"[server error {exc.response.status_code}] {body_text}",
                     tool_calls=[],
                     raw_response={},
                     elapsed_ms=elapsed_ms,

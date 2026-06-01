@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import Any, TypedDict
 
 
 @dataclass(slots=True)
@@ -68,3 +68,13 @@ class RunContext:
         d = asdict(self)
         # Strip None values to keep the blob compact
         return {k: v for k, v in d.items() if v is not None}
+
+
+class ChatMessage(TypedDict, total=False):
+    """Structured representation of a message in a conversation loop."""
+    role: str
+    content: str | None
+    tool_calls: list[dict[str, Any]] | None
+    tool_call_id: str | None
+    name: str | None
+
