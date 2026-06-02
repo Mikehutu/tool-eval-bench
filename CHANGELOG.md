@@ -26,6 +26,10 @@ All notable changes to `tool-eval-bench` are documented here.
   already closed the event loop. The httpx client's connections were still bound
   to the dead loop, causing a crash on cleanup. Moved `adapter.aclose()` inside
   the `run()` coroutine so it closes on the same event loop.
+- **Laggy progress updates for MMLU and IFEval** — both plugins used an O(n)
+  scan (`sum(1 for r in results if r)`) with no lock to count completions on
+  every progress tick. Replaced with an atomic `progress_counter` +
+  `asyncio.Lock`, matching the pattern GSM8K already used.
 
 ## [2.0.1] — 2026-06-01
 
