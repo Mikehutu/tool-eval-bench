@@ -2,6 +2,16 @@
 
 All notable changes to `tool-eval-bench` are documented here.
 
+## [2.0.2] — 2026-06-02
+
+### Fixed
+
+- **`RuntimeError: Event loop is closed` after GSM8K / MMLU / IFEval completes** —
+  `asyncio.run(adapter.aclose())` was called after `asyncio.run(run())` had
+  already closed the event loop. The httpx client's connections were still bound
+  to the dead loop, causing a crash on cleanup. Moved `adapter.aclose()` inside
+  the `run()` coroutine so it closes on the same event loop.
+
 ## [2.0.1] — 2026-06-01
 
 ### Added

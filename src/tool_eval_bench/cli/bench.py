@@ -1364,42 +1364,46 @@ def _run_gsm8k_benchmark(
                     f"  {icon} [bold]{got}[/]/{expected} [dim italic]{question}[/]"
                 )
 
-            result = await plugin.run(
-                adapter,
-                model=model,
-                base_url=base_url,
-                api_key=api_key,
-                temperature=args.temperature,
-                timeout_seconds=args.timeout,
-                seed=seed,
-                extra_params=extra_params,
-                on_progress=on_progress,
-                n_shots=n_shots,
-                limit=limit,
-                shuffle=shuffle,
-                concurrency=args.parallel,
-                _preloaded_items=dataset_items,
-            )
-            result_holder.append(result)
+            try:
+                result = await plugin.run(
+                    adapter,
+                    model=model,
+                    base_url=base_url,
+                    api_key=api_key,
+                    temperature=args.temperature,
+                    timeout_seconds=args.timeout,
+                    seed=seed,
+                    extra_params=extra_params,
+                    on_progress=on_progress,
+                    n_shots=n_shots,
+                    limit=limit,
+                    shuffle=shuffle,
+                    concurrency=args.parallel,
+                    _preloaded_items=dataset_items,
+                )
+                result_holder.append(result)
 
-            # Final state
-            progress.update(
-                task, completed=result.details["total"], description="[green]✓ Complete"
-            )
-            final_speed = (
-                result.details["total"] / result.duration_seconds * 60
-                if result.duration_seconds > 0
-                else 0
-            )
-            stats_text.text_format = (
-                f"  [bold green]✓ {result.details['correct']}[/]  "
-                f"[bold red]✗ {result.details['total'] - result.details['correct']}[/]  "
-                f"[dim]│[/]  "
-                f"[bold magenta]{result.score:.1f}%[/] accuracy  "
-                f"[dim]│[/]  "
-                f"[dim]{final_speed:.1f} q/min[/]"
-            )
-            last_q_text.text_format = ""
+                # Final state
+                progress.update(
+                    task, completed=result.details["total"], description="[green]✓ Complete"
+                )
+                final_speed = (
+                    result.details["total"] / result.duration_seconds * 60
+                    if result.duration_seconds > 0
+                    else 0
+                )
+                stats_text.text_format = (
+                    f"  [bold green]✓ {result.details['correct']}[/]  "
+                    f"[bold red]✗ {result.details['total'] - result.details['correct']}[/]  "
+                    f"[dim]│[/]  "
+                    f"[bold magenta]{result.score:.1f}%[/] accuracy  "
+                    f"[dim]│[/]  "
+                    f"[dim]{final_speed:.1f} q/min[/]"
+                )
+                last_q_text.text_format = ""
+            finally:
+                if hasattr(adapter, "aclose"):
+                    await adapter.aclose()
 
     try:
         asyncio.run(run())
@@ -1409,9 +1413,6 @@ def _run_gsm8k_benchmark(
     except Exception as exc:
         console.print(f"\n[bold red]GSM8K error:[/] {exc}")
         sys.exit(1)
-    finally:
-        if hasattr(adapter, "aclose"):
-            asyncio.run(adapter.aclose())
 
     if not result_holder:
         console.print("[bold red]No GSM8K results.[/]")
@@ -1708,41 +1709,45 @@ def _run_mmlu_benchmark(
                     f"  {icon} [bold]{got}[/]/{expected} [dim]{subj}[/]  [dim italic]{question}[/]"
                 )
 
-            result = await plugin.run(
-                adapter,
-                model=model,
-                base_url=base_url,
-                api_key=api_key,
-                temperature=args.temperature,
-                timeout_seconds=args.timeout,
-                seed=seed,
-                extra_params=extra_params,
-                on_progress=on_progress,
-                n_shots=n_shots,
-                limit=limit,
-                subjects=subjects_list,
-                concurrency=args.parallel,
-                _preloaded_items=preloaded,
-            )
-            result_holder.append(result)
+            try:
+                result = await plugin.run(
+                    adapter,
+                    model=model,
+                    base_url=base_url,
+                    api_key=api_key,
+                    temperature=args.temperature,
+                    timeout_seconds=args.timeout,
+                    seed=seed,
+                    extra_params=extra_params,
+                    on_progress=on_progress,
+                    n_shots=n_shots,
+                    limit=limit,
+                    subjects=subjects_list,
+                    concurrency=args.parallel,
+                    _preloaded_items=preloaded,
+                )
+                result_holder.append(result)
 
-            progress.update(
-                task, completed=result.details["total"], description="[green]✓ Complete"
-            )
-            final_speed = (
-                result.details["total"] / result.duration_seconds * 60
-                if result.duration_seconds > 0
-                else 0
-            )
-            stats_text.text_format = (
-                f"  [bold green]✓ {result.details['correct']}[/]  "
-                f"[bold red]✗ {result.details['total'] - result.details['correct']}[/]  "
-                f"[dim]│[/]  "
-                f"[bold blue]{result.score:.1f}%[/] accuracy  "
-                f"[dim]│[/]  "
-                f"[dim]{final_speed:.1f} q/min[/]"
-            )
-            last_q_text.text_format = ""
+                progress.update(
+                    task, completed=result.details["total"], description="[green]✓ Complete"
+                )
+                final_speed = (
+                    result.details["total"] / result.duration_seconds * 60
+                    if result.duration_seconds > 0
+                    else 0
+                )
+                stats_text.text_format = (
+                    f"  [bold green]✓ {result.details['correct']}[/]  "
+                    f"[bold red]✗ {result.details['total'] - result.details['correct']}[/]  "
+                    f"[dim]│[/]  "
+                    f"[bold blue]{result.score:.1f}%[/] accuracy  "
+                    f"[dim]│[/]  "
+                    f"[dim]{final_speed:.1f} q/min[/]"
+                )
+                last_q_text.text_format = ""
+            finally:
+                if hasattr(adapter, "aclose"):
+                    await adapter.aclose()
 
     try:
         asyncio.run(run())
@@ -1752,9 +1757,6 @@ def _run_mmlu_benchmark(
     except Exception as exc:
         console.print(f"\n[bold red]MMLU error:[/] {exc}")
         sys.exit(1)
-    finally:
-        if hasattr(adapter, "aclose"):
-            asyncio.run(adapter.aclose())
 
     if not result_holder:
         console.print("[bold red]No MMLU results.[/]")
@@ -2016,39 +2018,43 @@ def _run_ifeval_benchmark(
                     f"  {icon} [bold]{ip}[/]/{it} constraints  [dim italic]{prompt}[/]"
                 )
 
-            result = await plugin.run(
-                adapter,
-                model=model,
-                base_url=base_url,
-                api_key=api_key,
-                temperature=args.temperature,
-                timeout_seconds=args.timeout,
-                seed=seed,
-                extra_params=extra_params,
-                on_progress=on_progress,
-                limit=limit,
-                concurrency=args.parallel,
-                _preloaded_items=dataset_items,
-            )
-            result_holder.append(result)
+            try:
+                result = await plugin.run(
+                    adapter,
+                    model=model,
+                    base_url=base_url,
+                    api_key=api_key,
+                    temperature=args.temperature,
+                    timeout_seconds=args.timeout,
+                    seed=seed,
+                    extra_params=extra_params,
+                    on_progress=on_progress,
+                    limit=limit,
+                    concurrency=args.parallel,
+                    _preloaded_items=dataset_items,
+                )
+                result_holder.append(result)
 
-            progress.update(
-                task, completed=result.details["total"], description="[green]✓ Complete"
-            )
-            d = result.details
-            final_speed = (
-                d["total"] / result.duration_seconds * 60 if result.duration_seconds > 0 else 0
-            )
-            stats_text.text_format = (
-                f"  [bold green]✓ {d['prompts_passed']}[/]  "
-                f"[bold red]✗ {d['total'] - d['prompts_passed']}[/]  "
-                f"[dim]│[/]  "
-                f"[bold green]{d['prompt_accuracy']:.1f}%[/] prompt  "
-                f"[bold cyan]{d.get('instruction_accuracy', 0):.1f}%[/] instr  "
-                f"[dim]│[/]  "
-                f"[dim]{final_speed:.1f} p/min[/]"
-            )
-            last_q_text.text_format = ""
+                progress.update(
+                    task, completed=result.details["total"], description="[green]✓ Complete"
+                )
+                d = result.details
+                final_speed = (
+                    d["total"] / result.duration_seconds * 60 if result.duration_seconds > 0 else 0
+                )
+                stats_text.text_format = (
+                    f"  [bold green]✓ {d['prompts_passed']}[/]  "
+                    f"[bold red]✗ {d['total'] - d['prompts_passed']}[/]  "
+                    f"[dim]│[/]  "
+                    f"[bold green]{d['prompt_accuracy']:.1f}%[/] prompt  "
+                    f"[bold cyan]{d.get('instruction_accuracy', 0):.1f}%[/] instr  "
+                    f"[dim]│[/]  "
+                    f"[dim]{final_speed:.1f} p/min[/]"
+                )
+                last_q_text.text_format = ""
+            finally:
+                if hasattr(adapter, "aclose"):
+                    await adapter.aclose()
 
     try:
         asyncio.run(run())
@@ -2058,9 +2064,6 @@ def _run_ifeval_benchmark(
     except Exception as exc:
         console.print(f"\n[bold red]IFEval error:[/] {exc}")
         sys.exit(1)
-    finally:
-        if hasattr(adapter, "aclose"):
-            asyncio.run(adapter.aclose())
 
     if not result_holder:
         console.print("[bold red]No IFEval results.[/]")
