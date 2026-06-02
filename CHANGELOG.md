@@ -2,7 +2,22 @@
 
 All notable changes to `tool-eval-bench` are documented here.
 
-## [2.0.2] — 2026-06-02
+## [2.0.3] — 2026-06-02
+
+### Improved
+
+- **Server errors no longer silently tank accuracy** — API timeouts, connection
+  failures, and other server errors under high `--parallel` are now tracked
+  separately from genuinely wrong answers. Accuracy is calculated from the
+  questions that actually received a response.
+- **Live progress shows ⚠ error count** — the real-time stats line now shows
+  `✓ 132  ✗ 2  ⚠ 66` when errors occur, making it clear what's a wrong answer
+  vs. what's a server failure.
+- **Error summary in final output** — when errors occur, a yellow warning line
+  explains the count and that they are excluded from accuracy.
+- **Noisy `Error on question N:` logs suppressed** — downgraded from `WARNING`
+  to `DEBUG`. Under `--parallel 16`, dozens of server timeouts are expected
+  behavior, not alarming warnings.
 
 ### Fixed
 

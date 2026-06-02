@@ -1321,6 +1321,7 @@ def _run_gsm8k_benchmark(
 
         correct_so_far = 0
         wrong_so_far = 0
+        errors_so_far = 0
         t_start = time.monotonic()
         stats_progress.add_task("", total=None)
         last_q_progress.add_task("", total=None)
@@ -1329,13 +1330,16 @@ def _run_gsm8k_benchmark(
             task = progress.add_task("Evaluating…", total=eval_total)
 
             async def on_progress(current: int, total: int, item_info: dict) -> None:
-                nonlocal correct_so_far, wrong_so_far
-                if item_info.get("correct"):
+                nonlocal correct_so_far, wrong_so_far, errors_so_far
+                if item_info.get("is_error"):
+                    errors_so_far += 1
+                elif item_info.get("correct"):
                     correct_so_far += 1
                 else:
                     wrong_so_far += 1
 
-                pct = (correct_so_far / current * 100) if current > 0 else 0
+                answered = correct_so_far + wrong_so_far
+                pct = (correct_so_far / answered * 100) if answered > 0 else 0
                 elapsed = time.monotonic() - t_start
                 speed = current / elapsed * 60 if elapsed > 0 else 0  # questions/min
 
@@ -1343,6 +1347,10 @@ def _run_gsm8k_benchmark(
                 status_parts = [
                     f"  [bold green]✓ {correct_so_far}[/]",
                     f"[bold red]✗ {wrong_so_far}[/]",
+                ]
+                if errors_so_far > 0:
+                    status_parts.append(f"[bold yellow]⚠ {errors_so_far}[/]")
+                status_parts += [
                     "[dim]│[/]",
                     f"[bold magenta]{pct:.1f}%[/] accuracy",
                     "[dim]│[/]",
@@ -1353,10 +1361,14 @@ def _run_gsm8k_benchmark(
                 progress.update(task, completed=current, total=total)
 
                 # Show last completed question
+                if item_info.get("is_error"):
+                    icon = "[yellow]⚠[/]"
+                elif item_info.get("correct", False):
+                    icon = "[green]✓[/]"
+                else:
+                    icon = "[red]✗[/]"
                 got = item_info.get("extracted_answer", "?")
                 expected = item_info.get("ground_truth", "?")
-                is_correct = item_info.get("correct", False)
-                icon = "[green]✓[/]" if is_correct else "[red]✗[/]"
                 question = (item_info.get("question") or "").replace("\n", " ").strip()
                 if len(question) > 90:
                     question = question[:87] + "…"
@@ -1392,14 +1404,18 @@ def _run_gsm8k_benchmark(
                     if result.duration_seconds > 0
                     else 0
                 )
-                stats_text.text_format = (
-                    f"  [bold green]✓ {result.details['correct']}[/]  "
-                    f"[bold red]✗ {result.details['total'] - result.details['correct']}[/]  "
+                errs = result.details.get("errors", 0)
+                wrong = result.details["total"] - result.details["correct"] - errs
+                parts = f"  [bold green]✓ {result.details['correct']}[/]  [bold red]✗ {wrong}[/]  "
+                if errs > 0:
+                    parts += f"[bold yellow]⚠ {errs} errors[/]  "
+                parts += (
                     f"[dim]│[/]  "
                     f"[bold magenta]{result.score:.1f}%[/] accuracy  "
                     f"[dim]│[/]  "
                     f"[dim]{final_speed:.1f} q/min[/]"
                 )
+                stats_text.text_format = parts
                 last_q_text.text_format = ""
             finally:
                 if hasattr(adapter, "aclose"):
@@ -1423,10 +1439,16 @@ def _run_gsm8k_benchmark(
 
     # Display summary
     console.print()
+    errs = details.get("errors", 0)
+    answered = details["total"] - errs
     console.print(
         f"  [bold]GSM8K Accuracy:[/] [bold magenta]{result.score:.1f}%[/] "
-        f"({details['correct']}/{details['total']})"
+        f"({details['correct']}/{answered})"
     )
+    if errs > 0:
+        console.print(
+            f"  [bold yellow]⚠ {errs} errors[/] (server timeouts/failures — excluded from accuracy)"
+        )
     console.print(f"  [bold]Rating:[/] {result.rating}")
     console.print(
         f"  [dim]Duration: {result.duration_seconds:.1f}s · Tokens: {result.total_tokens:,}[/]"
@@ -1667,6 +1689,7 @@ def _run_mmlu_benchmark(
 
         correct_so_far = 0
         wrong_so_far = 0
+        errors_so_far = 0
         t_start = time.monotonic()
         stats_progress.add_task("", total=None)
         last_q_progress.add_task("", total=None)
@@ -1675,19 +1698,26 @@ def _run_mmlu_benchmark(
             task = progress.add_task("Evaluating…", total=eval_total)
 
             async def on_progress(current: int, total: int, item_info: dict) -> None:
-                nonlocal correct_so_far, wrong_so_far
-                if item_info.get("correct"):
+                nonlocal correct_so_far, wrong_so_far, errors_so_far
+                if item_info.get("is_error"):
+                    errors_so_far += 1
+                elif item_info.get("correct"):
                     correct_so_far += 1
                 else:
                     wrong_so_far += 1
 
-                pct = (correct_so_far / current * 100) if current > 0 else 0
+                answered = correct_so_far + wrong_so_far
+                pct = (correct_so_far / answered * 100) if answered > 0 else 0
                 elapsed = time.monotonic() - t_start
                 speed = current / elapsed * 60 if elapsed > 0 else 0
 
                 status_parts = [
                     f"  [bold green]✓ {correct_so_far}[/]",
                     f"[bold red]✗ {wrong_so_far}[/]",
+                ]
+                if errors_so_far > 0:
+                    status_parts.append(f"[bold yellow]⚠ {errors_so_far}[/]")
+                status_parts += [
                     "[dim]│[/]",
                     f"[bold blue]{pct:.1f}%[/] accuracy",
                     "[dim]│[/]",
@@ -1698,10 +1728,14 @@ def _run_mmlu_benchmark(
 
                 # Show last completed question details
                 subj = item_info.get("subject", "?")
+                if item_info.get("is_error"):
+                    icon = "[yellow]⚠[/]"
+                elif item_info.get("correct", False):
+                    icon = "[green]✓[/]"
+                else:
+                    icon = "[red]✗[/]"
                 got = item_info.get("extracted_answer", "?")
                 expected = item_info.get("ground_truth", "?")
-                is_correct = item_info.get("correct", False)
-                icon = "[green]✓[/]" if is_correct else "[red]✗[/]"
                 question = (item_info.get("question") or "").replace("\n", " ").strip()
                 if len(question) > 90:
                     question = question[:87] + "…"
@@ -1736,14 +1770,18 @@ def _run_mmlu_benchmark(
                     if result.duration_seconds > 0
                     else 0
                 )
-                stats_text.text_format = (
-                    f"  [bold green]✓ {result.details['correct']}[/]  "
-                    f"[bold red]✗ {result.details['total'] - result.details['correct']}[/]  "
+                errs = result.details.get("errors", 0)
+                wrong = result.details["total"] - result.details["correct"] - errs
+                parts = f"  [bold green]✓ {result.details['correct']}[/]  [bold red]✗ {wrong}[/]  "
+                if errs > 0:
+                    parts += f"[bold yellow]⚠ {errs} errors[/]  "
+                parts += (
                     f"[dim]│[/]  "
                     f"[bold blue]{result.score:.1f}%[/] accuracy  "
                     f"[dim]│[/]  "
                     f"[dim]{final_speed:.1f} q/min[/]"
                 )
+                stats_text.text_format = parts
                 last_q_text.text_format = ""
             finally:
                 if hasattr(adapter, "aclose"):
@@ -1766,10 +1804,16 @@ def _run_mmlu_benchmark(
     details = result.details
 
     console.print()
+    errs = details.get("errors", 0)
+    answered = details["total"] - errs
     console.print(
         f"  [bold]MMLU Accuracy:[/] [bold blue]{result.score:.1f}%[/] "
-        f"({details['correct']}/{details['total']})"
+        f"({details['correct']}/{answered})"
     )
+    if errs > 0:
+        console.print(
+            f"  [bold yellow]⚠ {errs} errors[/] (server timeouts/failures — excluded from accuracy)"
+        )
     console.print(f"  [bold]Rating:[/] {result.rating}")
     # Show category breakdown
     cats = details.get("categories", {})
@@ -1966,6 +2010,7 @@ def _run_ifeval_benchmark(
 
         prompts_passed = 0
         prompts_failed = 0
+        errors_so_far = 0
         instructions_passed = 0
         instructions_total = 0
         t_start = time.monotonic()
@@ -1976,16 +2021,19 @@ def _run_ifeval_benchmark(
             task = progress.add_task("Evaluating…", total=eval_total)
 
             async def on_progress(current: int, total: int, item_info: dict) -> None:
-                nonlocal prompts_passed, prompts_failed
+                nonlocal prompts_passed, prompts_failed, errors_so_far
                 nonlocal instructions_passed, instructions_total
-                if item_info.get("prompt_pass"):
+                if item_info.get("is_error"):
+                    errors_so_far += 1
+                elif item_info.get("prompt_pass"):
                     prompts_passed += 1
                 else:
                     prompts_failed += 1
                 instructions_passed += item_info.get("instructions_passed", 0)
                 instructions_total += item_info.get("instructions_total", 0)
 
-                prompt_pct = (prompts_passed / current * 100) if current > 0 else 0
+                answered = prompts_passed + prompts_failed
+                prompt_pct = (prompts_passed / answered * 100) if answered > 0 else 0
                 inst_pct = (
                     (instructions_passed / instructions_total * 100)
                     if instructions_total > 0
@@ -1997,6 +2045,10 @@ def _run_ifeval_benchmark(
                 status_parts = [
                     f"  [bold green]✓ {prompts_passed}[/]",
                     f"[bold red]✗ {prompts_failed}[/]",
+                ]
+                if errors_so_far > 0:
+                    status_parts.append(f"[bold yellow]⚠ {errors_so_far}[/]")
+                status_parts += [
                     "[dim]│[/]",
                     f"[bold green]{prompt_pct:.1f}%[/] prompt",
                     f"[bold cyan]{inst_pct:.1f}%[/] instr",
@@ -2007,8 +2059,12 @@ def _run_ifeval_benchmark(
                 progress.update(task, completed=current, total=total)
 
                 # Show last completed prompt
-                is_pass = item_info.get("prompt_pass", False)
-                icon = "[green]✓[/]" if is_pass else "[red]✗[/]"
+                if item_info.get("is_error"):
+                    icon = "[yellow]⚠[/]"
+                elif item_info.get("prompt_pass", False):
+                    icon = "[green]✓[/]"
+                else:
+                    icon = "[red]✗[/]"
                 ip = item_info.get("instructions_passed", 0)
                 it = item_info.get("instructions_total", 0)
                 prompt = (item_info.get("prompt") or "").replace("\n", " ").strip()
@@ -2042,15 +2098,19 @@ def _run_ifeval_benchmark(
                 final_speed = (
                     d["total"] / result.duration_seconds * 60 if result.duration_seconds > 0 else 0
                 )
-                stats_text.text_format = (
-                    f"  [bold green]✓ {d['prompts_passed']}[/]  "
-                    f"[bold red]✗ {d['total'] - d['prompts_passed']}[/]  "
+                errs = d.get("errors", 0)
+                wrong = d["total"] - d["prompts_passed"] - errs
+                parts = f"  [bold green]✓ {d['prompts_passed']}[/]  [bold red]✗ {wrong}[/]  "
+                if errs > 0:
+                    parts += f"[bold yellow]⚠ {errs} errors[/]  "
+                parts += (
                     f"[dim]│[/]  "
                     f"[bold green]{d['prompt_accuracy']:.1f}%[/] prompt  "
                     f"[bold cyan]{d.get('instruction_accuracy', 0):.1f}%[/] instr  "
                     f"[dim]│[/]  "
                     f"[dim]{final_speed:.1f} p/min[/]"
                 )
+                stats_text.text_format = parts
                 last_q_text.text_format = ""
             finally:
                 if hasattr(adapter, "aclose"):
@@ -2073,10 +2133,16 @@ def _run_ifeval_benchmark(
     details = result.details
 
     console.print()
+    errs = details.get("errors", 0)
+    answered = details["total"] - errs
     console.print(
         f"  [bold]IFEval Prompt Accuracy:[/] [bold green]{details.get('prompt_accuracy', 0):.1f}%[/] "
-        f"({details['prompts_passed']}/{details['total']})"
+        f"({details['prompts_passed']}/{answered})"
     )
+    if errs > 0:
+        console.print(
+            f"  [bold yellow]⚠ {errs} errors[/] (server timeouts/failures — excluded from accuracy)"
+        )
     console.print(
         f"  [bold]IFEval Instruction Accuracy:[/] [bold cyan]"
         f"{details.get('instruction_accuracy', 0):.1f}%[/] "

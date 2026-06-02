@@ -120,11 +120,12 @@ class MMLUPlugin(BenchmarkPlugin):
         sem = asyncio.Semaphore(concurrency)
         results: list[dict[str, Any]] = [{}] * total
         correct_count = 0
+        error_count = 0
         total_tokens = 0
         t_start = time.monotonic()
 
         async def eval_one(idx: int, item: MMLUItem) -> None:
-            nonlocal correct_count, total_tokens
+            nonlocal correct_count, total_tokens, error_count
             few_shots = dev_by_subject.get(item.subject, [])
             messages = build_messages(item, few_shots, n_shots=n_shots)
 
@@ -144,25 +145,43 @@ class MMLUPlugin(BenchmarkPlugin):
 
                 content = response.content or ""
                 total_tokens += (response.prompt_tokens or 0) + (response.completion_tokens or 0)
+                is_error = False
             except Exception as exc:
-                logger.warning("Error on question %d: %s", item.index, exc)
+                logger.debug("Error on question %d: %s", item.index, exc)
                 content = ""
+                is_error = True
+                error_count += 1
 
-            result = evaluate_answer(content, item.answer)
-            if result.correct:
-                correct_count += 1
+            if is_error:
+                result_dict: dict[str, Any] = {
+                    "index": item.index,
+                    "subject": item.subject,
+                    "category": item.category,
+                    "question": item.question[:200],
+                    "correct": False,
+                    "is_error": True,
+                    "extracted_answer": None,
+                    "ground_truth": item.answer,
+                    "extraction_method": "error",
+                    "model_response": "",
+                }
+            else:
+                result = evaluate_answer(content, item.answer)
+                if result.correct:
+                    correct_count += 1
+                result_dict = {
+                    "index": item.index,
+                    "subject": item.subject,
+                    "category": item.category,
+                    "question": item.question[:200],
+                    "correct": result.correct,
+                    "extracted_answer": result.extracted_answer,
+                    "ground_truth": result.ground_truth_letter,
+                    "extraction_method": result.extraction_method,
+                    "model_response": content[:500],
+                }
 
-            results[idx] = {
-                "index": item.index,
-                "subject": item.subject,
-                "category": item.category,
-                "question": item.question[:200],
-                "correct": result.correct,
-                "extracted_answer": result.extracted_answer,
-                "ground_truth": result.ground_truth_letter,
-                "extraction_method": result.extraction_method,
-                "model_response": content[:500],
-            }
+            results[idx] = result_dict
 
             if on_progress:
                 completed = sum(1 for r in results if r)
@@ -175,7 +194,8 @@ class MMLUPlugin(BenchmarkPlugin):
                 logger.error("MMLU question %d crashed: %s", i, exc)
 
         duration = time.monotonic() - t_start
-        accuracy = correct_count / total * 100
+        answered = total - error_count
+        accuracy = (correct_count / answered * 100) if answered > 0 else 0.0
 
         # Per-category breakdown
         cat_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"correct": 0, "total": 0})
@@ -200,6 +220,7 @@ class MMLUPlugin(BenchmarkPlugin):
             details={
                 "correct": correct_count,
                 "total": total,
+                "errors": error_count,
                 "accuracy": round(accuracy, 2),
                 "n_shots": n_shots,
                 "dataset_size": 14042,

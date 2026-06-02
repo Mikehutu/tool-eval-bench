@@ -111,6 +111,7 @@ class GSM8KPlugin(BenchmarkPlugin):
         total_tokens = 0
         item_results: list[dict[str, Any]] = []
         correct_count = 0
+        error_count = 0
 
         if concurrency <= 1:
             # Sequential path
@@ -127,7 +128,9 @@ class GSM8KPlugin(BenchmarkPlugin):
                     extra_params=extra or None,
                 )
                 item_results.append(result)
-                if result["correct"]:
+                if result.get("is_error"):
+                    error_count += 1
+                elif result["correct"]:
                     correct_count += 1
                 total_tokens += result.get("tokens", 0)
 
@@ -169,12 +172,15 @@ class GSM8KPlugin(BenchmarkPlugin):
             for r in ordered:
                 if r is not None:
                     item_results.append(r)
-                    if r["correct"]:
+                    if r.get("is_error"):
+                        error_count += 1
+                    elif r["correct"]:
                         correct_count += 1
                     total_tokens += r.get("tokens", 0)
 
         elapsed = time.monotonic() - t0
-        accuracy = (correct_count / total * 100) if total > 0 else 0.0
+        answered = total - error_count
+        accuracy = (correct_count / answered * 100) if answered > 0 else 0.0
 
         return BenchmarkResult(
             plugin_name=self.name,
@@ -184,6 +190,7 @@ class GSM8KPlugin(BenchmarkPlugin):
             details={
                 "correct": correct_count,
                 "total": total,
+                "errors": error_count,
                 "accuracy": round(accuracy, 2),
                 "n_shots": n_shots,
                 "dataset_size": len(all_items),
@@ -231,11 +238,12 @@ class GSM8KPlugin(BenchmarkPlugin):
             response_text = result.content or ""
             tokens = (result.prompt_tokens or 0) + (result.completion_tokens or 0)
         except Exception as exc:
-            logger.warning("Error on question %d: %s", item.index, exc)
+            logger.debug("Error on question %d: %s", item.index, exc)
             return {
                 "index": item.index,
                 "question": item.question[:200],
                 "correct": False,
+                "is_error": True,
                 "ground_truth": item.ground_truth,
                 "extracted_answer": None,
                 "extraction_method": "error",

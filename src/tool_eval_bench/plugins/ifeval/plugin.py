@@ -92,6 +92,7 @@ class IFEvalPlugin(BenchmarkPlugin):
         sem = asyncio.Semaphore(concurrency)
         results: list[dict[str, Any]] = [{}] * total
         prompts_passed = 0
+        error_count = 0
         instructions_passed = 0
         instructions_total = 0
         total_tokens = 0
@@ -99,7 +100,7 @@ class IFEvalPlugin(BenchmarkPlugin):
 
         async def eval_one(idx: int, item: IFEvalItem) -> None:
             nonlocal prompts_passed, instructions_passed, instructions_total
-            nonlocal total_tokens
+            nonlocal total_tokens, error_count
 
             messages = [
                 {"role": "user", "content": item.prompt},
@@ -121,33 +122,49 @@ class IFEvalPlugin(BenchmarkPlugin):
 
                 content = response.content or ""
                 total_tokens += (response.prompt_tokens or 0) + (response.completion_tokens or 0)
+                is_error = False
             except Exception as exc:
-                logger.warning("Error on prompt %d: %s", item.key, exc)
+                logger.debug("Error on prompt %d: %s", item.key, exc)
                 content = ""
+                is_error = True
+                error_count += 1
 
-            result = evaluate_prompt(content, item.instruction_id_list, item.kwargs)
+            if is_error:
+                results[idx] = {
+                    "key": item.key,
+                    "prompt": item.prompt[:200],
+                    "prompt_pass": False,
+                    "is_error": True,
+                    "instructions_passed": 0,
+                    "instructions_total": len(item.instruction_id_list),
+                    "instruction_details": [],
+                    "model_response": "",
+                }
+                instructions_total += len(item.instruction_id_list)
+            else:
+                result = evaluate_prompt(content, item.instruction_id_list, item.kwargs)
 
-            if result.prompt_pass:
-                prompts_passed += 1
-            instructions_passed += result.instructions_passed
-            instructions_total += result.instructions_total
+                if result.prompt_pass:
+                    prompts_passed += 1
+                instructions_passed += result.instructions_passed
+                instructions_total += result.instructions_total
 
-            results[idx] = {
-                "key": item.key,
-                "prompt": item.prompt[:200],
-                "prompt_pass": result.prompt_pass,
-                "instructions_passed": result.instructions_passed,
-                "instructions_total": result.instructions_total,
-                "instruction_details": [
-                    {
-                        "id": ir.instruction_id,
-                        "passed": ir.passed,
-                        "error": ir.error,
-                    }
-                    for ir in result.instruction_results
-                ],
-                "model_response": content[:500],
-            }
+                results[idx] = {
+                    "key": item.key,
+                    "prompt": item.prompt[:200],
+                    "prompt_pass": result.prompt_pass,
+                    "instructions_passed": result.instructions_passed,
+                    "instructions_total": result.instructions_total,
+                    "instruction_details": [
+                        {
+                            "id": ir.instruction_id,
+                            "passed": ir.passed,
+                            "error": ir.error,
+                        }
+                        for ir in result.instruction_results
+                    ],
+                    "model_response": content[:500],
+                }
 
             if on_progress:
                 completed = sum(1 for r in results if r)
@@ -160,7 +177,8 @@ class IFEvalPlugin(BenchmarkPlugin):
                 logger.error("IFEval prompt %d crashed: %s", i, exc)
 
         duration = time.monotonic() - t_start
-        prompt_accuracy = prompts_passed / total * 100
+        answered = total - error_count
+        prompt_accuracy = (prompts_passed / answered * 100) if answered > 0 else 0.0
         instruction_accuracy = (
             instructions_passed / instructions_total * 100 if instructions_total > 0 else 0
         )
@@ -186,6 +204,7 @@ class IFEvalPlugin(BenchmarkPlugin):
             details={
                 "prompts_passed": prompts_passed,
                 "total": total,
+                "errors": error_count,
                 "prompt_accuracy": round(prompt_accuracy, 2),
                 "instruction_accuracy": round(instruction_accuracy, 2),
                 "instructions_passed": instructions_passed,
