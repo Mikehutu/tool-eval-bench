@@ -26,6 +26,7 @@ from tool_eval_bench.runner.context_pressure import (
     _RESERVED_FOR_OUTPUT,
     _RESERVED_FOR_SCENARIO,
     ContextPressureConfig,
+    KvCapacityInfo,
     build_pressure_messages,
     compute_fill_budget,
     detect_context_size,
@@ -258,8 +259,8 @@ class TestContextPressureConfigSummary:
         )
         s = cfg.summary()
         assert "75%" in s
-        assert "20K" in s
-        assert "33K" in s or "32K" in s  # 32768 / 1000 ≈ 33
+        assert "20K" in s  # 20000 / 1024 ≈ 19.5 → ~20K
+        assert "32K" in s  # 32768 / 1024 = 32K exactly
 
     def test_summary_zero(self) -> None:
         cfg = ContextPressureConfig(ratio=0.0, fill_tokens=0, detected_context=8192)
@@ -388,7 +389,11 @@ class TestDetectKvCapacity:
             MockClient.return_value = instance
 
             result = await detect_kv_capacity("http://localhost:8080")
-            assert result == 7338 * 16  # 117,408
+            assert result is not None
+            assert result.capacity == 7338 * 16  # 117,408
+            assert result.num_blocks == 7338
+            assert result.block_size == 16
+            assert result.is_hybrid is False  # no mamba_cache_mode label
 
     @pytest.mark.asyncio
     async def test_handles_reverse_label_order(self) -> None:
@@ -410,7 +415,8 @@ class TestDetectKvCapacity:
             MockClient.return_value = instance
 
             result = await detect_kv_capacity("http://localhost:8080")
-            assert result == 5000 * 32
+            assert result is not None
+            assert result.capacity == 5000 * 32
 
     @pytest.mark.asyncio
     async def test_returns_none_when_no_cache_config(self) -> None:
@@ -486,10 +492,62 @@ class TestDetectKvCapacity:
                 "http://localhost:8080",
                 metrics_url="http://other-host:9090/metrics",
             )
-            assert result == 4096 * 16
+            assert result is not None
+            assert result.capacity == 4096 * 16
             # Verify the custom URL was used
             call_args = instance.get.call_args
             assert "other-host:9090" in call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_detects_hybrid_model(self) -> None:
+        """Should set is_hybrid=True when mamba_cache_mode is not 'none'."""
+        from unittest.mock import MagicMock
+
+        # Real-world metric from Qwen3.6-35B-A3B hybrid model
+        metrics_text = (
+            'vllm:cache_config_info{block_size="16",engine="0",'
+            'mamba_cache_mode="align",mamba_ssm_cache_dtype="float32",'
+            'num_gpu_blocks="1997",num_cpu_blocks="None"} 1.0\n'
+        )
+        with patch("tool_eval_bench.runner.context_pressure.httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.text = metrics_text
+            instance.get = AsyncMock(return_value=resp)
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = instance
+
+            result = await detect_kv_capacity("http://localhost:8080")
+            assert result is not None
+            assert result.capacity == 1997 * 16
+            assert result.is_hybrid is True
+
+    @pytest.mark.asyncio
+    async def test_standard_model_not_hybrid(self) -> None:
+        """mamba_cache_mode='none' should NOT be flagged as hybrid."""
+        from unittest.mock import MagicMock
+
+        metrics_text = (
+            'vllm:cache_config_info{block_size="16",engine="0",'
+            'mamba_cache_mode="none",num_gpu_blocks="7338",'
+            'num_cpu_blocks="None"} 1.0\n'
+        )
+        with patch("tool_eval_bench.runner.context_pressure.httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.text = metrics_text
+            instance.get = AsyncMock(return_value=resp)
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = instance
+
+            result = await detect_kv_capacity("http://localhost:8080")
+            assert result is not None
+            assert result.capacity == 7338 * 16
+            assert result.is_hybrid is False
 
 
 # ---------------------------------------------------------------------------
@@ -529,7 +587,8 @@ class TestPrepareContextPressure:
 
     @pytest.mark.asyncio
     async def test_kv_capacity_caps_context_size(self) -> None:
-        """When KV cache capacity < max_model_len, context should be capped."""
+        """When KV cache capacity < max_model_len (standard model), context should be capped."""
+        kv_info = KvCapacityInfo(capacity=117408, num_blocks=7338, block_size=16, is_hybrid=False)
         with (
             patch(
                 "tool_eval_bench.runner.context_pressure.detect_context_size",
@@ -537,7 +596,7 @@ class TestPrepareContextPressure:
             ),
             patch(
                 "tool_eval_bench.runner.context_pressure.detect_kv_capacity",
-                return_value=117408,
+                return_value=kv_info,
             ),
         ):
             cfg = await prepare_context_pressure(
@@ -554,6 +613,7 @@ class TestPrepareContextPressure:
     @pytest.mark.asyncio
     async def test_kv_capacity_no_cap_when_smaller_context(self) -> None:
         """When max_model_len < KV capacity, no capping needed."""
+        kv_info = KvCapacityInfo(capacity=117408, num_blocks=7338, block_size=16, is_hybrid=False)
         with (
             patch(
                 "tool_eval_bench.runner.context_pressure.detect_context_size",
@@ -561,7 +621,7 @@ class TestPrepareContextPressure:
             ),
             patch(
                 "tool_eval_bench.runner.context_pressure.detect_kv_capacity",
-                return_value=117408,
+                return_value=kv_info,
             ),
         ):
             cfg = await prepare_context_pressure(
@@ -571,6 +631,31 @@ class TestPrepareContextPressure:
                 ratio=0.75,
             )
             assert cfg.detected_context == 32768
+
+    @pytest.mark.asyncio
+    async def test_hybrid_model_skips_kv_capping(self) -> None:
+        """Hybrid-attention models should NOT be capped by physical block capacity."""
+        kv_info = KvCapacityInfo(capacity=31952, num_blocks=1997, block_size=16, is_hybrid=True)
+        with (
+            patch(
+                "tool_eval_bench.runner.context_pressure.detect_context_size",
+                return_value=262144,
+            ),
+            patch(
+                "tool_eval_bench.runner.context_pressure.detect_kv_capacity",
+                return_value=kv_info,
+            ),
+        ):
+            cfg = await prepare_context_pressure(
+                "http://localhost:8080",
+                "test-model",
+                None,
+                ratio=1.0,
+            )
+            # Should trust max_model_len, NOT cap to 31,952
+            assert cfg.detected_context == 262144
+            expected_fill = compute_fill_budget(262144, 1.0)
+            assert cfg.fill_tokens == expected_fill
 
     @pytest.mark.asyncio
     async def test_kv_detection_failure_uses_max_model_len(self) -> None:

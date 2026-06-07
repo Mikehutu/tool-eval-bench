@@ -275,8 +275,8 @@ class ContextPressureConfig:
     def summary(self) -> str:
         """Human-readable summary for display."""
         pct = int(self.ratio * 100)
-        fill_k = self.fill_tokens / 1000
-        ctx_k = self.detected_context / 1000
+        fill_k = self.fill_tokens / 1024
+        ctx_k = self.detected_context / 1024
         return (
             f"{pct}% of available fill budget "
             f"(~{fill_k:.0f}K tokens prefilled in {ctx_k:.0f}K context)"
@@ -335,25 +335,53 @@ _CACHE_CONFIG_RE_ALT = re.compile(
     re.MULTILINE,
 )
 
+# Regex to detect hybrid-attention models via mamba_cache_mode label.
+# For hybrid models (e.g. Qwen3.6-35B-A3B), vLLM's hybrid KV cache manager
+# maps physical blocks to larger logical token coverage because only a subset
+# of layers use standard Transformer KV cache.  In that case,
+# num_gpu_blocks × block_size is *physical* block capacity, NOT effective
+# max context length.  mamba_cache_mode="none" → standard full-attention;
+# any other value (e.g. "align") → hybrid model.
+_MAMBA_CACHE_MODE_RE = re.compile(
+    r'mamba_cache_mode="([^"]+)"',
+)
+
+
+@dataclass(frozen=True)
+class KvCapacityInfo:
+    """Result of KV cache capacity detection from vLLM /metrics."""
+
+    capacity: int
+    """Physical block capacity in tokens (num_gpu_blocks × block_size)."""
+    num_blocks: int
+    block_size: int
+    is_hybrid: bool
+    """True when the model uses hybrid attention (mamba/linear + full).
+
+    For hybrid models, ``capacity`` is NOT the effective max context
+    length — vLLM's hybrid KV cache manager maps physical blocks to
+    larger logical token coverage.  KV capping should be skipped.
+    """
+
 
 async def detect_kv_capacity(
     base_url: str,
     api_key: str | None = None,
     metrics_url: str | None = None,
-) -> int | None:
-    """Detect actual KV cache capacity from vLLM Prometheus /metrics.
+) -> KvCapacityInfo | None:
+    """Detect KV cache info from vLLM Prometheus /metrics.
 
-    Parses ``vllm:cache_config_info`` to extract ``num_gpu_blocks`` and
-    ``block_size``, then returns their product as the true KV cache
-    capacity in tokens.
+    Parses ``vllm:cache_config_info`` to extract ``num_gpu_blocks``,
+    ``block_size``, and ``mamba_cache_mode``.
 
-    This is critical because ``max_model_len`` (from ``/v1/models``) can be
-    much larger than the actual KV cache the server allocated (which depends
-    on GPU memory, model size, and ``gpu_memory_utilization``).  Without this,
-    ``--context-pressure 0.9`` might target 90% of a 256K context window
-    when the KV cache can only hold 117K tokens.
+    For **standard full-attention** models the physical block capacity
+    (``num_gpu_blocks × block_size``) equals the effective max context.
+    For **hybrid-attention** models (linear/mamba + full attention),
+    vLLM's hybrid KV cache manager maps physical blocks to larger
+    logical token coverage, so the physical capacity is NOT the
+    effective max context.  The ``is_hybrid`` flag indicates this.
 
-    Returns the KV capacity in tokens, or None if detection fails
+    Returns a :class:`KvCapacityInfo`, or ``None`` if detection fails
     (non-vLLM servers, metrics endpoint unavailable, etc.).
     """
     url = metrics_url or _metrics_url(base_url)
@@ -389,14 +417,34 @@ async def detect_kv_capacity(
     if num_blocks <= 0 or block_size <= 0:
         return None
 
+    # Detect hybrid-attention models via mamba_cache_mode.
+    # match.string is the full /metrics text; search within the matched line.
+    is_hybrid = False
+    mamba_match = _MAMBA_CACHE_MODE_RE.search(match.group(0))
+    if mamba_match:
+        mode = mamba_match.group(1)
+        is_hybrid = mode not in ("none", "None")
+        if is_hybrid:
+            logger.info(
+                "Hybrid-attention model detected (mamba_cache_mode=%s); "
+                "physical block capacity is not the effective max context",
+                mode,
+            )
+
     capacity = num_blocks * block_size
     logger.info(
-        "Detected KV cache capacity: %d tokens (%d blocks × %d block_size)",
-        capacity,
+        "Detected KV cache: %d blocks × %d block_size = %d physical token slots%s",
         num_blocks,
         block_size,
+        capacity,
+        " (hybrid — not capping)" if is_hybrid else "",
     )
-    return capacity
+    return KvCapacityInfo(
+        capacity=capacity,
+        num_blocks=num_blocks,
+        block_size=block_size,
+        is_hybrid=is_hybrid,
+    )
 
 
 async def detect_context_size(
@@ -891,19 +939,36 @@ async def prepare_context_pressure(
         # model size, and gpu_memory_utilization.  Without this cap,
         # --context-pressure 0.9 on a 256K model with 117K KV cache would
         # try to fill 221K tokens — exceeding what the server can handle.
-        kv_capacity = await detect_kv_capacity(
+        #
+        # EXCEPTION: hybrid-attention models (mamba/linear + full attention).
+        # For these, num_gpu_blocks × block_size is the *physical* block
+        # capacity, not the effective max context.  vLLM's hybrid KV cache
+        # manager maps physical blocks to larger logical token coverage
+        # (only a subset of layers need standard Transformer KV cache).
+        # If the server starts and advertises max_model_len=X, it has
+        # validated it can serve X tokens.  Trust it.
+        kv_info = await detect_kv_capacity(
             base_url,
             api_key,
             metrics_url=metrics_url,
         )
-        if kv_capacity is not None and kv_capacity < ctx_size:
+        if kv_info is not None and not kv_info.is_hybrid and kv_info.capacity < ctx_size:
             logger.info(
-                "Capping context size from %d (max_model_len) to %d (KV cache capacity: %d blocks)",
+                "Capping context size from %d (max_model_len) to %d "
+                "(KV cache capacity: %d blocks × %d)",
                 ctx_size,
-                kv_capacity,
-                kv_capacity // 16,
+                kv_info.capacity,
+                kv_info.num_blocks,
+                kv_info.block_size,
             )
-            ctx_size = kv_capacity
+            ctx_size = kv_info.capacity
+        elif kv_info is not None and kv_info.is_hybrid:
+            logger.info(
+                "Hybrid model: trusting max_model_len=%d "
+                "(physical block capacity %d is not the effective limit)",
+                ctx_size,
+                kv_info.capacity,
+            )
 
     fill_tokens = compute_fill_budget(ctx_size, ratio)
 

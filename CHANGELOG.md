@@ -2,6 +2,24 @@
 
 All notable changes to `tool-eval-bench` are documented here.
 
+## [2.0.6] — 2026-06-07
+
+### Fixed
+
+- **KV cache capping skipped for hybrid-attention models** — models like
+  Qwen3.6-35B-A3B use a mix of linear/mamba and full-attention layers;
+  vLLM's hybrid KV cache manager maps physical blocks to larger logical
+  token coverage, so `num_gpu_blocks × block_size` is *not* the effective
+  max context length.  Previously the tool would incorrectly cap a 256K
+  context to ~32K on these models.  The fix detects hybrid models via
+  `mamba_cache_mode` in `/metrics` and trusts the server's `max_model_len`.
+  Standard full-attention models continue to be capped correctly.
+
+- **Token K display uses binary convention** — context pressure display
+  now divides by 1024 instead of 1000 to match the LLM industry convention
+  (262144 tokens → 256K, not 262K).  Consistent across the summary line
+  and budget breakdown.
+
 ## [2.0.5] — 2026-06-07
 
 ### Fixed

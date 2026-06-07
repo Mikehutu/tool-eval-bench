@@ -3207,10 +3207,10 @@ def main() -> None:
                 )
 
                 budget = pressure_cfg.budget_breakdown(tool_tokens=tool_tokens_est)
-                fill_k = pressure_cfg.fill_tokens / 1000
-                tool_k = tool_tokens_est / 1000
-                out_k = _RESERVED_FOR_OUTPUT / 1000
-                head_k = budget["remaining_headroom_tokens"] / 1000
+                fill_k = pressure_cfg.fill_tokens / 1024
+                tool_k = tool_tokens_est / 1024
+                out_k = _RESERVED_FOR_OUTPUT / 1024
+                head_k = budget["remaining_headroom_tokens"] / 1024
 
                 console.print(
                     f"  [dim]  {pressure_cfg.summary()} — "
@@ -3739,18 +3739,25 @@ def _run_pressure_sweep(
 
         # Cap by actual KV cache capacity (same logic as prepare_context_pressure).
         # Only when auto-detected — explicit --context-size is trusted as-is.
+        # Skip for hybrid-attention models where physical block capacity ≠
+        # effective max context.
         if args.context_size is None:
-            kv_cap = asyncio.run(
+            kv_info = asyncio.run(
                 detect_kv_capacity(
                     base_url, api_key, metrics_url=getattr(args, "metrics_url", None)
                 )
             )
-            if kv_cap is not None and kv_cap < context_size:
+            if kv_info is not None and kv_info.is_hybrid:
                 console.print(
-                    f"  [dim]⚠ KV cache capacity ({kv_cap:,} tokens) < "
+                    f"  [dim]ℹ Hybrid model detected — trusting "
+                    f"max_model_len ({context_size:,} tokens)[/]"
+                )
+            elif kv_info is not None and kv_info.capacity < context_size:
+                console.print(
+                    f"  [dim]⚠ KV cache capacity ({kv_info.capacity:,} tokens) < "
                     f"max_model_len ({context_size:,}) — capping[/]"
                 )
-                context_size = kv_cap
+                context_size = kv_info.capacity
 
         console.print(f"  [dim]Context window: {context_size:,} tokens[/]\n")
     except Exception as exc:
