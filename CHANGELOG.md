@@ -15,6 +15,13 @@ All notable changes to `tool-eval-bench` are documented here.
   `mamba_cache_mode` in `/metrics` and trusts the server's `max_model_len`.
   Standard full-attention models continue to be capped correctly.
 
+- **Markdown report Title column showed summary instead of scenario title**
+  ([#13](https://github.com/SeraphimSerapis/tool-eval-bench/issues/13)) —
+  the Scenario Results table in `.md` reports used the first sentence of the
+  evaluation summary for the Title column, making Title and Summary identical.
+  Now correctly displays the `ScenarioDefinition.title` (e.g. "Direct
+  Specialist Match" instead of "Used get_weather with Berlin only").
+
 - **Token K display uses binary convention** — context pressure display
   now divides by 1024 instead of 1000 to match the LLM industry convention
   (262144 tokens → 256K, not 262K).  Consistent across the summary line
