@@ -89,6 +89,7 @@ class MarkdownReporter:
 
         _scenario_cat = {s.id: s.category for s in ALL_SCENARIOS_WITH_HARDMODE}
         _scenario_diff = {s.id: s.difficulty for s in ALL_SCENARIOS_WITH_HARDMODE}
+        _scenario_title = {s.id: s.title for s in ALL_SCENARIOS_WITH_HARDMODE}
         has_large_toolset = any(
             _scenario_cat.get(r.scenario_id) == Category.L for r in summary.scenario_results
         )
@@ -176,8 +177,9 @@ class MarkdownReporter:
             note = f" ({r.note})" if r.note else ""
             diff = _scenario_diff.get(r.scenario_id)
             diff_str = _diff_labels.get(diff, "?") if diff else "?"
+            title = _scenario_title.get(r.scenario_id, r.scenario_id)
             md.append(
-                f"| {r.scenario_id} | {r.summary.split('.')[0]} | {diff_str} | {emoji} {r.status.value} | {r.points}/2 | {r.summary}{note} |"
+                f"| {r.scenario_id} | {title} | {diff_str} | {emoji} {r.status.value} | {r.points}/2 | {r.summary}{note} |"
             )
 
         # Difficulty distribution summary

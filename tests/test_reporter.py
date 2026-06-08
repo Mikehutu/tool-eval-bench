@@ -185,6 +185,38 @@ class TestMarkdownReporter:
         assert "parallel tool turns: 1" in content
         assert "unsafe mutation before availability check" in content
 
+    def test_title_column_shows_scenario_title_not_summary(self, tmp_path):
+        """Regression test for issue #13: Title column must use the scenario
+        title from ScenarioDefinition, not the first sentence of the summary."""
+        reporter = MarkdownReporter(root=str(tmp_path))
+        summary = _make_summary(num_results=3)
+        path = reporter.write_scenario_report("run_title", "model-t", summary)
+        content = path.read_text()
+
+        # The real scenario titles from ScenarioDefinition
+        from tool_eval_bench.evals.scenarios import ALL_SCENARIOS_WITH_HARDMODE
+
+        title_map = {s.id: s.title for s in ALL_SCENARIOS_WITH_HARDMODE}
+
+        # Extract just the Scenario Results table lines
+        lines = content.split("\n")
+        table_lines = [ln for ln in lines if ln.startswith("| TC-")]
+        assert len(table_lines) == 3
+
+        for line in table_lines:
+            cells = [c.strip() for c in line.split("|")]
+            scenario_id = cells[1]  # ID column
+            title_cell = cells[2]  # Title column
+            summary_cell = cells[6]  # Summary column
+
+            # Title must be the real scenario title, not a repeat of the summary
+            expected_title = title_map[scenario_id]
+            assert title_cell == expected_title, (
+                f"{scenario_id}: Title column was '{title_cell}', expected '{expected_title}'"
+            )
+            # Title and Summary must differ (the original bug had them equal)
+            assert title_cell != summary_cell
+
 
 class TestThroughputReport:
     def test_standalone_throughput_report(self, tmp_path):
