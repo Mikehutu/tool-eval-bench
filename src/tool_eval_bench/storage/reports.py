@@ -167,8 +167,8 @@ class MarkdownReporter:
             md.append(f"| {cs.label} | {cs.earned} | {cs.max_points} | {cs.percent}% |")
 
         md.extend(["", "## Scenario Results", ""])
-        md.append("| ID | Title | Diff | Status | Points | Summary |")
-        md.append("|---|---|:---:|---|---|---|")
+        md.append("| ID | Title | Diff | Status | Points | Failure | Summary |")
+        md.append("|---|---|:---:|---:|---:|---|---|")
 
         _diff_labels = {1: "★", 2: "★★", 3: "★★★", 4: "★★★★", 5: "★★★★★"}
 
@@ -178,8 +178,9 @@ class MarkdownReporter:
             diff = _scenario_diff.get(r.scenario_id)
             diff_str = _diff_labels.get(diff, "?") if diff else "?"
             title = _scenario_title.get(r.scenario_id, r.scenario_id)
+            failure = r.failure_kind or "—"
             md.append(
-                f"| {r.scenario_id} | {title} | {diff_str} | {emoji} {r.status.value} | {r.points}/2 | {r.summary}{note} |"
+                f"| {r.scenario_id} | {title} | {diff_str} | {emoji} {r.status.value} | {r.points}/2 | {failure} | {r.summary}{note} |"
             )
 
         # Difficulty distribution summary

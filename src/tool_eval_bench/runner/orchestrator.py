@@ -8,6 +8,7 @@ Captures full traces for auditability.
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import hashlib
 import json
@@ -17,6 +18,8 @@ import re
 import time
 from typing import Any
 
+import httpx
+
 from tool_eval_bench.adapters.base import BackendAdapter, ChatCompletionResult
 from tool_eval_bench.domain.models import ChatMessage
 from tool_eval_bench.domain.scenarios import (
@@ -25,10 +28,12 @@ from tool_eval_bench.domain.scenarios import (
     SAFETY_GATE_THRESHOLD,
     Category,
     CategoryScore,
+    FailureKind,
     ModelScoreSummary,
     OnScenarioResult,
     OnScenarioStart,
     ScenarioDefinition,
+    ScenarioEvaluation,
     ScenarioResult,
     ScenarioState,
     ScenarioStatus,
@@ -55,6 +60,54 @@ _INJECTED_ERRORS = [
     {"error": "Internal server error. The service is temporarily unavailable.", "status": 500},
     {"error": "Request timed out. The service did not respond in time.", "status": 503},
 ]
+
+
+# ---------------------------------------------------------------------------
+# Failure classification
+# ---------------------------------------------------------------------------
+
+
+def _classify_runtime_error(exc: BaseException) -> str:
+    """Map a runtime exception to a failure-kind label."""
+    if isinstance(exc, asyncio.TimeoutError):
+        return FailureKind.TIMEOUT
+    if isinstance(exc, httpx.TimeoutException):
+        return FailureKind.TIMEOUT
+    if isinstance(exc, httpx.ConnectError):
+        return FailureKind.CONNECTION_ERROR
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        if status >= 500:
+            return FailureKind.SERVER_ERROR
+        return FailureKind.MODEL_CRASH
+    return FailureKind.MODEL_CRASH
+
+
+def _classify_evaluation_failure(
+    state: ScenarioState,
+    evaluation: ScenarioEvaluation,
+) -> str | None:
+    """Heuristic failure-kind label from the scenario state and evaluation.
+
+    Evaluators may optionally set ``evaluation.failure_kind``; when they do not,
+    we fall back to simple state-based heuristics so reports still surface a
+    coarse "why" for every failure.
+    """
+    if evaluation.failure_kind is not None:
+        return evaluation.failure_kind
+    if evaluation.status != ScenarioStatus.FAIL:
+        return None
+    # Simple heuristics
+    if not state.tool_calls:
+        return FailureKind.MISSING_STEP
+    summary_lower = (evaluation.summary or "").lower()
+    if "forbidden" in summary_lower or "should not" in summary_lower:
+        return FailureKind.FORBIDDEN_ACTION
+    if "wrong tool" in summary_lower or "unexpected tool" in summary_lower:
+        return FailureKind.WRONG_TOOL
+    if "argument" in summary_lower or "parameter" in summary_lower:
+        return FailureKind.WRONG_ARGS
+    return FailureKind.WRONG_ARGS
 
 
 def _scenario_seed_offset(scenario_id: str) -> int:
@@ -418,6 +471,7 @@ async def run_scenario(
             turn_latencies_ms=turn_latencies,
             parallel_tool_turns=parallel_tool_turns,
             state_checkpoints=state_checkpoints,
+            failure_kind=_classify_runtime_error(exc),
         )
 
     # Ensure we have a final answer
@@ -455,6 +509,7 @@ async def run_scenario(
             turn_latencies_ms=turn_latencies,
             parallel_tool_turns=parallel_tool_turns,
             state_checkpoints=state_checkpoints,
+            failure_kind=FailureKind.EVALUATOR_ERROR,
         )
 
     # Build diagnostic summary of what tools were actually called
@@ -493,6 +548,7 @@ async def run_scenario(
         tool_call_arg_bytes=total_arg_bytes,
         parallel_tool_turns=parallel_tool_turns,
         state_checkpoints=state_checkpoints,
+        failure_kind=_classify_evaluation_failure(state, evaluation),
     )
 
 
@@ -615,6 +671,9 @@ async def run_all_scenarios(
                 points=0,
                 summary=f"Unhandled error: {exc}",
                 tool_call_arg_bytes=0,
+                failure_kind=_classify_runtime_error(exc)
+                if isinstance(exc, BaseException)
+                else FailureKind.MODEL_CRASH,
             )
 
     final_results = [r for r in ordered_results if r is not None]

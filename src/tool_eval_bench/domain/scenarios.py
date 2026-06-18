@@ -61,6 +61,27 @@ class ScenarioStatus(str, Enum):
 
 
 # ---------------------------------------------------------------------------
+# Failure taxonomy for scenario results
+# ---------------------------------------------------------------------------
+
+
+class FailureKind:
+    """Canonical failure-kind strings for ScenarioResult.failure_kind."""
+
+    WRONG_TOOL = "wrong_tool"
+    WRONG_ARGS = "wrong_args"
+    MISSING_STEP = "missing_step"
+    FORBIDDEN_ACTION = "forbidden_action"
+    BUDGET_EXCEEDED = "budget_exceeded"
+    TIMEOUT = "timeout"
+    CONNECTION_ERROR = "connection_error"
+    SERVER_ERROR = "server_error"
+    MODEL_CRASH = "model_crash"
+    EVALUATOR_ERROR = "evaluator_error"
+    PARTIAL = "partial"
+
+
+# ---------------------------------------------------------------------------
 # State types (accumulated during multi-turn orchestration)
 # ---------------------------------------------------------------------------
 
@@ -107,6 +128,7 @@ class ScenarioEvaluation:
     points: int  # 0, 1, or 2
     summary: str
     note: str | None = None
+    failure_kind: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +236,8 @@ class ScenarioResult:
     # Optional Hard Mode diagnostics
     parallel_tool_turns: list[int] = field(default_factory=list)
     state_checkpoints: list[str] = field(default_factory=list)
+    # Failure taxonomy — why did this scenario fail?
+    failure_kind: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
@@ -228,6 +252,8 @@ class ScenarioResult:
             "turn_count": self.turn_count,
             "raw_log": self.raw_log,
         }
+        if self.failure_kind is not None:
+            d["failure_kind"] = self.failure_kind
         if self.ttft_ms is not None:
             d["ttft_ms"] = round(self.ttft_ms, 1)
         if self.turn_latencies_ms:
@@ -265,6 +291,7 @@ class ScenarioResult:
             tool_call_arg_bytes=data.get("tool_call_arg_bytes", 0),
             parallel_tool_turns=list(data.get("parallel_tool_turns", [])),
             state_checkpoints=list(data.get("state_checkpoints", [])),
+            failure_kind=data.get("failure_kind"),
         )
 
 
