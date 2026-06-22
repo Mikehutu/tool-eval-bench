@@ -118,3 +118,31 @@ tool_responses: {}
             path.write_text("not a mapping")
             with pytest.raises(ValueError):
                 _load_yaml_file(path)
+
+    def test_missing_id_field_raises_with_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "noid.yaml"
+            path.write_text("title: No ID\ncategory: A\nuser_message: hi\n")
+            with pytest.raises(ValueError, match="'id'"):
+                _load_yaml_file(path)
+
+    def test_missing_category_field_raises_with_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "nocat.yaml"
+            path.write_text("id: X\ntitle: No Cat\nuser_message: hi\n")
+            with pytest.raises(ValueError, match="'category'"):
+                _load_yaml_file(path)
+
+    def test_invalid_category_raises_with_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "badcat.yaml"
+            path.write_text("id: X\ntitle: Bad Cat\ncategory: Z\nuser_message: hi\n")
+            with pytest.raises(ValueError, match="Invalid category"):
+                _load_yaml_file(path)
+
+    def test_yaml_parse_error_includes_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "syntax.yaml"
+            path.write_text("id: X\n  bad: : : indent\n")
+            with pytest.raises(ValueError, match="YAML parse error"):
+                _load_yaml_file(path)

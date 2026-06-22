@@ -604,6 +604,16 @@ class TestShortenModelName:
         """Relative path without leading / should pass through unchanged."""
         assert _shorten_model_name("local/model-name") == "local/model-name"
 
+    def test_windows_drive_path(self) -> None:
+        """Windows drive-letter path should be shortened to last two components."""
+        path = r"C:\Users\user\models\my-model"
+        assert _shorten_model_name(path) == "models/my-model"
+
+    def test_windows_unc_path(self) -> None:
+        r"""Windows UNC path (\\server\share\…) should be shortened."""
+        path = r"\\server\share\models\Qwen-35B"
+        assert _shorten_model_name(path) == "models/Qwen-35B"
+
 
 class TestLeaderboardLongModelNames:
     """Integration test: long model names should appear shortened (#15)."""

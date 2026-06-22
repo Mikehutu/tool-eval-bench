@@ -212,7 +212,7 @@ tool-eval-bench --model gemma4 --backend vllm --base-url http://localhost:8080
 --no-warmup            Skip server warm-up request
 --no-probe-engine      Skip engine probing (/version, /health HTTP calls)
 --skip-tool-eval       Skip tool-call scenarios (use with --perf or --spec-bench)
---skip-coherence       Skip throughput coherence check (for air-gapped hosts)
+--skip-coherence       Deprecated: llama-benchy coherence check is now always skipped
 --redact-url           Mask the server URL in display output (useful for screenshots/recordings)
 --output-dir DIR       Directory for report files (default: ./runs/)
 --diff RUN_ID          Compare results against a previous run (use 'latest')
@@ -274,7 +274,7 @@ tool-eval-bench --mmlu --ifeval --gsm8k              # all three after tool-eval
 
 ### Throughput benchmark
 
-Throughput measurement uses [llama-benchy](https://github.com/eugr/llama-benchy) — a dedicated benchmarking tool that provides HuggingFace tokenizer-based prompt sizing, multi-run statistics with mean ± std, proper latency estimation, and cache-busting. Install with `pip install tool-eval-bench[perf]` or ensure `uvx` is on PATH. Progress is shown via a live Rich progress bar.
+Throughput measurement uses [llama-benchy](https://github.com/eugr/llama-benchy) — a dedicated benchmarking tool that provides multi-run statistics with mean ± std, proper latency estimation, and cache-busting. Install with `pip install tool-eval-bench[perf]` or ensure `uvx` is on PATH. Progress is shown via a live Rich progress bar.
 
 ```bash
 # Throughput only (skip tool-call scenarios)

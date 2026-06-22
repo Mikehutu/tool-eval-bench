@@ -91,12 +91,12 @@ class TestClassifyRuntimeError:
         exc = httpx.HTTPStatusError("server error", request=None, response=response)
         assert _classify_runtime_error(exc) == FailureKind.SERVER_ERROR
 
-    def test_client_http_error_is_model_crash(self) -> None:
+    def test_client_http_error_is_wrong_args(self) -> None:
         from tool_eval_bench.runner.orchestrator import _classify_runtime_error
 
         response = httpx.Response(400)
         exc = httpx.HTTPStatusError("bad request", request=None, response=response)
-        assert _classify_runtime_error(exc) == FailureKind.MODEL_CRASH
+        assert _classify_runtime_error(exc) == FailureKind.WRONG_ARGS
 
     def test_generic_exception_is_model_crash(self) -> None:
         from tool_eval_bench.runner.orchestrator import _classify_runtime_error

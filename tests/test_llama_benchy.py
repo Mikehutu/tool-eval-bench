@@ -852,6 +852,8 @@ class TestRunLlamaBenchy:
         assert captured_env.get("PYTHONUNBUFFERED") == "1"
         assert captured_env.get("TRANSFORMERS_NO_ADVISORY_WARNINGS") == "1"
         assert captured_env.get("HF_HUB_DISABLE_IMPLICIT_TOKEN") == "1"
+        assert captured_env.get("HF_HUB_OFFLINE") == "1"
+        assert captured_env.get("TRANSFORMERS_OFFLINE") == "1"
 
     async def test_oom_detected_sigkill(self, monkeypatch):
         """SIGKILL (-9) should be detected as OOM with a clear message."""

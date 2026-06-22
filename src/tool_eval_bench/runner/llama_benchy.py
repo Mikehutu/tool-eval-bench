@@ -24,6 +24,7 @@ import logging
 import os
 import shutil
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -270,7 +271,7 @@ async def run_llama_benchy(
     skip_coherence: bool = False,
     skip_warmup: bool = False,
     extra_args: list[str] | None = None,
-    on_output: Any | None = None,
+    on_output: Callable[[str], None] | None = None,
 ) -> LlamaBenchyResult:
     """Run llama-benchy as a subprocess and parse the results.
 
@@ -327,6 +328,13 @@ async def run_llama_benchy(
         env["PYTHONUNBUFFERED"] = "1"
         env["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
         env["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = "1"
+        # Force offline mode: tool-eval-bench only needs throughput measurement,
+        # not model/tokenizer downloads.  This prevents transformers from
+        # loading large files for the model path (the OOM root cause in #14).
+        # The gpt2 fallback tokenizer (used by llama-benchy for prompt
+        # construction) is either cached locally or fails with a clear error.
+        env["HF_HUB_OFFLINE"] = "1"
+        env["TRANSFORMERS_OFFLINE"] = "1"
         # Pass API key via env var to avoid exposing it in `ps aux`
         # and /proc/<pid>/cmdline (security audit finding #1).
         # This OVERRIDES any existing OPENAI_API_KEY in the user's
@@ -378,7 +386,8 @@ async def run_llama_benchy(
                     "This can happen when the HuggingFace transformers library "
                     "loads tokenizer data for large models, consuming excessive "
                     "RAM in the subprocess.\n"
-                    "See: https://github.com/eugr/llama-benchy/issues/XX"
+                    "If this persists, try --perf-legacy-only for the built-in "
+                    "throughput benchmark that does not spawn a subprocess."
                 )
             output_text = "\n".join(output_lines[-20:])  # last 20 lines
             raise RuntimeError(f"llama-benchy exited with code {returncode}:\n{output_text}")

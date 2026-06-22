@@ -120,12 +120,22 @@ def _make_evaluator(
 
 def _load_yaml_file(path: Path) -> ScenarioDefinition:
     """Load a single YAML scenario file into a ScenarioDefinition."""
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    raw = path.read_text(encoding="utf-8")
+    try:
+        data = yaml.safe_load(raw)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"YAML parse error in {path}:\n{exc}") from exc
     if not isinstance(data, dict):
         raise ValueError(f"Scenario YAML must be a mapping: {path}")
 
-    scenario_id = data["id"]
-    category = Category(data["category"])
+    try:
+        scenario_id = data["id"]
+        category = Category(data["category"])
+    except KeyError as exc:
+        raise ValueError(f"Missing required field {exc.args[0]!r} in {path}") from exc
+    except ValueError as exc:
+        raise ValueError(f"Invalid category in {path}: {exc}") from exc
+
     tool_responses = data.get("tool_responses", {})
     expected_tool_calls = data.get("expected_tool_calls", [])
 

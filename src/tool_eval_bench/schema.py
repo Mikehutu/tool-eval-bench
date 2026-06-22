@@ -317,8 +317,8 @@ ARGS_SCHEMA: list[dict[str, Any]] = [
     {
         "name": "skip_coherence",
         "type": "bool",
-        "default": False,
-        "description": "Skip coherence check (for air-gapped hosts)",
+        "default": True,
+        "description": "Deprecated: llama-benchy coherence check is now always skipped (retained for compatibility)",
     },
     # -- Speculative decoding benchmark --
     {

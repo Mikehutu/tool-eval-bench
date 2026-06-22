@@ -156,7 +156,7 @@ def run_llama_benchy(
     concurrency_levels: list[int],
     runs: int = 3,
     latency_mode: str = "generation",
-    skip_coherence: bool = False,
+    skip_coherence: bool = True,
     skip_warmup: bool = False,
     extra_args: list[str] | None = None,
 ) -> list:
@@ -247,7 +247,6 @@ def run_llama_benchy(
                 base_url,
                 model,
                 api_key=api_key,
-                tokenizer=display_name,
                 pp=pp,
                 tg=tg,
                 depths=depths,

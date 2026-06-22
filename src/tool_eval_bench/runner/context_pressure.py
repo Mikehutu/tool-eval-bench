@@ -597,7 +597,7 @@ def compute_fill_budget(
     # Quantise to chunk boundaries so adjacent sweep levels cannot
     # straddle a chunk edge and produce different prompt structures.
     chunk_with_overhead = _TOKENS_PER_FILLER_CHUNK + 20  # chunk + ack
-    if chunk_with_overhead > 0 and fill >= chunk_with_overhead:
+    if fill >= chunk_with_overhead:
         fill = (fill // chunk_with_overhead) * chunk_with_overhead
     return max(0, fill)
 

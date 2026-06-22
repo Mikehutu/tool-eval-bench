@@ -1682,7 +1682,9 @@ def _make_parser() -> argparse.ArgumentParser:
         help="Pass-through args for llama-benchy (quoted string)",
     )
     perf_grp.add_argument(
-        "--skip-coherence", action="store_true", help="Skip coherence check (for air-gapped hosts)"
+        "--skip-coherence",
+        action="store_true",
+        help="Deprecated: llama-benchy coherence check is now always skipped (retained for compatibility)",
     )
 
     # -- GSM8K benchmark ----------------------------------------------------
@@ -2224,7 +2226,7 @@ def main() -> None:
             concurrency_levels=conc_levels,
             runs=args.benchy_runs,
             latency_mode=args.benchy_latency_mode,
-            skip_coherence=args.skip_coherence,
+            skip_coherence=True,
             extra_args=benchy_extra,
             # When we've already done our own warmup, tell llama-benchy to
             # skip its redundant warmup phase (saves 2 extra requests).

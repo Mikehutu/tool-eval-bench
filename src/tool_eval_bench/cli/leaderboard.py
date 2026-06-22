@@ -133,9 +133,12 @@ def _shorten_model_name(name: str) -> str:
                 break  # unexpected format, fall through
 
     # Detect filesystem paths (Unix or Windows)
-    if "/" in name and name.startswith("/"):
-        # Absolute Unix path like "/data/models/Qwen/Qwen3.6-35B-A3B-FP8"
-        parts = [p for p in name.split("/") if p]
+    normalized = name.replace("\\", "/")
+    if normalized.startswith("/") or (
+        len(normalized) > 2 and normalized[1] == ":" and normalized[2] == "/"
+    ):
+        # Absolute path (Unix, Windows drive, or UNC) — keep last two components
+        parts = [p for p in normalized.split("/") if p]
         if len(parts) >= 2:
             return f"{parts[-2]}/{parts[-1]}"
         if parts:
@@ -473,7 +476,7 @@ def export_runs(
 
         result = json.dumps(export_data, indent=2, default=str)
         if output:
-            with open(output, "w") as f:
+            with open(output, "w", encoding="utf-8") as f:
                 f.write(result)
             console.print(f"\n  [green]✓[/] Exported {len(rows)} models to [bold]{output}[/]\n")
         else:
@@ -541,7 +544,7 @@ def export_runs(
 
         result = buf.getvalue()
         if output:
-            with open(output, "w") as f:
+            with open(output, "w", encoding="utf-8") as f:
                 f.write(result)
             console.print(f"\n  [green]✓[/] Exported {len(rows)} models to [bold]{output}[/]\n")
         else:

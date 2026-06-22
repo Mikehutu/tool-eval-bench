@@ -4,7 +4,61 @@ All notable changes to `tool-eval-bench` are documented here.
 
 ## [Unreleased]
 
+## [2.0.7] — 2026-06-22
+
+### Fixed
+
+- **`--perf` OOM prevention (#14)** — the llama-benchy subprocess no longer
+  eats all available RAM. Three root causes addressed:
+  - **Coherence check disabled by default** — llama-benchy's coherence check
+    loads a model for perplexity evaluation, which consumed 25GB+ RAM in
+    seconds.  tool-eval-bench already has 74 scenarios for quality evaluation;
+    the coherence check is redundant.  `skip_coherence` now defaults to `True`
+    when invoked from the CLI.
+  - **No `--tokenizer` passed to subprocess** — the model's filesystem path
+    (e.g. `Qwen/Qwen3.6-35B-A3B-FP8` or a HuggingFace cache path) was being
+    passed as `--tokenizer`, causing transformers to load large tokenizer/model
+    data.  llama-benchy's gpt2 fallback is sufficient for prompt construction.
+  - **Offline env vars** — `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` are
+    now set in the subprocess environment to prevent any accidental large
+    downloads.  The OOM detection (SIGKILL/exit-137/MemoryError) from 2.0.6
+    remains as a safety net.
+
+- **4xx HTTP errors classified as `wrong_args` not `model_crash`** — the
+  `_classify_runtime_error` function now returns `FailureKind.WRONG_ARGS` for
+  4xx `HTTPStatusError` instead of `MODEL_CRASH`, since 400/422 typically
+  means the model generated malformed tool-call arguments.
+
+- **Dead code in parallel crash path** — the `isinstance(exc, BaseException)`
+  conditional in `run_all_scenarios` was always `True` (we only enter the
+  branch when `isinstance` is already confirmed).  Simplified to a direct
+  `_classify_runtime_error(exc)` call.
+
+- **Placeholder URL removed from OOM error** — the OOM error message
+  previously pointed to `https://github.com/eugr/llama-benchy/issues/XX`
+  (a placeholder).  Now suggests `--perf-legacy-only` as a fallback.
+
+- **UTF-8 encoding for leaderboard export files** — `export_runs` now opens
+  output files with `encoding="utf-8"` to prevent `UnicodeEncodeError` on
+  Windows for model names with non-ASCII characters (e.g. rating stars).
+
+- **YAML loader error messages include file path** — missing `id`/`category`
+  fields and YAML parse errors now report the file path, making it easier to
+  debug broken scenario files.
+
+- **Windows drive-letter paths shortened in leaderboard** —
+  `_shorten_model_name` now handles `C:\Users\…\models\my-model` and UNC paths
+  (`\\server\share\…`), not just Unix absolute paths and HuggingFace cache
+  paths.
+
 ### Improved
+
+- **`on_output` type tightened** — the `run_llama_benchy` callback parameter
+  is now typed as `Callable[[str], None] | None` instead of `Any | None`.
+
+- **Redundant condition removed in `compute_fill_budget`** — the
+  `chunk_with_overhead > 0` check was always `True` (the value is a compile-time
+  constant).  Simplified for readability.
 
 - **CLI test coverage** — added `tests/test_cli_bench.py` with 44 unit tests
   covering scenario resolution, backend detection from response headers,
