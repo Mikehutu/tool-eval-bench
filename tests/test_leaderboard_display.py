@@ -18,6 +18,7 @@ from tool_eval_bench.cli.leaderboard import (
     _rating_short,
     _score_bg,
     _score_color,
+    _shorten_model_name,
     export_runs,
     print_leaderboard,
 )
@@ -551,3 +552,66 @@ class TestExportRuns:
             csv_text = buf.getvalue()
             assert "cat_A" in csv_text
             assert "cat_K" in csv_text
+
+
+# ===========================================================================
+# _shorten_model_name
+# ===========================================================================
+
+
+class TestShortenModelName:
+    """Tests for the _shorten_model_name helper (#15)."""
+
+    def test_hf_style_name_unchanged(self) -> None:
+        assert _shorten_model_name("Qwen/Qwen3.6-35B-A3B-FP8") == "Qwen/Qwen3.6-35B-A3B-FP8"
+
+    def test_bare_alias_unchanged(self) -> None:
+        assert _shorten_model_name("gemma4") == "gemma4"
+
+    def test_hf_cache_path(self) -> None:
+        path = "/home/user/.cache/huggingface/hub/models--Qwen--Qwen3.6-35B/snapshots/abc123"
+        assert _shorten_model_name(path) == "Qwen/Qwen3.6-35B"
+
+    def test_hf_cache_path_two_parts(self) -> None:
+        path = "/tmp/models--Meta--Llama-3-70B/main"
+        assert _shorten_model_name(path) == "Meta/Llama-3-70B"
+
+    def test_absolute_unix_path(self) -> None:
+        path = "/data/models/Qwen/Qwen3.6-35B-A3B-FP8"
+        assert _shorten_model_name(path) == "Qwen/Qwen3.6-35B-A3B-FP8"
+
+    def test_absolute_single_component(self) -> None:
+        path = "/models/my-model"
+        assert _shorten_model_name(path) == "models/my-model"
+
+    def test_whitespace_stripped(self) -> None:
+        assert _shorten_model_name("  Qwen/Qwen3  ") == "Qwen/Qwen3"
+
+    def test_empty_string(self) -> None:
+        assert _shorten_model_name("") == ""
+
+    def test_hf_cache_path_only_org(self) -> None:
+        """Edge case: models--OrgOnly (no model part)."""
+        path = "/cache/models--OrgOnly/snapshot"
+        assert _shorten_model_name(path) == "OrgOnly"
+
+
+class TestLeaderboardLongModelNames:
+    """Integration test: long model names should appear shortened (#15)."""
+
+    def test_long_path_shortened_in_output(self) -> None:
+        long_path = "/home/user/.cache/huggingface/hub/models--Qwen--Qwen3.6-35B/snapshots/abc"
+        runs = [_make_run(model=long_path, final_score=90)]
+        with patch("tool_eval_bench.storage.db.RunRepository") as MockRepo:
+            repo = MagicMock()
+            repo.list.return_value = runs
+            MockRepo.return_value = repo
+
+            console = Console(file=StringIO(), width=200, no_color=True)
+            print_leaderboard(console)
+
+            output = console.file.getvalue()
+            # Shortened name should appear, full path should not
+            assert "Qwen/Qwen3.6-35B" in output
+            assert "huggingface" not in output
+            assert "snapshots" not in output

@@ -106,6 +106,45 @@ _CAT_FULL = {
 }
 
 
+def _shorten_model_name(name: str) -> str:
+    """Shorten a model identifier for leaderboard display.
+
+    Handles three common formats:
+      1. HF-style  "Qwen/Qwen3.6-35B-A3B-FP8"       → kept as-is
+      2. Filesystem "/home/…/models--Org--Model/…"    → "Org/Model"
+      3. Bare path  "/data/models/my-model"           → "my-model"
+
+    Only the last two path components (owner/model) are kept so the
+    leaderboard column stays readable without hard-truncation (#15).
+    """
+    # Strip leading/trailing whitespace
+    name = name.strip()
+
+    # Detect HuggingFace cache paths: "models--Org--ModelName"
+    # e.g. /home/user/.cache/huggingface/hub/models--Qwen--Qwen3.6-35B/snapshots/abc
+    if "models--" in name:
+        for segment in name.replace("\\", "/").split("/"):
+            if segment.startswith("models--"):
+                parts = segment.split("--", 2)  # ["models", "Org", "Model"]
+                if len(parts) == 3:
+                    return f"{parts[1]}/{parts[2]}"
+                if len(parts) == 2:
+                    return parts[1]
+                break  # unexpected format, fall through
+
+    # Detect filesystem paths (Unix or Windows)
+    if "/" in name and name.startswith("/"):
+        # Absolute Unix path like "/data/models/Qwen/Qwen3.6-35B-A3B-FP8"
+        parts = [p for p in name.split("/") if p]
+        if len(parts) >= 2:
+            return f"{parts[-2]}/{parts[-1]}"
+        if parts:
+            return parts[-1]
+
+    # Already a short name (HF-style "owner/model" or bare alias)
+    return name
+
+
 # ---------------------------------------------------------------------------
 # Data extraction from stored runs
 # ---------------------------------------------------------------------------
@@ -250,7 +289,7 @@ def print_leaderboard(console: Console, limit: int = 50) -> None:
 
     # Rank column
     table.add_column("#", justify="center", width=3, style="bold")
-    table.add_column("Model", min_width=20, no_wrap=True, max_width=40)
+    table.add_column("Model", min_width=20, no_wrap=True)
     table.add_column("Config", justify="center", width=12, no_wrap=True)
     table.add_column("Score", justify="center", width=7, style="bold")
     table.add_column("Rating", justify="center", width=7)
@@ -281,10 +320,8 @@ def print_leaderboard(console: Console, limit: int = 50) -> None:
         else:
             rank = f"[dim]{idx}[/]"
 
-        # Model name (truncate if needed)
-        model_name = row["model"]
-        if len(model_name) > 38:
-            model_name = model_name[:35] + "…"
+        # Model name — shorten paths to owner/model for readability (#15)
+        model_name = _shorten_model_name(row["model"])
 
         # Score with color
         score = row["final_score"]
