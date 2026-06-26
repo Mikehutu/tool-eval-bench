@@ -1428,11 +1428,49 @@ def _tc48_eval(state: ScenarioState) -> ScenarioEvaluation:
     1. Send email to Alice in turn 1.
     2. In turn 2, either re-send with Bob CC'd, or explain it was already sent.
     Ideal: the model should NOT just send a second email to Bob only.
+
+    Quality signals:
+    - Models should use get_contacts to resolve proper email addresses.
+    - Models that skip contact resolution and use bare names are downgraded.
+    - Models that do preparatory work (contact lookups) and ask for
+      clarification rather than fabricating get partial credit.
     """
     email_calls = [c for c in state.tool_calls if c.name == "send_email"]
+    contact_calls = [c for c in state.tool_calls if c.name == "get_contacts"]
     answer = state.final_answer.lower()
 
+    # Did the model resolve contacts via get_contacts?
+    used_contacts = len(contact_calls) > 0
+
     if not email_calls:
+        # No email sent — but did the model do responsible prep work?
+        if used_contacts:
+            # Model looked up contacts and chose to ask for clarification
+            # rather than fabricate content — partial credit for responsible
+            # behavior (contact resolution + honest clarification).
+            asks_for_content = any(
+                phrase in answer
+                for phrase in (
+                    "what would you like",
+                    "what should",
+                    "what do you want",
+                    "could you provide",
+                    "can you provide",
+                    "please provide",
+                    "need the content",
+                    "need more detail",
+                    "what to include",
+                    "what to say",
+                    "more information",
+                    "more details",
+                    "let me know what",
+                )
+            )
+            if asks_for_content:
+                return _partial(
+                    "Resolved contacts but asked for email content instead of sending "
+                    "— responsible, but the task asked to send."
+                )
         return _fail("Did not send any emails.")
 
     # Check if any email included Alice
@@ -1455,13 +1493,32 @@ def _tc48_eval(state: ScenarioState) -> ScenarioEvaluation:
         )
     )
 
+    # Helper: did the model use a resolved email address (contains "@")?
+    def _used_real_address(*fields: str) -> bool:
+        """Check if any email call used a resolved address (with @) for the given fields."""
+        for call in email_calls:
+            for field in fields:
+                val = _as_str(call.arguments.get(field, "")).lower()
+                if val and "@" in val:
+                    return True
+        return False
+
+    resolved_addresses = _used_real_address("to", "cc")
+
     if bob_ccd:
-        return _pass("Sent email to Alice with Bob CC'd — correctly merged additive context.")
+        if resolved_addresses:
+            return _pass("Sent email to Alice with Bob CC'd — correctly merged additive context.")
+        return _partial(
+            "Merged CC correctly but used bare names instead of resolving "
+            "contacts — addresses wouldn't work in a real system."
+        )
     # Model sent a second email including both Alice and Bob — valid workaround
     if len(email_calls) >= 2 and bob_in_to:
         second_to = _as_str(email_calls[-1].arguments.get("to", "")).lower()
         if "alice" in second_to and "bob" in second_to:
-            return _pass("Re-sent email to both Alice and Bob — valid additive merge.")
+            if resolved_addresses:
+                return _pass("Re-sent email to both Alice and Bob — valid additive merge.")
+            return _partial("Re-sent to both but used bare names instead of resolved addresses.")
         return _partial("Sent to Alice, then separately to Bob — didn't merge the CC.")
     if bob_in_to and len(email_calls) >= 2:
         return _partial("Sent to Alice, then separately to Bob — didn't merge the CC.")
@@ -2114,8 +2171,9 @@ AGENTIC_DISPLAY_DETAILS: dict[str, ScenarioDisplayDetail] = {
         "Fail if it ignores the time change in turn 2.",
     ),
     "TC-48": ScenarioDisplayDetail(
-        "Pass if it sends email to Alice with Bob CC'd (merged context).",
-        "Fail if it ignores the CC request or only sends to Bob separately.",
+        "Pass if it sends email to Alice with Bob CC'd using resolved addresses.",
+        "Fail if it ignores the CC request. Partial if it merges CC but uses bare names, "
+        "or if it resolves contacts and asks for content instead of sending.",
     ),
     "TC-49": ScenarioDisplayDetail(
         "Pass if it withholds the email after user says 'don't send yet' and then cancels.",

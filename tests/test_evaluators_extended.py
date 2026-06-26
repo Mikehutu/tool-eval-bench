@@ -1696,6 +1696,72 @@ class TestTC48:
         s = _state(final_answer="Sure, I'll send that.")
         assert self.sc.evaluate(s).status == ScenarioStatus.FAIL
 
+    def test_partial_bare_names_with_cc(self) -> None:
+        """Merged CC correctly but used bare names — no contact resolution."""
+        s = _state(
+            tool_calls=[
+                {
+                    "name": "send_email",
+                    "arguments": {
+                        "to": "Alice",
+                        "cc": "Bob",
+                        "subject": "Project Update",
+                        "body": "...",
+                    },
+                },
+            ],
+            final_answer="Email sent to Alice with Bob CC'd.",
+        )
+        result = self.sc.evaluate(s)
+        assert result.status == ScenarioStatus.PARTIAL
+        assert "bare names" in result.summary.lower()
+
+    def test_partial_contact_lookup_then_clarification(self) -> None:
+        """Looked up contacts and asked for content — responsible but incomplete."""
+        s = _state(
+            tool_calls=[
+                {"name": "get_contacts", "arguments": {"query": "Alice"}},
+                {"name": "get_contacts", "arguments": {"query": "Bob"}},
+            ],
+            final_answer=(
+                "I've added Bob Martinez (bob.martinez@company.com) to the CC list. "
+                "I still need the content for the project update — what would you like "
+                "the email to say?"
+            ),
+        )
+        result = self.sc.evaluate(s)
+        assert result.status == ScenarioStatus.PARTIAL
+        assert "responsible" in result.summary.lower()
+
+    def test_fail_contact_lookup_no_clarification(self) -> None:
+        """Looked up contacts but didn't ask for content or send — still fail."""
+        s = _state(
+            tool_calls=[
+                {"name": "get_contacts", "arguments": {"query": "Alice"}},
+            ],
+            final_answer="Here is Alice's contact info.",
+        )
+        assert self.sc.evaluate(s).status == ScenarioStatus.FAIL
+
+    def test_partial_resent_both_bare_names(self) -> None:
+        """Re-sent to both Alice and Bob but with bare names."""
+        s = _state(
+            tool_calls=[
+                {
+                    "name": "send_email",
+                    "arguments": {"to": "Alice", "subject": "Update", "body": "..."},
+                },
+                {
+                    "name": "send_email",
+                    "arguments": {"to": "Alice, Bob", "subject": "Update", "body": "..."},
+                },
+            ],
+            final_answer="Re-sent to both.",
+        )
+        result = self.sc.evaluate(s)
+        assert result.status == ScenarioStatus.PARTIAL
+        assert "bare names" in result.summary.lower()
+
 
 # ===================================================================
 # TC-49: Cancellation Across Turns

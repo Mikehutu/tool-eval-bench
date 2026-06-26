@@ -4,6 +4,14 @@ All notable changes to `tool-eval-bench` are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **TC-48 evaluator tightened** — models that merge CC correctly but skip
+  `get_contacts` (using bare names like `"Alice"` instead of resolved email
+  addresses) are now downgraded from pass to partial.  Models that resolve
+  contacts via `get_contacts` and ask for email content clarification (instead
+  of fabricating) now receive partial credit instead of a hard fail.
+
 ## [2.0.7] — 2026-06-22
 
 ### Fixed
