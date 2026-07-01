@@ -569,15 +569,18 @@ _TC84_TOOLS = [
 
 def _tc84_handle(state: ScenarioState, call: ToolCallRecord) -> Any:
     if call.name == "get_contacts":
-        return _noise(
-            {
-                "results": [
-                    {"name": "Elena", "email": "elena@company.com"},
-                    {"name": "Ravi", "email": "ravi@company.com"},
-                ]
-            },
-            call.name,
-        )
+        query = as_str(call.arguments.get("query")).strip().lower()
+        results = []
+        if not query or "elena" in query:
+            results.append({"name": "Elena", "email": "elena@company.com"})
+        if not query or "ravi" in query:
+            results.append({"name": "Ravi", "email": "ravi@company.com"})
+        if not results:
+            results = [
+                {"name": "Elena", "email": "elena@company.com"},
+                {"name": "Ravi", "email": "ravi@company.com"},
+            ]
+        return _noise({"results": results}, call.name)
     if call.name == "search_slots":
         return _noise(
             {"slots": [{"date": "2026-03-25", "time": "14:00", "duration_minutes": 45}]}, call.name

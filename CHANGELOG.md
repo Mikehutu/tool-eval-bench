@@ -11,6 +11,9 @@ All notable changes to `tool-eval-bench` are documented here.
   addresses) are now downgraded from pass to partial.  Models that resolve
   contacts via `get_contacts` and ask for email content clarification (instead
   of fabricating) now receive partial credit instead of a hard fail.
+- **TC-84 contact mock made query-aware (#16)** — the `get_contacts` handler
+  now filters results by the search query for more realistic log output.
+  No change to evaluation logic.
 
 ## [2.0.7] — 2026-06-22
 
