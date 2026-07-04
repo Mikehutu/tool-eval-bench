@@ -144,7 +144,42 @@ async def test_single_turn_no_tools() -> None:
     assert result.points == 0
     assert result.turn_count == 1
     assert result.duration_seconds > 0
+    assert "available_tools=" in result.raw_log
+    assert "get_weather" in result.raw_log
+    assert "tool_choice=auto" in result.raw_log
     assert "final_answer=" in result.raw_log
+
+
+@pytest.mark.asyncio
+async def test_trace_marks_scenario_with_no_tools() -> None:
+    """Traces distinguish no-tool scenarios from models that ignored offered tools."""
+    no_tool_scenario = ScenarioDefinition(
+        id="TEST-NO-TOOLS",
+        title="No tools",
+        category=Category.O,
+        user_message="Return hello.",
+        description="No tools are available.",
+        handle_tool_call=_simple_handler,
+        evaluate=lambda state: ScenarioEvaluation(
+            status=ScenarioStatus.PASS,
+            points=2,
+            summary="ok",
+        ),
+        tools_override=[],
+    )
+    adapter = MockAdapter([{"content": "hello"}])
+
+    result = await run_scenario(
+        adapter,
+        model="test",
+        base_url="http://localhost:8000",
+        api_key=None,
+        scenario=no_tool_scenario,
+    )
+
+    assert "available_tools=(none)" in result.raw_log
+    assert "tool_choice=" not in result.raw_log
+    assert adapter.captured_payloads[0]["tools"] is None
 
 
 @pytest.mark.asyncio

@@ -312,7 +312,18 @@ async def run_scenario(
         context_pressure_messages=context_pressure_messages,
         scenario_id=scenario.id,
     )
-    trace_lines: list[str] = ["assistant=starting"]
+    # None → use defaults; [] → explicitly no tools
+    scenario_tools = UNIVERSAL_TOOLS if scenario.tools_override is None else scenario.tools_override
+    scenario_tool_choice = scenario.tool_choice_override or "auto"
+    available_tool_names = [
+        str(tool.get("function", {}).get("name", "?")) for tool in (scenario_tools or [])
+    ]
+    trace_lines: list[str] = [
+        "assistant=starting",
+        f"available_tools={', '.join(available_tool_names) if available_tool_names else '(none)'}",
+    ]
+    if available_tool_names:
+        trace_lines.append(f"tool_choice={scenario_tool_choice}")
 
     # Per-scenario seeded RNG for deterministic error injection.
     # Uses a stable digest offset so each scenario gets a unique
@@ -354,12 +365,6 @@ async def run_scenario(
             use_stream = turn == 1
 
             turn_start = time.perf_counter()
-            # None → use defaults; [] → explicitly no tools
-            scenario_tools = (
-                UNIVERSAL_TOOLS if scenario.tools_override is None else scenario.tools_override
-            )
-            scenario_tool_choice = scenario.tool_choice_override or "auto"
-
             # Only send response_format on content turns (not tool-calling
             # turns).  Many backends (llama.cpp, older vLLM) reject
             # response_format + tools in the same request.  When tools is

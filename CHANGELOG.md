@@ -12,6 +12,14 @@ All notable changes to `tool-eval-bench` are documented here.
   The command auto-detects single-run vs cross-trial summary reports from the
   Markdown heading and uses the packaged comparison report generators.
 
+### Improved
+
+- **Raw traces now show offered tools** — each scenario trace includes
+  `available_tools=...` and, when tools are available, `tool_choice=...` before
+  the first assistant turn. This makes no-tool failures easier to interpret:
+  users can distinguish a model ignoring offered tools from a scenario that did
+  not provide tools.
+
 ### Fixed
 
 - **Pre-flight model availability check (#19)** — when a server lists a model
