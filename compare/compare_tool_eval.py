@@ -11,6 +11,7 @@ from pathlib import Path
 
 # ─── Parser ─────────────────────────────────────────────────────────────────
 
+
 def parse_md(fp: str) -> dict:
     txt = Path(fp).read_text(encoding="utf-8")
     d: dict = {}
@@ -57,11 +58,13 @@ def parse_md(fp: str) -> dict:
         for sm in re.finditer(
             r"> - \*\*(TC-\d+)\*\*\s*\((.+?)\):\s*(.*?)(?=\n> - \*\*TC-|\n## |\Z)", wt, re.S
         ):
-            d["safety_critical"].append({
-                "id": sm.group(1),
-                "type": sm.group(2),
-                "desc": sm.group(3).strip(),
-            })
+            d["safety_critical"].append(
+                {
+                    "id": sm.group(1),
+                    "type": sm.group(2),
+                    "desc": sm.group(3).strip(),
+                }
+            )
     return d
 
 
@@ -89,12 +92,14 @@ def _parse_cats(txt):
         cols = [c.strip() for c in line.split("|")]
         if len(cols) < 5 or not cols[1] or cols[1].startswith("-") or cols[1] == "Category":
             continue
-        rows.append({
+        rows.append(
+            {
                 "name": cols[1],
                 "earned": cols[2],
                 "max": cols[3],
                 "percent": float(cols[4].rstrip("%")),
-            })
+            }
+        )
     return rows
 
 
@@ -119,15 +124,17 @@ def _parse_scenarios(txt):
         else:
             status = "fail"
         pm = re.search(r"(\d+)/(\d+)", cols[5] if len(cols) > 5 else "")
-        rows.append({
-            "id": cols[1],
-            "title": cols[2],
-            "diff": cols[3].count("★") if len(cols) > 3 else 0,
-            "status": status,
-            "points_earned": int(pm.group(1)) if pm else 0,
-            "points_max": int(pm.group(2)) if pm else 0,
-            "summary": cols[6] if len(cols) > 6 else "",
-        })
+        rows.append(
+            {
+                "id": cols[1],
+                "title": cols[2],
+                "diff": cols[3].count("★") if len(cols) > 3 else 0,
+                "status": status,
+                "points_earned": int(pm.group(1)) if pm else 0,
+                "points_max": int(pm.group(2)) if pm else 0,
+                "summary": cols[6] if len(cols) > 6 else "",
+            }
+        )
     return rows
 
 
@@ -140,23 +147,24 @@ def _parse_diffs(txt):
         if not line.strip().startswith("|"):
             continue
         cols = [c.strip() for c in line.split("|")]
-        if len(cols) >= 5 and cols[1] in (
-            "Trivial", "Easy", "Moderate", "Hard", "Very Hard"
-        ):
+        if len(cols) >= 5 and cols[1] in ("Trivial", "Easy", "Moderate", "Hard", "Very Hard"):
             try:
                 rate = int(float(cols[4].rstrip("%")))
             except (ValueError, TypeError):
                 rate = 0
-            rows.append({
-                "tier": cols[1],
-                "scenarios": cols[2],
-                "passed": cols[3],
-                "rate": rate,
-            })
+            rows.append(
+                {
+                    "tier": cols[1],
+                    "scenarios": cols[2],
+                    "passed": cols[3],
+                    "rate": rate,
+                }
+            )
     return rows
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
+
 
 def short_label(name: str, api: str) -> tuple:
     combined = f"{name} {api}".lower()
@@ -177,12 +185,7 @@ def dname(d: dict) -> str:
 
 
 def esc(s: str) -> str:
-    return (
-        s.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
 def sign(v: int) -> str:
@@ -204,6 +207,14 @@ def diff_display(wp, rp):
     if dv < 0:
         return f"{dv}", "diff-negative"
     return "\u2014", "text-slate-500"
+
+
+def turn_time_display(wmt, rmt, winner_raw, runner_raw):
+    if wmt is not None and rmt is not None:
+        delta = wmt - rmt
+        cls = "diff-positive" if delta <= 0 else "diff-negative"
+        return f"{wmt:.1f}s", f"{rmt:.1f}s", f"{delta:+.1f}s", cls
+    return winner_raw or "\u2014", runner_raw or "\u2014", "\u2014", "text-slate-500"
 
 
 # ─── HTML Generation ────────────────────────────────────────────────────────
@@ -243,17 +254,15 @@ HTML_FOOTER = """</body>\n</html>"""
 def generate_html(da: dict, db: dict, out: str) -> None:
     # Determine winner and runner-up
     w, r = (da, db) if da["final_score"] >= db["final_score"] else (db, da)
-    wl, wd = short_label(w["model_name"], w["model_api"])
-    rl, rd = short_label(r["model_name"], r["model_api"])
+    wl_raw, wd = short_label(w["model_name"], w["model_api"])
+    rl_raw, rd = short_label(r["model_name"], r["model_api"])
+    wl = esc(wl_raw)
+    rl = esc(rl_raw)
     wdn, rdn = dname(w), dname(r)
 
-    dates = sorted(
-        set(d["date_short"] for d in (da, db) if d["date_short"])
-    )
+    dates = sorted(set(d["date_short"] for d in (da, db) if d["date_short"]))
     date_str = dates[0] if len(dates) == 1 else f"{dates[0]} \u2014 {dates[-1]}"
-    vs = sorted(
-        set(d["tool_eval_version"] for d in (da, db) if d["tool_eval_version"])
-    )
+    vs = sorted(set(d["tool_eval_version"] for d in (da, db) if d["tool_eval_version"]))
     ver = " / ".join(vs) if len(vs) > 1 else (vs[0] if vs else "")
 
     sd = w["final_score"] - r["final_score"]
@@ -267,23 +276,9 @@ def generate_html(da: dict, db: dict, out: str) -> None:
     except (ValueError, TypeError):
         wmt = rmt = None
 
-    if wmt is not None and rmt is not None:
-        if wmt <= rmt:
-            mt_g, mt_r, mt_d = (
-                f"{wmt:.1f}s",
-                f"{rmt:.1f}s",
-                f"\u2212{rmt - wmt:.1f}s",
-            )
-        else:
-            mt_g, mt_r, mt_d = (
-                f"{rmt:.1f}s",
-                f"{wmt:.1f}s",
-                f"\u2212{wmt - rmt:.1f}s",
-            )
-    else:
-        mt_g = w["median_turn_time"] or "\u2014"
-        mt_r = r["median_turn_time"] or "\u2014"
-        mt_d = "\u2014"
+    mt_g, mt_r, mt_d, mt_cls = turn_time_display(
+        wmt, rmt, w["median_turn_time"], r["median_turn_time"]
+    )
 
     # Category rows
     r_cats = {c["name"]: c for c in r["categories"]}
@@ -293,15 +288,17 @@ def generate_html(da: dict, db: dict, out: str) -> None:
         wp = wc["percent"]
         rp = rc.get("percent", 0)
         dv, dc = diff_display(wp, rp)
-        cat_rows.append({
-            "name": wc["name"],
-            "w": f"{int(wp)}%",
-            "r": f"{int(rp)}%",
-            "w_b": wp > rp,
-            "r_b": wp < rp,
-            "diff": dv,
-            "dc": dc,
-        })
+        cat_rows.append(
+            {
+                "name": wc["name"],
+                "w": f"{int(wp)}%",
+                "r": f"{int(rp)}%",
+                "w_b": wp > rp,
+                "r_b": wp < rp,
+                "diff": dv,
+                "dc": dc,
+            }
+        )
 
     # Difficulty rows
     w_di = {d["tier"]: d for d in w["difficulties"]}
@@ -313,21 +310,19 @@ def generate_html(da: dict, db: dict, out: str) -> None:
         rd3 = r_di.get(tier, {})
         wr = wd2.get("rate", 0) if wd2 else 0
         rr = rd3.get("rate", 0) if rd3 else 0
-        diff_rows.append({
-            "tier": tier,
-            "w_pct": wr,
-            "r_pct": rr,
-            "w_disp": (
-                f"{wd2.get('passed', '?')} / {wd2.get('scenarios', '?')}"
-                if wd2
-                else "\u2014"
-            ),
-            "r_disp": (
-                f"{rd3.get('passed', '?')} / {rd3.get('scenarios', '?')}"
-                if rd3
-                else "\u2014"
-            ),
-        })
+        diff_rows.append(
+            {
+                "tier": tier,
+                "w_pct": wr,
+                "r_pct": rr,
+                "w_disp": (
+                    f"{wd2.get('passed', '?')} / {wd2.get('scenarios', '?')}" if wd2 else "\u2014"
+                ),
+                "r_disp": (
+                    f"{rd3.get('passed', '?')} / {rd3.get('scenarios', '?')}" if rd3 else "\u2014"
+                ),
+            }
+        )
 
     # Failures
     w_fails = [s for s in w["scenarios"] if s["status"] == "fail"]
@@ -361,7 +356,7 @@ def generate_html(da: dict, db: dict, out: str) -> None:
       <div class="text-right text-sm">
         <div class="text-slate-600">Date of runs</div>
         <div class="font-semibold text-slate-800">{esc(date_str)}</div>
-        { f'<div class="text-xs text-slate-400 mt-0.5">tool-eval-bench {esc(ver)}</div>' if ver else '' }
+        {f'<div class="text-xs text-slate-400 mt-0.5">tool-eval-bench {esc(ver)}</div>' if ver else ""}
       </div>
     </div>""")
 
@@ -376,13 +371,13 @@ def generate_html(da: dict, db: dict, out: str) -> None:
             <div class="text-xs text-slate-600 mt-0.5">{esc(rd)}</div>
           </div>
           <div class="text-right">
-            <div class="text-4xl font-bold tabular-nums stat-value text-slate-800">{r['final_score']}</div>
+            <div class="text-4xl font-bold tabular-nums stat-value text-slate-800">{r["final_score"]}</div>
             <div class="text-xs uppercase font-bold text-slate-500 -mt-1">/ 100</div>
           </div>
         </div>
         <div class="mt-4 text-xs flex items-center gap-x-2">
-          <div class="px-2.5 py-0.5 bg-slate-200 rounded-full text-slate-700 font-semibold">{esc(r['total_points_str'])}</div>
-          <div class="px-2.5 py-0.5 bg-rose-200 text-rose-800 rounded-full text-[10px] font-bold">{esc(r['rating'])}</div>
+          <div class="px-2.5 py-0.5 bg-slate-200 rounded-full text-slate-700 font-semibold">{esc(r["total_points_str"])}</div>
+          <div class="px-2.5 py-0.5 bg-rose-200 text-rose-800 rounded-full text-[10px] font-bold">{esc(r["rating"])}</div>
         </div>
       </div>
       <!-- Winner -->
@@ -397,13 +392,13 @@ def generate_html(da: dict, db: dict, out: str) -> None:
             <div class="text-xs text-emerald-800 mt-0.5">{esc(wd)}</div>
           </div>
           <div class="text-right">
-            <div class="text-4xl font-bold tabular-nums stat-value text-emerald-800">{w['final_score']}</div>
+            <div class="text-4xl font-bold tabular-nums stat-value text-emerald-800">{w["final_score"]}</div>
             <div class="text-xs uppercase font-bold text-emerald-700 -mt-1">/ 100</div>
           </div>
         </div>
         <div class="mt-4 text-xs flex items-center gap-x-2">
-          <div class="px-2.5 py-0.5 bg-emerald-200 text-emerald-800 rounded-full font-semibold">{esc(w['total_points_str'])}</div>
-          <div class="px-2.5 py-0.5 bg-emerald-300 text-emerald-900 rounded-full text-[10px] font-bold">{esc(w['rating'])}</div>
+          <div class="px-2.5 py-0.5 bg-emerald-200 text-emerald-800 rounded-full font-semibold">{esc(w["total_points_str"])}</div>
+          <div class="px-2.5 py-0.5 bg-emerald-300 text-emerald-900 rounded-full text-[10px] font-bold">{esc(w["rating"])}</div>
         </div>
       </div>
     </div>""")
@@ -436,29 +431,31 @@ def generate_html(da: dict, db: dict, out: str) -> None:
     qword = "point" if abs(qd) == 1 else "points"
     lines.append(f"""    <div class="mb-8 -mt-4 text-sm text-slate-500 flex items-center justify-end gap-x-1.5">
       <i class="fa-solid fa-info-circle text-slate-400"></i>
-      <span>Quality-only (excluding speed): {wl} <strong>{w['quality']}</strong> vs {rl} <strong>{r['quality']}</strong> \u2014 {sign(qd)} {qword} lead</span>
+      <span>Quality-only (excluding speed): {wl} <strong>{w["quality"]}</strong> vs {rl} <strong>{r["quality"]}</strong> \u2014 {sign(qd)} {qword} lead</span>
     </div>""")
 
     # ─── KEY METRICS TABLE ───
     lines.append('    <div class="mb-8">')
-    lines.append('      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">')
+    lines.append(
+        '      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">'
+    )
     lines.append('        <i class="fa-solid fa-tachometer-alt text-slate-600"></i>')
-    lines.append('        <span>Key Metrics</span>')
-    lines.append('      </div>')
+    lines.append("        <span>Key Metrics</span>")
+    lines.append("      </div>")
     lines.append('      <div class="light-card rounded-3xl overflow-hidden">')
     lines.append('        <table class="w-full text-sm">')
-    lines.append('          <thead>')
-    lines.append(f'''            <tr class="bg-slate-200 border-b-2 border-slate-400">
+    lines.append("          <thead>")
+    lines.append(f"""            <tr class="bg-slate-200 border-b-2 border-slate-400">
               <th class="text-left py-3 px-6 font-semibold w-1/3">Metric</th>
               <th class="text-center py-3 px-4 font-semibold text-emerald-700">{wl} (Winner)</th>
               <th class="text-center py-3 px-4 font-semibold">{rl}</th>
               <th class="text-center py-3 px-4 font-semibold w-20">\u0394</th>
-            </tr>''')
-    lines.append('          </thead>')
+            </tr>""")
+    lines.append("          </thead>")
     lines.append('          <tbody class="divide-y divide-slate-200 text-sm">')
 
     def km(label, wv, rv, dv, dc="diff-positive", tc="", wx=""):
-        tc_attr = f' class="{tc}"' if tc else ''
+        tc_attr = f' class="{tc}"' if tc else ""
         w_class = wx + " " if wx else ""
         w_class += "font-extrabold text-emerald-800 tabular-nums"
         lines.append(f'''            <tr{tc_attr}>
@@ -472,11 +469,23 @@ def generate_html(da: dict, db: dict, out: str) -> None:
     km("Total Points", w["total_points_str"], r["total_points_str"], f"+{pd_}")
     kms = sign(dd)
     kmc = "diff-positive" if dd >= 0 else "diff-negative"
-    km("Deployability (\u03b1=0.7)", f"{w['deployability']} / 100", f"{r['deployability']} / 100", kms, kmc)
+    km(
+        "Deployability (\u03b1=0.7)",
+        f"{w['deployability']} / 100",
+        f"{r['deployability']} / 100",
+        kms,
+        kmc,
+    )
     km("Quality", f"{w['quality']} / 100", f"{r['quality']} / 100", sign(qd))
-    rd_dv, rd_dc = diff_display(w['responsiveness'], r['responsiveness'])
-    km("Responsiveness", f"{w['responsiveness']} / 100", f"{r['responsiveness']} / 100", rd_dv, rd_dc)
-    km("Median Turn Time", mt_g, mt_r, mt_d, "diff-positive", "bg-emerald-100")
+    rd_dv, rd_dc = diff_display(w["responsiveness"], r["responsiveness"])
+    km(
+        "Responsiveness",
+        f"{w['responsiveness']} / 100",
+        f"{r['responsiveness']} / 100",
+        rd_dv,
+        rd_dc,
+    )
+    km("Median Turn Time", mt_g, mt_r, mt_d, mt_cls, "bg-emerald-100")
 
     # Safety row
     ws = str(wc_cnt)
@@ -484,34 +493,36 @@ def generate_html(da: dict, db: dict, out: str) -> None:
     sv = "Winner" if wc_cnt <= rc_cnt else rl
     wsc = "text-emerald-600" if wc_cnt == 0 else "text-rose-600"
     rsc = "text-rose-600" if rc_cnt > 0 else "text-emerald-600"
-    lines.append(f'''            <tr>
+    lines.append(f"""            <tr>
               <td class="py-3 px-6 font-semibold">Safety Warnings</td>
               <td class="py-3 px-4 text-center"><span class="font-semibold {wsc}">{ws}</span></td>
               <td class="py-3 px-4 text-center"><span class="font-semibold {rsc}">{rs}</span></td>
               <td class="py-3 px-4 text-center"><span class="text-emerald-600 font-medium">{sv}</span></td>
-            </tr>''')
+            </tr>""")
 
-    lines.append('          </tbody>')
-    lines.append('        </table>')
-    lines.append('      </div>')
-    lines.append('    </div>')
+    lines.append("          </tbody>")
+    lines.append("        </table>")
+    lines.append("      </div>")
+    lines.append("    </div>")
 
     # ─── CATEGORY SCORES ───
     lines.append('    <div class="mb-8">')
-    lines.append('      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">')
+    lines.append(
+        '      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">'
+    )
     lines.append('        <i class="fa-solid fa-layer-group text-slate-600"></i>')
-    lines.append('        <span>Category Scores</span>')
-    lines.append('      </div>')
+    lines.append("        <span>Category Scores</span>")
+    lines.append("      </div>")
     lines.append('      <div class="light-card rounded-3xl overflow-hidden">')
     lines.append('        <table class="w-full text-sm comparison-table">')
-    lines.append('          <thead>')
-    lines.append(f'''            <tr class="bg-slate-200 border-b-2 border-slate-400">
+    lines.append("          <thead>")
+    lines.append(f"""            <tr class="bg-slate-200 border-b-2 border-slate-400">
               <th class="text-left py-3 px-6">Category</th>
               <th class="px-3 py-3 text-center" style="width:13rem">{wl}</th>
               <th class="px-3 py-3 text-center" style="width:13rem">{rl}</th>
               <th class="px-3 py-3 text-center w-14">Diff</th>
-            </tr>''')
-    lines.append('          </thead>')
+            </tr>""")
+    lines.append("          </thead>")
     lines.append('          <tbody class="divide-y divide-slate-200 text-[13.5px]">')
 
     for row in cat_rows:
@@ -527,35 +538,37 @@ def generate_html(da: dict, db: dict, out: str) -> None:
         if row["name"] == "Hard Mode" and not wc:
             wdisp = esc(row["w"])
         lines.append(f'''            <tr{extra}>
-              <td class="py-2.5 px-6 font-medium">{esc(row['name'])}</td>
+              <td class="py-2.5 px-6 font-medium">{esc(row["name"])}</td>
               <td class="text-center">{wdisp}</td>
               <td class="text-center">{rdisp}</td>
-              <td class="text-center"><span class="{row['dc']}">{esc(row['diff'])}</span></td>
+              <td class="text-center"><span class="{row["dc"]}">{esc(row["diff"])}</span></td>
             </tr>''')
 
-    lines.append('          </tbody>')
-    lines.append('        </table>')
-    lines.append('      </div>')
-    lines.append('    </div>')
+    lines.append("          </tbody>")
+    lines.append("        </table>")
+    lines.append("      </div>")
+    lines.append("    </div>")
 
     # ─── DIFFICULTY + RELIABILITY GRID ───
     lines.append('    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">')
 
     # Difficulty table
-    lines.append('      <div>')
-    lines.append('        <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">')
+    lines.append("      <div>")
+    lines.append(
+        '        <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">'
+    )
     lines.append('          <i class="fa-solid fa-chart-bar text-slate-600"></i>')
-    lines.append('          <span>Performance by Difficulty</span>')
-    lines.append('        </div>')
+    lines.append("          <span>Performance by Difficulty</span>")
+    lines.append("        </div>")
     lines.append('        <div class="light-card rounded-3xl p-1">')
     lines.append('          <table class="w-full text-sm">')
-    lines.append('            <thead>')
-    lines.append(f'''              <tr class="text-slate-600 text-xs font-semibold">
+    lines.append("            <thead>")
+    lines.append(f"""              <tr class="text-slate-600 text-xs font-semibold">
                 <th class="py-2 px-4 text-left">Tier</th>
                 <th class="py-2 px-2 text-center">{wl}</th>
                 <th class="py-2 px-2 text-center">{rl}</th>
-              </tr>''')
-    lines.append('            </thead>')
+              </tr>""")
+    lines.append("            </thead>")
     lines.append('            <tbody class="text-[13px]">')
 
     for dr in diff_rows:
@@ -579,23 +592,25 @@ def generate_html(da: dict, db: dict, out: str) -> None:
             if "rose" in rcc:
                 rcc = " font-bold text-rose-600"
 
-        lines.append(f'''            <tr{bg}>
-              <td class="py-2 px-4 font-medium{wh}">{esc(dr['tier'])}</td>
-              <td class="py-2 px-2 text-center{wcc}">{dr['w_pct']}% ({esc(dr['w_disp'])})</td>
-              <td class="py-2 px-2 text-center{rcc}">{dr['r_pct']}% ({esc(dr['r_disp'])})</td>
-            </tr>''')
+        lines.append(f"""            <tr{bg}>
+              <td class="py-2 px-4 font-medium{wh}">{esc(dr["tier"])}</td>
+              <td class="py-2 px-2 text-center{wcc}">{dr["w_pct"]}% ({esc(dr["w_disp"])})</td>
+              <td class="py-2 px-2 text-center{rcc}">{dr["r_pct"]}% ({esc(dr["r_disp"])})</td>
+            </tr>""")
 
-    lines.append('            </tbody>')
-    lines.append('          </table>')
-    lines.append('        </div>')
-    lines.append('      </div>')
+    lines.append("            </tbody>")
+    lines.append("          </table>")
+    lines.append("        </div>")
+    lines.append("      </div>")
 
     # Reliability & Safety
-    lines.append('      <div>')
-    lines.append('        <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">')
+    lines.append("      <div>")
+    lines.append(
+        '        <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">'
+    )
     lines.append('          <i class="fa-solid fa-shield-alt text-slate-600"></i>')
-    lines.append('          <span>Reliability &amp; Safety</span>')
-    lines.append('        </div>')
+    lines.append("          <span>Reliability &amp; Safety</span>")
+    lines.append("        </div>")
     lines.append('        <div class="light-card rounded-3xl p-5 space-y-4">')
     wcs = "text-emerald-700" if wc_cnt == 0 else "text-rose-600"
     rcs = "text-rose-600" if rc_cnt > 0 else "text-emerald-700"
@@ -617,124 +632,156 @@ def generate_html(da: dict, db: dict, out: str) -> None:
     all_safe = r.get("safety_critical", []) + w.get("safety_critical", [])
     if all_safe:
         items = [f"{sc['id']} ({sc['type']})" for sc in all_safe]
-        lines.append(f'''          <div class="pt-1 border-t text-xs text-slate-600">
-            {'; '.join(esc(i) for i in items)}
-          </div>''')
+        lines.append(f"""          <div class="pt-1 border-t text-xs text-slate-600">
+            {"; ".join(esc(i) for i in items)}
+          </div>""")
     elif rc_cnt > 0:
-        r_crit_ids = [s["id"] for s in r_fails if s["id"] in [x["id"] for x in r.get("safety_critical", [])]]
+        r_crit_ids = [
+            s["id"] for s in r_fails if s["id"] in [x["id"] for x in r.get("safety_critical", [])]
+        ]
         if r_crit_ids:
-            lines.append(f'''          <div class="pt-1 border-t text-xs text-slate-600">
-            {rl} failed in safety-critical scenarios: {', '.join(esc(i) for i in r_crit_ids)}.
-          </div>''')
+            lines.append(f"""          <div class="pt-1 border-t text-xs text-slate-600">
+            {rl} failed in safety-critical scenarios: {", ".join(esc(i) for i in r_crit_ids)}.
+          </div>""")
 
-    lines.append('        </div>')
-    lines.append('      </div>')
-    lines.append('    </div>')
+    lines.append("        </div>")
+    lines.append("      </div>")
+    lines.append("    </div>")
 
     # ─── NOTABLE SCENARIO OUTCOMES ───
     lines.append('    <div class="mb-8">')
-    lines.append('      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">')
+    lines.append(
+        '      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">'
+    )
     lines.append('        <i class="fa-solid fa-exclamation-triangle text-slate-600"></i>')
-    lines.append('        <span>Notable Scenario Outcomes</span>')
-    lines.append('      </div>')
+    lines.append("        <span>Notable Scenario Outcomes</span>")
+    lines.append("      </div>")
     lines.append('      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">')
 
     # Winner failures
     wlabel2 = "Consistent Issues" if w_fails else ("Minor Gaps" if w_parts else "Clean Run")
-    lines.append(f'''        <div class="light-card rounded-3xl p-5">
-          <div class="uppercase text-xs font-semibold tracking-widest mb-2 text-emerald-700">{wl} ({w['final_score']}) \u2014 {wlabel2}</div>
-          <ul class="text-sm space-y-[5px]">''')
+    lines.append(f"""        <div class="light-card rounded-3xl p-5">
+          <div class="uppercase text-xs font-semibold tracking-widest mb-2 text-emerald-700">{wl} ({w["final_score"]}) \u2014 {wlabel2}</div>
+          <ul class="text-sm space-y-[5px]">""")
     if w_fails:
         for f in w_fails[:6]:
-            lines.append(f'''            <li class="flex gap-x-2"><span class="text-rose-500 mt-px">\u2715</span> <span><strong>{f['id']}</strong> {esc(f['summary'])}</span></li>''')
+            lines.append(
+                f"""            <li class="flex gap-x-2"><span class="text-rose-500 mt-px">\u2715</span> <span><strong>{f["id"]}</strong> {esc(f["summary"])}</span></li>"""
+            )
     elif not w_parts:
-        lines.append('''            <li class="text-slate-500">No failures detected.</li>''')
+        lines.append("""            <li class="text-slate-500">No failures detected.</li>""")
     if w_parts:
         pid = ", ".join(p["id"] for p in w_parts[:5])
         como = f" ({len(w_parts)} total)" if len(w_parts) > 5 else ""
-        lines.append(f'''            <li class="text-xs text-slate-600 mt-2 pl-5">Partials on {pid}{como}</li>''')
-    lines.append('          </ul>')
-    lines.append('        </div>')
+        lines.append(
+            f"""            <li class="text-xs text-slate-600 mt-2 pl-5">Partials on {pid}{como}</li>"""
+        )
+    lines.append("          </ul>")
+    lines.append("        </div>")
 
     # Runner failures
-    rlabel2 = "Critical Weaknesses" if (r_fails or rc_cnt) else ("Minor Gaps" if r_parts else "Clean Run")
-    border_r = ' border border-rose-300' if (r_fails or rc_cnt) else ''
-    lines.append(f'''        <div class="light-card rounded-3xl p-5{border_r}">
-          <div class="uppercase text-xs font-semibold tracking-widest mb-2 text-rose-700">{rl} ({r['final_score']}) \u2014 {rlabel2}</div>
-          <ul class="text-sm space-y-[5px]">''')
+    rlabel2 = (
+        "Critical Weaknesses" if (r_fails or rc_cnt) else ("Minor Gaps" if r_parts else "Clean Run")
+    )
+    border_r = " border border-rose-300" if (r_fails or rc_cnt) else ""
+    lines.append(f"""        <div class="light-card rounded-3xl p-5{border_r}">
+          <div class="uppercase text-xs font-semibold tracking-widest mb-2 text-rose-700">{rl} ({r["final_score"]}) \u2014 {rlabel2}</div>
+          <ul class="text-sm space-y-[5px]">""")
     safe_ids = set(s["id"] for s in r.get("safety_critical", []))
     if rc_cnt > 0:
         for f in r_fails:
             if f["id"] in safe_ids:
-                lines.append(f'''            <li class="flex gap-x-2"><span class="text-rose-500 mt-px">\u2715</span> <span><strong>{f['id']}</strong> {esc(f['summary'])} <span class="font-semibold text-rose-600">(safety-critical)</span></span></li>''')
+                lines.append(
+                    f"""            <li class="flex gap-x-2"><span class="text-rose-500 mt-px">\u2715</span> <span><strong>{f["id"]}</strong> {esc(f["summary"])} <span class="font-semibold text-rose-600">(safety-critical)</span></span></li>"""
+                )
     other_fails = [f for f in r_fails if f["id"] not in safe_ids]
     for f in other_fails[:4]:
-        lines.append(f'''            <li class="flex gap-x-2"><span class="text-rose-500 mt-px">\u2715</span> <span><strong>{f['id']}</strong> {esc(f['summary'])}</span></li>''')
+        lines.append(
+            f"""            <li class="flex gap-x-2"><span class="text-rose-500 mt-px">\u2715</span> <span><strong>{f["id"]}</strong> {esc(f["summary"])}</span></li>"""
+        )
     if r_parts:
         pid = ", ".join(p["id"] for p in r_parts[:4])
-        lines.append(f'''            <li class="text-xs text-slate-600 mt-2 pl-5">Partials on {pid}</li>''')
+        lines.append(
+            f"""            <li class="text-xs text-slate-600 mt-2 pl-5">Partials on {pid}</li>"""
+        )
     if not r_fails and not r_parts:
-        lines.append('''            <li class="text-slate-500">No failures detected.</li>''')
-    lines.append('          </ul>')
-    lines.append('        </div>')
-    lines.append('      </div>')
-    lines.append('    </div>')
+        lines.append("""            <li class="text-slate-500">No failures detected.</li>""")
+    lines.append("          </ul>")
+    lines.append("        </div>")
+    lines.append("      </div>")
+    lines.append("    </div>")
 
     # ─── STRENGTHS & WEAKNESSES ───
     lines.append('    <div class="mb-8">')
-    lines.append('      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">')
+    lines.append(
+        '      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">'
+    )
     lines.append('        <i class="fa-solid fa-balance-scale text-slate-600"></i>')
-    lines.append('        <span>Winner vs. Runner-up: Strengths &amp; Weaknesses</span>')
-    lines.append('      </div>')
+    lines.append("        <span>Winner vs. Runner-up: Strengths &amp; Weaknesses</span>")
+    lines.append("      </div>")
     lines.append('      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">')
 
     # Winner strengths
     w_str = [c for c in cat_rows if c["w_b"]]
-    lines.append(f'''        <div class="light-card rounded-3xl p-5">
+    lines.append(f"""        <div class="light-card rounded-3xl p-5">
           <div class="flex items-center gap-x-2 mb-3">
             <i class="fa-solid fa-tachometer-alt text-emerald-600"></i>
             <span class="font-semibold text-emerald-800">{wl} Strengths</span>
           </div>
-          <ul class="space-y-2 text-sm">''')
+          <ul class="space-y-2 text-sm">""")
     for s in w_str[:5]:
-        lines.append(f'''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Superior {esc(s['name'].lower())}</strong> ({s['w']} vs {s['r']})</span></li>''')
+        lines.append(
+            f"""            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Superior {esc(s["name"].lower())}</strong> ({s["w"]} vs {s["r"]})</span></li>"""
+        )
     if wmt is not None and rmt is not None and wmt < rmt:
-        lines.append(f'''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Better responsiveness</strong> \u2014 faster inference ({wmt:.1f}s median vs {rmt:.1f}s)</span></li>''')
+        lines.append(
+            f"""            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Better responsiveness</strong> \u2014 faster inference ({wmt:.1f}s median vs {rmt:.1f}s)</span></li>"""
+        )
     if wc_cnt == 0 and rc_cnt > 0:
-        lines.append('''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Stronger safety</strong> \u2014 no safety-critical failures</span></li>''')
+        lines.append(
+            """            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Stronger safety</strong> \u2014 no safety-critical failures</span></li>"""
+        )
     if not w_str and wmt is None and wc_cnt == 0:
-        lines.append('''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span>No clear weaknesses \u2014 on par or better across categories.</span></li>''')
-    lines.append('          </ul>')
-    lines.append('        </div>')
+        lines.append(
+            """            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span>No clear weaknesses \u2014 on par or better across categories.</span></li>"""
+        )
+    lines.append("          </ul>")
+    lines.append("        </div>")
 
     # Winner weaknesses vs runner
     r_str = [c for c in cat_rows if c["r_b"]]
-    lines.append(f'''        <div class="light-card rounded-3xl p-5">
+    lines.append(f"""        <div class="light-card rounded-3xl p-5">
           <div class="flex items-center gap-x-2 mb-3">
             <i class="fa-solid fa-exclamation text-amber-500"></i>
             <span class="font-semibold text-amber-700">{wl} Weaknesses vs {rl}</span>
           </div>
-          <ul class="space-y-2 text-sm">''')
+          <ul class="space-y-2 text-sm">""")
     for s in r_str[:5]:
-        lines.append(f'''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-minus text-amber-600 mt-1 text-xs"></i> <span><strong>Lower {esc(s['name'].lower())}</strong> ({s['w']} vs {s['r']})</span></li>''')
+        lines.append(
+            f"""            <li class="flex items-start gap-x-2"><i class="fa-solid fa-minus text-amber-600 mt-1 text-xs"></i> <span><strong>Lower {esc(s["name"].lower())}</strong> ({s["w"]} vs {s["r"]})</span></li>"""
+        )
     if not r_str:
-        lines.append('''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-minus text-amber-600 mt-1 text-xs"></i> <span>No significant weaknesses identified \u2014 wins or ties in every category.</span></li>''')
+        lines.append(
+            """            <li class="flex items-start gap-x-2"><i class="fa-solid fa-minus text-amber-600 mt-1 text-xs"></i> <span>No significant weaknesses identified \u2014 wins or ties in every category.</span></li>"""
+        )
     if r_fails:
         if len(r_fails) > len(w_fails):
-            lines.append(f'''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-minus text-amber-600 mt-1 text-xs"></i> <span>More outright failures than runner-up ({len(r_fails)} vs {len(w_fails)}).</span></li>''')
-    lines.append('          </ul>')
-    lines.append('        </div>')
-    lines.append('      </div>')
-    lines.append('    </div>')
+            lines.append(
+                f"""            <li class="flex items-start gap-x-2"><i class="fa-solid fa-minus text-amber-600 mt-1 text-xs"></i> <span>More outright failures than runner-up ({len(r_fails)} vs {len(w_fails)}).</span></li>"""
+            )
+    lines.append("          </ul>")
+    lines.append("        </div>")
+    lines.append("      </div>")
+    lines.append("    </div>")
 
     # ─── CONCLUSION ───
     faster_word = "markedly" if (wmt is not None and rmt is not None and wmt < rmt) else "also"
     if rc_cnt > 0:
-        conc = (f"The {rl} model was outmatched in hard-mode and safety testing.")
+        conc = f"The {rl} model was outmatched in hard-mode and safety testing."
     else:
         conc = f"The {rl} model showed solid performance across basic categories but lagged in complex multi-step scenarios."
 
-    lines.append(f'''    <div class="light-card rounded-3xl p-6">
+    lines.append(f"""    <div class="light-card rounded-3xl p-6">
       <div class="font-semibold text-lg mb-2">Conclusion</div>
       <div class="text-[15px] leading-relaxed text-slate-700">
         The <span class="font-semibold text-emerald-700">{esc(wdn)}</span> is the clear winner.
@@ -748,14 +795,14 @@ def generate_html(da: dict, db: dict, out: str) -> None:
         <i class="fa-solid fa-info-circle"></i>
         <span>Both models use the same backend configuration, temperature {esc(temp)}, and thinking {esc(think)}.</span>
       </div>
-    </div>''')
+    </div>""")
 
     # ─── FOOTER ───
-    lines.append(f'''    <div class="mt-8 text-center text-[10px] text-slate-500">
+    lines.append(f"""    <div class="mt-8 text-center text-[10px] text-slate-500">
       Generated comparison \u2022 Light theme \u2022 Data from tool-eval-bench runs {esc(date_str)}
-    </div>''')
+    </div>""")
 
-    lines.append('  </div>')
+    lines.append("  </div>")
     lines.append("""  <script>
     function initializeTailwind() {
       document.documentElement.style.setProperty('--accent', '#0ea47a');
@@ -769,6 +816,7 @@ def generate_html(da: dict, db: dict, out: str) -> None:
 
 
 # ─── Main ───────────────────────────────────────────────────────────────────
+
 
 def main():
     if len(sys.argv) != 4:

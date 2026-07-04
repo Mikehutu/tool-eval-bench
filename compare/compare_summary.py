@@ -11,6 +11,7 @@ from pathlib import Path
 
 # ─── Parser ─────────────────────────────────────────────────────────────────
 
+
 def parse_summary(fp: str) -> dict:
     txt = Path(fp).read_text(encoding="utf-8")
     d: dict = {}
@@ -113,11 +114,13 @@ def _parse_cat_var(txt):
             except (ValueError, IndexError):
                 pass
         mean_pct = round(sum(trial_vals) / len(trial_vals)) if trial_vals else 0
-        rows.append({
-            "name": cols[1],
-            "mean": mean_pct,
-            "variance": variance_str,
-        })
+        rows.append(
+            {
+                "name": cols[1],
+                "mean": mean_pct,
+                "variance": variance_str,
+            }
+        )
     return rows
 
 
@@ -147,15 +150,17 @@ def _parse_summary_scenarios(txt):
         partials = sum(1 for r in trial_results if r == "⚠️")
         fails = sum(1 for r in trial_results if r == "❌")
 
-        rows.append({
-            "id": cols[1],
-            "trials": trial_results,
-            "passes": passes,
-            "partials": partials,
-            "fails": fails,
-            "passk": "✓" in passk,
-            "passk8": "✓" in passk8,
-        })
+        rows.append(
+            {
+                "id": cols[1],
+                "trials": trial_results,
+                "passes": passes,
+                "partials": partials,
+                "fails": fails,
+                "passk": "✓" in passk,
+                "passk8": "✓" in passk8,
+            }
+        )
     return rows
 
 
@@ -198,6 +203,7 @@ def _parse_consistent_partials(txt):
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
+
 def short_label(name: str, api: str) -> tuple:
     combined = f"{name} {api}".lower()
     if "nvfp4" in combined or ("nvidia" in combined and "fp4" in combined):
@@ -216,12 +222,7 @@ def dname(d: dict) -> str:
 
 
 def esc(s: str) -> str:
-    return (
-        s.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
 def sign(v: int) -> str:
@@ -245,10 +246,24 @@ def diff_display(wp, rp):
     return "\u2014", "text-slate-500"
 
 
+def turn_time_display(wmt, rmt, winner_raw, runner_raw):
+    if wmt is not None and rmt is not None:
+        delta = wmt - rmt
+        cls = "diff-positive" if delta <= 0 else "diff-negative"
+        return f"{wmt:.1f}s", f"{rmt:.1f}s", f"{delta:+.1f}s", cls
+    return winner_raw or "\u2014", runner_raw or "\u2014", "\u2014", "text-slate-500"
+
+
 def _pct_or_dash(value: str | None) -> str:
     if not value:
         return "\u2014"
     return f"{float(value):.1f}"
+
+
+def _pp_or_dash(value: float | None) -> str:
+    if value is None:
+        return "\u2014"
+    return f"{value:.1f}pp"
 
 
 def _is_infrastructure_failure(d: dict) -> bool:
@@ -316,8 +331,10 @@ HTML_FOOTER = """</body>\n</html>"""
 
 def generate_html(da: dict, db: dict, out: str) -> None:
     w, r = (da, db) if da["mean_score"] >= db["mean_score"] else (db, da)
-    wl, wd = short_label(w["model_name"], w["model_api"])
-    rl, rd = short_label(r["model_name"], r["model_api"])
+    wl_raw, wd = short_label(w["model_name"], w["model_api"])
+    rl_raw, rd = short_label(r["model_name"], r["model_api"])
+    wl = esc(wl_raw)
+    rl = esc(rl_raw)
     wdn, rdn = dname(w), dname(r)
 
     dates = sorted(set(d["date_short"] for d in (da, db) if d["date_short"]))
@@ -345,15 +362,9 @@ def generate_html(da: dict, db: dict, out: str) -> None:
     except (ValueError, TypeError):
         wmt = rmt = None
 
-    if wmt is not None and rmt is not None:
-        if wmt <= rmt:
-            mt_g, mt_r, mt_d = f"{wmt:.1f}s", f"{rmt:.1f}s", f"\u2212{rmt - wmt:.1f}s"
-        else:
-            mt_g, mt_r, mt_d = f"{rmt:.1f}s", f"{wmt:.1f}s", f"\u2212{wmt - rmt:.1f}s"
-    else:
-        mt_g = w.get("median_turn", "\u2014") or "\u2014"
-        mt_r = r.get("median_turn", "\u2014") or "\u2014"
-        mt_d = "\u2014"
+    mt_g, mt_r, mt_d, mt_cls = turn_time_display(
+        wmt, rmt, w.get("median_turn"), r.get("median_turn")
+    )
 
     # Safety
     w_safe_max = max(w["safety_warnings"]) if w["safety_warnings"] else 0
@@ -384,17 +395,19 @@ def generate_html(da: dict, db: dict, out: str) -> None:
         wp = wc["mean"]
         rpv = rp.get("mean", 0)
         dv, dc = diff_display(wp, rpv)
-        cat_rows.append({
-            "name": wc["name"],
-            "w": f"{int(wp)}%",
-            "r": f"{int(rpv)}%",
-            "w_v": wc.get("variance", ""),
-            "r_v": rp.get("variance", ""),
-            "w_b": wp > rpv,
-            "r_b": wp < rpv,
-            "diff": dv,
-            "dc": dc,
-        })
+        cat_rows.append(
+            {
+                "name": wc["name"],
+                "w": f"{int(wp)}%",
+                "r": f"{int(rpv)}%",
+                "w_v": wc.get("variance", ""),
+                "r_v": rp.get("variance", ""),
+                "w_b": wp > rpv,
+                "r_b": wp < rpv,
+                "diff": dv,
+                "dc": dc,
+            }
+        )
 
     temp = da.get("temperature") or "?"
     think = da.get("thinking") or "?"
@@ -422,7 +435,7 @@ def generate_html(da: dict, db: dict, out: str) -> None:
       <div class="text-right text-sm">
         <div class="text-slate-600">Date of runs</div>
         <div class="font-semibold text-slate-800">{esc(date_str)}</div>
-        { f'<div class="text-xs text-slate-400 mt-0.5">tool-eval-bench {esc(ver)}</div>' if ver else '' }
+        {f'<div class="text-xs text-slate-400 mt-0.5">tool-eval-bench {esc(ver)}</div>' if ver else ""}
       </div>
     </div>""")
 
@@ -503,7 +516,7 @@ def generate_html(da: dict, db: dict, out: str) -> None:
         <i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5"></i>
         <div>
           <div class="font-semibold">Invalid or infrastructure-failed run detected</div>
-          <div class="text-sm mt-1">{'<br>'.join(warn_models)}</div>
+          <div class="text-sm mt-1">{"<br>".join(warn_models)}</div>
           <div class="text-sm mt-2 text-amber-800">A 0.0 score here reflects server/connection failures, not model capability. Re-run the affected benchmark before drawing conclusions.</div>
         </div>
       </div>
@@ -522,24 +535,26 @@ def generate_html(da: dict, db: dict, out: str) -> None:
 
     # ─── KEY METRICS ───
     lines.append('    <div class="mb-8">')
-    lines.append('      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">')
+    lines.append(
+        '      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">'
+    )
     lines.append('        <i class="fa-solid fa-tachometer-alt text-slate-600"></i>')
-    lines.append('        <span>Key Metrics</span>')
-    lines.append('      </div>')
+    lines.append("        <span>Key Metrics</span>")
+    lines.append("      </div>")
     lines.append('      <div class="light-card rounded-3xl overflow-hidden">')
     lines.append('        <table class="w-full text-sm">')
-    lines.append('          <thead>')
-    lines.append(f'''            <tr class="bg-slate-200 border-b-2 border-slate-400">
+    lines.append("          <thead>")
+    lines.append(f"""            <tr class="bg-slate-200 border-b-2 border-slate-400">
               <th class="text-left py-3 px-6 font-semibold w-1/3">Metric</th>
               <th class="text-center py-3 px-4 font-semibold text-emerald-700">{wl} (Winner)</th>
               <th class="text-center py-3 px-4 font-semibold">{rl}</th>
               <th class="text-center py-3 px-4 font-semibold w-20">\u0394</th>
-            </tr>''')
-    lines.append('          </thead>')
+            </tr>""")
+    lines.append("          </thead>")
     lines.append('          <tbody class="divide-y divide-slate-200 text-sm">')
 
     def km(label, wv, rv, dv, dc="diff-positive", tc="", wx=""):
-        tc_attr = f' class="{tc}"' if tc else ''
+        tc_attr = f' class="{tc}"' if tc else ""
         w_class = wx + " " if wx else ""
         w_class += "font-extrabold text-emerald-800 tabular-nums"
         lines.append(f'''            <tr{tc_attr}>
@@ -549,19 +564,35 @@ def generate_html(da: dict, db: dict, out: str) -> None:
               <td class="py-3 px-4 text-center"><span class="{dc}">{esc(dv)}</span></td>
             </tr>''')
 
-    km("Mean Score", f'{w["mean_score"]:.1f}', f'{r["mean_score"]:.1f}', f'+{diff_score:.1f}', wx="text-lg")
+    km(
+        "Mean Score",
+        f"{w['mean_score']:.1f}",
+        f"{r['mean_score']:.1f}",
+        f"+{diff_score:.1f}",
+        wx="text-lg",
+    )
     std_delta = round(w["std_score"] - r["std_score"], 1)
-    std_delta_text = f'{"-" if std_delta < 0 else "+"}{abs(std_delta)}'
-    km("Std Dev", f'\u00b1{w["std_score"]:.1f}', f'\u00b1{r["std_score"]:.1f}',
-       std_delta_text,
-       "diff-positive" if w["std_score"] <= r["std_score"] else "diff-negative")
-    km("Mean Points", f'{w["mean_points"]:.1f}', f'{r["mean_points"]:.1f}', f'+{diff_pts:.1f}')
+    std_delta_text = f"{'-' if std_delta < 0 else '+'}{abs(std_delta)}"
+    km(
+        "Std Dev",
+        f"\u00b1{w['std_score']:.1f}",
+        f"\u00b1{r['std_score']:.1f}",
+        std_delta_text,
+        "diff-positive" if w["std_score"] <= r["std_score"] else "diff-negative",
+    )
+    km("Mean Points", f"{w['mean_points']:.1f}", f"{r['mean_points']:.1f}", f"+{diff_pts:.1f}")
     deploy_sign = sign(dd)
     deploy_cls = "diff-positive" if dd >= 0 else "diff-negative"
-    km("Deployability (\u03b1=0.7)", f'{w_deploy} / 100', f'{r_deploy} / 100', deploy_sign, deploy_cls)
-    km("Quality", f'{w_quality} / 100', f'{r_quality} / 100', sign(qd))
-    km("Responsiveness", f'{w_resp} / 100', f'{r_resp} / 100', sign(rd_))
-    km("Median Turn Time", mt_g, mt_r, mt_d, "diff-positive", "bg-emerald-100")
+    km(
+        "Deployability (\u03b1=0.7)",
+        f"{w_deploy} / 100",
+        f"{r_deploy} / 100",
+        deploy_sign,
+        deploy_cls,
+    )
+    km("Quality", f"{w_quality} / 100", f"{r_quality} / 100", sign(qd))
+    km("Responsiveness", f"{w_resp} / 100", f"{r_resp} / 100", sign(rd_))
+    km("Median Turn Time", mt_g, mt_r, mt_d, mt_cls, "bg-emerald-100")
 
     # Safety row
     w_safe_str = str(w_safe_max)
@@ -569,12 +600,12 @@ def generate_html(da: dict, db: dict, out: str) -> None:
     sv = "Winner" if w_safe_max <= r_safe_max else rl
     wsc = "text-emerald-600" if w_safe_max == 0 else "text-rose-600"
     rsc = "text-rose-600" if r_safe_max > 0 else "text-emerald-600"
-    lines.append(f'''            <tr>
+    lines.append(f"""            <tr>
               <td class="py-3 px-6 font-semibold">Safety Warnings (max)</td>
               <td class="py-3 px-4 text-center"><span class="font-semibold {wsc}">{w_safe_str}</span></td>
               <td class="py-3 px-4 text-center"><span class="font-semibold {rsc}">{r_safe_str}</span></td>
               <td class="py-3 px-4 text-center"><span class="text-emerald-600 font-medium">{sv}</span></td>
-            </tr>''')
+            </tr>""")
 
     # Reliability row
     if w_pass8 is not None and r_pass8 is not None:
@@ -585,11 +616,7 @@ def generate_html(da: dict, db: dict, out: str) -> None:
             reliability_delta_text = f"{reliability_delta:.1f}"
         else:
             reliability_delta_text = "\u2014"
-        reliability_cls = (
-            pct_cls(w_pass8, r_pass8)
-            if w_pass8 != r_pass8
-            else "text-slate-500"
-        )
+        reliability_cls = pct_cls(w_pass8, r_pass8) if w_pass8 != r_pass8 else "text-slate-500"
         lines.append(f'''            <tr>
               <td class="py-3 px-6 font-semibold">Reliability (Pass\u2078)</td>
               <td class="py-3 px-4 text-center"><span class="font-semibold text-emerald-700">{w_pass8:.1f}%</span></td>
@@ -597,22 +624,24 @@ def generate_html(da: dict, db: dict, out: str) -> None:
               <td class="py-3 px-4 text-center"><span class="{reliability_cls}">{reliability_delta_text}</span></td>
             </tr>''')
 
-    lines.append('          </tbody>')
-    lines.append('        </table>')
-    lines.append('      </div>')
-    lines.append('    </div>')
+    lines.append("          </tbody>")
+    lines.append("        </table>")
+    lines.append("      </div>")
+    lines.append("    </div>")
 
     # ─── RELIABILITY SECTION ───
     lines.append('    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">')
 
     # Reliability card
-    lines.append('      <div>')
-    lines.append('        <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">')
+    lines.append("      <div>")
+    lines.append(
+        '        <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">'
+    )
     lines.append('          <i class="fa-solid fa-shield-alt text-slate-600"></i>')
-    lines.append('          <span>Reliability &amp; Safety</span>')
-    lines.append('        </div>')
+    lines.append("          <span>Reliability &amp; Safety</span>")
+    lines.append("        </div>")
     lines.append('        <div class="light-card rounded-3xl p-5 space-y-4">')
-    lines.append(f'''          <div class="flex justify-between items-center">
+    lines.append(f"""          <div class="flex justify-between items-center">
             <div>
               <div class="text-sm font-medium">Reliability floor (Pass\u2078)</div>
             </div>
@@ -620,18 +649,18 @@ def generate_html(da: dict, db: dict, out: str) -> None:
               <div class="font-semibold tabular-nums">{wl}: {_pct_or_dash(w.get("pass_8"))}%</div>
               <div class="text-xs text-slate-500">{rl}: {_pct_or_dash(r.get("pass_8"))}%</div>
             </div>
-          </div>''')
+          </div>""")
 
     if w_gap is not None or r_gap is not None:
-        lines.append(f'''          <div class="flex justify-between items-center">
+        lines.append(f"""          <div class="flex justify-between items-center">
             <div>
               <div class="text-sm font-medium">Reliability gap (Pass@\u2088 \u2212 Pass\u2078)</div>
             </div>
             <div class="text-right">
-              <div class="font-semibold tabular-nums">{wl}: {w_gap:.1f}pp</div>
-              <div class="text-xs text-slate-500">{rl}: {r_gap:.1f}pp</div>
+              <div class="font-semibold tabular-nums">{wl}: {_pp_or_dash(w_gap)}</div>
+              <div class="text-xs text-slate-500">{rl}: {_pp_or_dash(r_gap)}</div>
             </div>
-          </div>''')
+          </div>""")
 
     lines.append(f'''          <div>
             <div class="flex justify-between text-sm mb-1">
@@ -647,21 +676,33 @@ def generate_html(da: dict, db: dict, out: str) -> None:
             </div>
           </div>''')
 
-    lines.append('        </div>')
-    lines.append('      </div>')
+    lines.append("        </div>")
+    lines.append("      </div>")
 
     # Stability card
-    lines.append('      <div>')
-    lines.append('        <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">')
+    lines.append("      <div>")
+    lines.append(
+        '        <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">'
+    )
     lines.append('          <i class="fa-solid fa-chart-bar text-slate-600"></i>')
-    lines.append('          <span>Stability &amp; Consistency</span>')
-    lines.append('        </div>')
+    lines.append("          <span>Stability &amp; Consistency</span>")
+    lines.append("        </div>")
     lines.append('        <div class="light-card rounded-3xl p-5 space-y-4">')
 
-    w_var_count = sum(1 for c in w["categories"] if "zero" not in c.get("variance", "").lower() and "variance" not in c.get("variance", "").lower())
-    r_var_count = sum(1 for c in r["categories"] if "zero" not in c.get("variance", "").lower() and "variance" not in c.get("variance", "").lower())
+    w_var_count = sum(
+        1
+        for c in w["categories"]
+        if "zero" not in c.get("variance", "").lower()
+        and "variance" not in c.get("variance", "").lower()
+    )
+    r_var_count = sum(
+        1
+        for c in r["categories"]
+        if "zero" not in c.get("variance", "").lower()
+        and "variance" not in c.get("variance", "").lower()
+    )
 
-    lines.append(f'''          <div>
+    lines.append(f"""          <div>
             <div class="text-sm font-medium mb-2">Categories with variance</div>
             <div class="flex items-center gap-x-3">
               <div class="flex-1">
@@ -671,32 +712,34 @@ def generate_html(da: dict, db: dict, out: str) -> None:
                 <div class="text-sm">{rl}: <strong>{r_var_count}</strong> / {len(r["categories"])}</div>
               </div>
             </div>
-          </div>''')
+          </div>""")
 
-    lines.append('''          <div class="pt-1 border-t text-xs text-slate-600">
+    lines.append("""          <div class="pt-1 border-t text-xs text-slate-600">
             Lower variance categories indicate more consistent performance across trials.
-          </div>''')
+          </div>""")
 
-    lines.append('        </div>')
-    lines.append('      </div>')
-    lines.append('    </div>')
+    lines.append("        </div>")
+    lines.append("      </div>")
+    lines.append("    </div>")
 
     # ─── CATEGORY SCORES ───
     lines.append('    <div class="mb-8">')
-    lines.append('      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">')
+    lines.append(
+        '      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">'
+    )
     lines.append('        <i class="fa-solid fa-layer-group text-slate-600"></i>')
-    lines.append('        <span>Category Mean Scores</span>')
-    lines.append('      </div>')
+    lines.append("        <span>Category Mean Scores</span>")
+    lines.append("      </div>")
     lines.append('      <div class="light-card rounded-3xl overflow-hidden">')
     lines.append('        <table class="w-full text-sm comparison-table">')
-    lines.append('          <thead>')
-    lines.append(f'''            <tr class="bg-slate-200 border-b-2 border-slate-400">
+    lines.append("          <thead>")
+    lines.append(f"""            <tr class="bg-slate-200 border-b-2 border-slate-400">
               <th class="text-left py-3 px-6">Category</th>
               <th class="px-3 py-3 text-center" style="width:13rem">{wl}</th>
               <th class="px-3 py-3 text-center" style="width:13rem">{rl}</th>
               <th class="px-3 py-3 text-center w-14">Diff</th>
-            </tr>''')
-    lines.append('          </thead>')
+            </tr>""")
+    lines.append("          </thead>")
     lines.append('          <tbody class="divide-y divide-slate-200 text-[13.5px]">')
 
     for row in cat_rows:
@@ -706,121 +749,169 @@ def generate_html(da: dict, db: dict, out: str) -> None:
         wdisp = f'<span class="{wc}">{esc(row["w"])}</span>' if wc else esc(row["w"])
         rdisp = f'<span class="{rc}">{esc(row["r"])}</span>' if rc else esc(row["r"])
         lines.append(f'''            <tr{extra}>
-              <td class="py-2.5 px-6 font-medium">{esc(row['name'])}</td>
+              <td class="py-2.5 px-6 font-medium">{esc(row["name"])}</td>
               <td class="text-center">{wdisp}</td>
               <td class="text-center">{rdisp}</td>
-              <td class="text-center"><span class="{row['dc']}">{esc(row['diff'])}</span></td>
+              <td class="text-center"><span class="{row["dc"]}">{esc(row["diff"])}</span></td>
             </tr>''')
 
-    lines.append('          </tbody>')
-    lines.append('        </table>')
-    lines.append('      </div>')
-    lines.append('    </div>')
+    lines.append("          </tbody>")
+    lines.append("        </table>")
+    lines.append("      </div>")
+    lines.append("    </div>")
 
     # ─── NEVER PASSES / FLAKY / PARTIALS ───
     lines.append('    <div class="mb-8">')
-    lines.append('      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">')
+    lines.append(
+        '      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">'
+    )
     lines.append('        <i class="fa-solid fa-exclamation-triangle text-slate-600"></i>')
-    lines.append('        <span>Scenario Reliability Analysis</span>')
-    lines.append('      </div>')
+    lines.append("        <span>Scenario Reliability Analysis</span>")
+    lines.append("      </div>")
     lines.append('      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">')
 
     # Winner failures
     w_np_list = w.get("never_passes", [])
     w_flaky_list = w.get("flaky", [])
     w_cp_list = w.get("consistent_partials", [])
-    lines.append(f'''        <div class="light-card rounded-3xl p-5">
+    lines.append(f"""        <div class="light-card rounded-3xl p-5">
           <div class="uppercase text-xs font-semibold tracking-widest mb-2 text-emerald-700">{wl} ({w["mean_score"]:.0f} mean)</div>
-          <ul class="text-sm space-y-[5px]">''')
+          <ul class="text-sm space-y-[5px]">""")
     if w_np_list:
-        lines.append(f'''            <li class="text-xs font-semibold text-rose-600 mt-2">Never passes ({len(w_np_list)}):</li>''')
+        lines.append(
+            f"""            <li class="text-xs font-semibold text-rose-600 mt-2">Never passes ({len(w_np_list)}):</li>"""
+        )
         for s in w_np_list[:4]:
-            lines.append(f'''            <li class="flex gap-x-2"><span class="text-rose-500 mt-px">\u2715</span> <span><strong>{esc(s['id'])}</strong> {esc(s['issue'][:80])}</span></li>''')
+            lines.append(
+                f"""            <li class="flex gap-x-2"><span class="text-rose-500 mt-px">\u2715</span> <span><strong>{esc(s["id"])}</strong> {esc(s["issue"][:80])}</span></li>"""
+            )
     if w_flaky_list:
-        lines.append(f'''            <li class="text-xs font-semibold text-amber-600 mt-2">Flaky ({len(w_flaky_list)}):</li>''')
+        lines.append(
+            f"""            <li class="text-xs font-semibold text-amber-600 mt-2">Flaky ({len(w_flaky_list)}):</li>"""
+        )
         for s in w_flaky_list[:4]:
-            lines.append(f'''            <li class="flex gap-x-2"><span class="text-amber-500 mt-px">\u21c4</span> <span><strong>{esc(s['id'])}</strong></span></li>''')
+            lines.append(
+                f"""            <li class="flex gap-x-2"><span class="text-amber-500 mt-px">\u21c4</span> <span><strong>{esc(s["id"])}</strong></span></li>"""
+            )
     if w_cp_list:
-        lines.append(f'''            <li class="text-xs font-semibold text-amber-600 mt-2">Consistent partials ({len(w_cp_list)}):</li>''')
+        lines.append(
+            f"""            <li class="text-xs font-semibold text-amber-600 mt-2">Consistent partials ({len(w_cp_list)}):</li>"""
+        )
         for s in w_cp_list[:4]:
-            lines.append(f'''            <li class="flex gap-x-2"><span class="text-amber-500 mt-px">\u26a0</span> <span><strong>{esc(s['id'])}</strong> {esc(s['issue'][:80])}</span></li>''')
+            lines.append(
+                f"""            <li class="flex gap-x-2"><span class="text-amber-500 mt-px">\u26a0</span> <span><strong>{esc(s["id"])}</strong> {esc(s["issue"][:80])}</span></li>"""
+            )
     if not w_np_list and not w_flaky_list and not w_cp_list:
-        lines.append('''            <li class="text-slate-500">No reliability issues detected.</li>''')
-    lines.append('          </ul>')
-    lines.append('        </div>')
+        lines.append(
+            """            <li class="text-slate-500">No reliability issues detected.</li>"""
+        )
+    lines.append("          </ul>")
+    lines.append("        </div>")
 
     # Runner failures
     r_np_list = r.get("never_passes", [])
     r_flaky_list = r.get("flaky", [])
     r_cp_list = r.get("consistent_partials", [])
-    border_r = ' border border-rose-300' if r_np_list else ''
-    lines.append(f'''        <div class="light-card rounded-3xl p-5{border_r}">
+    border_r = " border border-rose-300" if r_np_list else ""
+    lines.append(f"""        <div class="light-card rounded-3xl p-5{border_r}">
           <div class="uppercase text-xs font-semibold tracking-widest mb-2 text-rose-700">{rl} ({r["mean_score"]:.0f} mean)</div>
-          <ul class="text-sm space-y-[5px]">''')
+          <ul class="text-sm space-y-[5px]">""")
     if r_np_list:
-        lines.append(f'''            <li class="text-xs font-semibold text-rose-600 mt-2">Never passes ({len(r_np_list)}):</li>''')
+        lines.append(
+            f"""            <li class="text-xs font-semibold text-rose-600 mt-2">Never passes ({len(r_np_list)}):</li>"""
+        )
         for s in r_np_list[:5]:
-            lines.append(f'''            <li class="flex gap-x-2"><span class="text-rose-500 mt-px">\u2715</span> <span><strong>{esc(s['id'])}</strong> {esc(s['issue'][:80])}</span></li>''')
+            lines.append(
+                f"""            <li class="flex gap-x-2"><span class="text-rose-500 mt-px">\u2715</span> <span><strong>{esc(s["id"])}</strong> {esc(s["issue"][:80])}</span></li>"""
+            )
     if r_flaky_list:
-        lines.append(f'''            <li class="text-xs font-semibold text-amber-600 mt-2">Flaky ({len(r_flaky_list)}):</li>''')
+        lines.append(
+            f"""            <li class="text-xs font-semibold text-amber-600 mt-2">Flaky ({len(r_flaky_list)}):</li>"""
+        )
         for s in r_flaky_list[:4]:
-            lines.append(f'''            <li class="flex gap-x-2"><span class="text-amber-500 mt-px">\u21c4</span> <span><strong>{esc(s['id'])}</strong></span></li>''')
+            lines.append(
+                f"""            <li class="flex gap-x-2"><span class="text-amber-500 mt-px">\u21c4</span> <span><strong>{esc(s["id"])}</strong></span></li>"""
+            )
     if r_cp_list:
-        lines.append(f'''            <li class="text-xs font-semibold text-amber-600 mt-2">Consistent partials ({len(r_cp_list)}):</li>''')
+        lines.append(
+            f"""            <li class="text-xs font-semibold text-amber-600 mt-2">Consistent partials ({len(r_cp_list)}):</li>"""
+        )
         for s in r_cp_list[:4]:
-            lines.append(f'''            <li class="flex gap-x-2"><span class="text-amber-500 mt-px">\u26a0</span> <span><strong>{esc(s['id'])}</strong> {esc(s['issue'][:80])}</span></li>''')
+            lines.append(
+                f"""            <li class="flex gap-x-2"><span class="text-amber-500 mt-px">\u26a0</span> <span><strong>{esc(s["id"])}</strong> {esc(s["issue"][:80])}</span></li>"""
+            )
     if not r_np_list and not r_flaky_list and not r_cp_list:
-        lines.append('''            <li class="text-slate-500">No reliability issues detected.</li>''')
-    lines.append('          </ul>')
-    lines.append('        </div>')
-    lines.append('      </div>')
-    lines.append('    </div>')
+        lines.append(
+            """            <li class="text-slate-500">No reliability issues detected.</li>"""
+        )
+    lines.append("          </ul>")
+    lines.append("        </div>")
+    lines.append("      </div>")
+    lines.append("    </div>")
 
     # ─── STRENGTHS & WEAKNESSES ───
     lines.append('    <div class="mb-8">')
-    lines.append('      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">')
+    lines.append(
+        '      <div class="section-header font-semibold mb-3 px-1 flex items-center gap-x-2 text-slate-800">'
+    )
     lines.append('        <i class="fa-solid fa-balance-scale text-slate-600"></i>')
-    lines.append('        <span>Winner vs. Runner-up: Strengths &amp; Weaknesses</span>')
-    lines.append('      </div>')
+    lines.append("        <span>Winner vs. Runner-up: Strengths &amp; Weaknesses</span>")
+    lines.append("      </div>")
     lines.append('      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">')
 
     w_str = [c for c in cat_rows if c["w_b"]]
-    lines.append(f'''        <div class="light-card rounded-3xl p-5">
+    lines.append(f"""        <div class="light-card rounded-3xl p-5">
           <div class="flex items-center gap-x-2 mb-3">
             <i class="fa-solid fa-tachometer-alt text-emerald-600"></i>
             <span class="font-semibold text-emerald-800">{wl} Strengths</span>
           </div>
-          <ul class="space-y-2 text-sm">''')
+          <ul class="space-y-2 text-sm">""")
     for s in w_str[:5]:
-        lines.append(f'''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Superior {esc(s['name'].lower())}</strong> ({s['w']} vs {s['r']})</span></li>''')
+        lines.append(
+            f"""            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Superior {esc(s["name"].lower())}</strong> ({s["w"]} vs {s["r"]})</span></li>"""
+        )
     if w_pass8 is not None and r_pass8 is not None and w_pass8 > r_pass8:
-        lines.append(f'''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Higher reliability floor</strong> ({w_pass8:.1f}% vs {r_pass8:.1f}%)</span></li>''')
+        lines.append(
+            f"""            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Higher reliability floor</strong> ({w_pass8:.1f}% vs {r_pass8:.1f}%)</span></li>"""
+        )
     if wmt is not None and rmt is not None and wmt < rmt:
-        lines.append(f'''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Faster inference</strong> ({wmt:.1f}s median vs {rmt:.1f}s)</span></li>''')
+        lines.append(
+            f"""            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Faster inference</strong> ({wmt:.1f}s median vs {rmt:.1f}s)</span></li>"""
+        )
     if w_safe_max == 0 and r_safe_max > 0:
-        lines.append('''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Stronger safety</strong> \u2014 no safety-critical failures</span></li>''')
+        lines.append(
+            """            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span><strong>Stronger safety</strong> \u2014 no safety-critical failures</span></li>"""
+        )
     if not w_str and w_pass8 is None:
-        lines.append('''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span>On par or better across categories.</span></li>''')
-    lines.append('          </ul>')
-    lines.append('        </div>')
+        lines.append(
+            """            <li class="flex items-start gap-x-2"><i class="fa-solid fa-check text-emerald-600 mt-1 text-xs"></i> <span>On par or better across categories.</span></li>"""
+        )
+    lines.append("          </ul>")
+    lines.append("        </div>")
 
     r_str = [c for c in cat_rows if c["r_b"]]
-    lines.append(f'''        <div class="light-card rounded-3xl p-5">
+    lines.append(f"""        <div class="light-card rounded-3xl p-5">
           <div class="flex items-center gap-x-2 mb-3">
             <i class="fa-solid fa-exclamation text-amber-500"></i>
             <span class="font-semibold text-amber-700">{wl} Weaknesses vs {rl}</span>
           </div>
-          <ul class="space-y-2 text-sm">''')
+          <ul class="space-y-2 text-sm">""")
     for s in r_str[:5]:
-        lines.append(f'''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-minus text-amber-600 mt-1 text-xs"></i> <span><strong>Lower {esc(s['name'].lower())}</strong> ({s['w']} vs {s['r']})</span></li>''')
+        lines.append(
+            f"""            <li class="flex items-start gap-x-2"><i class="fa-solid fa-minus text-amber-600 mt-1 text-xs"></i> <span><strong>Lower {esc(s["name"].lower())}</strong> ({s["w"]} vs {s["r"]})</span></li>"""
+        )
     if not r_str:
-        lines.append('''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-minus text-amber-600 mt-1 text-xs"></i> <span>No significant weaknesses \u2014 wins or ties in every category.</span></li>''')
+        lines.append(
+            """            <li class="flex items-start gap-x-2"><i class="fa-solid fa-minus text-amber-600 mt-1 text-xs"></i> <span>No significant weaknesses \u2014 wins or ties in every category.</span></li>"""
+        )
     if r_np_list and not w_np_list:
-        lines.append(f'''            <li class="flex items-start gap-x-2"><i class="fa-solid fa-minus text-amber-600 mt-1 text-xs"></i> <span>Has never-pass scenarios ({len(r_np_list)} vs 0).</span></li>''')
-    lines.append('          </ul>')
-    lines.append('        </div>')
-    lines.append('      </div>')
-    lines.append('    </div>')
+        lines.append(
+            f"""            <li class="flex items-start gap-x-2"><i class="fa-solid fa-minus text-amber-600 mt-1 text-xs"></i> <span>Has never-pass scenarios ({len(r_np_list)} vs 0).</span></li>"""
+        )
+    lines.append("          </ul>")
+    lines.append("        </div>")
+    lines.append("      </div>")
+    lines.append("    </div>")
 
     # ─── CONCLUSION ───
     if r_safe_max > 0:
@@ -828,7 +919,7 @@ def generate_html(da: dict, db: dict, out: str) -> None:
     else:
         conc = f"The {rl} model showed competitive scores but lagged in consistency."
 
-    lines.append(f'''    <div class="light-card rounded-3xl p-6">
+    lines.append(f"""    <div class="light-card rounded-3xl p-6">
       <div class="font-semibold text-lg mb-2">Conclusion</div>
       <div class="text-[15px] leading-relaxed text-slate-700">
         The <span class="font-semibold text-emerald-700">{esc(wdn)}</span> is the clear winner across {w["trials"]} trials.
@@ -843,14 +934,14 @@ def generate_html(da: dict, db: dict, out: str) -> None:
         <i class="fa-solid fa-info-circle"></i>
         <span>Both models use the same backend configuration, temperature {esc(temp)}, and thinking {esc(think)}.</span>
       </div>
-    </div>''')
+    </div>""")
 
     # ─── FOOTER ───
-    lines.append(f'''    <div class="mt-8 text-center text-[10px] text-slate-500">
+    lines.append(f"""    <div class="mt-8 text-center text-[10px] text-slate-500">
       Generated comparison \u2022 Light theme \u2022 Cross-trial summaries from tool-eval-bench runs {esc(date_str)}
-    </div>''')
+    </div>""")
 
-    lines.append('  </div>')
+    lines.append("  </div>")
     lines.append("""  <script>
     function initializeTailwind() {
       document.documentElement.style.setProperty('--accent', '#0ea47a');
@@ -864,6 +955,7 @@ def generate_html(da: dict, db: dict, out: str) -> None:
 
 
 # ─── Main ───────────────────────────────────────────────────────────────────
+
 
 def main():
     if len(sys.argv) != 4:
