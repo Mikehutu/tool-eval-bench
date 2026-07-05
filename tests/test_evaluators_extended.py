@@ -61,7 +61,10 @@ class TestTC02:
     sc = _sc("TC-02")
 
     def test_pass(self) -> None:
-        s = _state(tool_calls=[{"name": "get_stock_price", "arguments": {"ticker": "AAPL"}}])
+        s = _state(
+            tool_calls=[{"name": "get_stock_price", "arguments": {"ticker": "AAPL"}}],
+            final_answer="AAPL is currently trading at $187.42, up +1.23 (+0.66%).",
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
     def test_partial_extra_web(self) -> None:
@@ -228,7 +231,11 @@ class TestTC06:
                         "target_language": "Japanese",
                     },
                 },
-            ]
+            ],
+            final_answer=(
+                "Spanish: ¿Dónde está el hospital más cercano?\n"
+                "Japanese: 最寄りの病院はどこですか？"
+            ),
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
@@ -1047,7 +1054,10 @@ class TestTC37:
     sc = _sc("TC-37")
 
     def test_pass(self) -> None:
-        s = _state(tool_calls=[{"name": "get_weather", "arguments": {"location": "Berlin"}}])
+        s = _state(
+            tool_calls=[{"name": "get_weather", "arguments": {"location": "Berlin"}}],
+            final_answer="Berlin is currently 8°C and overcast.",
+        )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
     def test_partial_extra_tool(self) -> None:

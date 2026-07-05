@@ -117,7 +117,14 @@ def _tc01_eval(state: ScenarioState) -> ScenarioEvaluation:
     )
     used_web = _has_tool_call(state, "web_search")
     if used_weather and not used_web and len(state.tool_calls) == 1:
-        return _pass("Used get_weather with Berlin only.")
+        # Verify the model surfaced actual weather data (temp 8 or condition).
+        has_temp = bool(re.search(r"(?<!\d)8(?!\d)", state.final_answer))
+        has_condition = "overcast" in state.final_answer.lower()
+        if has_temp or has_condition:
+            return _pass("Used get_weather with Berlin only.")
+        return _partial(
+            "Called get_weather correctly but did not surface the weather data in the answer.",
+        )
     if not used_weather and used_web and _is_only_tool(state, "web_search"):
         return _partial("Answered functionally via web_search, but missed the specialist tool.")
     return _fail("Did not cleanly route the request to get_weather.")
@@ -151,7 +158,13 @@ def _tc02_eval(state: ScenarioState) -> ScenarioEvaluation:
     )
     web = _has_tool_call(state, "web_search")
     if stock and not web and len(state.tool_calls) == 1:
-        return _pass("Used only get_stock_price for AAPL.")
+        # Verify the model surfaced the actual stock price.
+        has_price = _answer_contains_number(state.final_answer, "187")
+        if has_price:
+            return _pass("Used only get_stock_price for AAPL.")
+        return _partial(
+            "Called get_stock_price correctly but did not surface the price in the answer.",
+        )
     if stock and web:
         return _partial("Called the right tool, but added unnecessary web_search.")
     return _fail("Did not isolate the request to get_stock_price.")
@@ -329,7 +342,18 @@ def _tc06_eval(state: ScenarioState) -> ScenarioEvaluation:
         for c in calls
     )
     if len(calls) >= 2 and has_spanish and has_japanese and not invalid_bundled:
-        return _pass("Issued separate translate_text calls for both languages.")
+        # Verify the model surfaced the actual translations.
+        answer = state.final_answer
+        has_spanish_text = "Dónde" in answer or (
+            "hospital" in answer.lower() and "cercano" in answer
+        )
+        has_japanese_text = "病院" in answer or "最寄り" in answer or "どこ" in answer
+        if has_spanish_text or has_japanese_text:
+            return _pass("Issued separate translate_text calls for both languages.")
+        return _partial(
+            "Called translate_text correctly for both languages but did not surface "
+            "the translations in the answer.",
+        )
     return _fail("Did not split the translation request into two valid tool calls.")
 
 

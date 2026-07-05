@@ -6,6 +6,7 @@ model ability to navigate a crowded 52-tool namespace.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from tool_eval_bench.domain.scenarios import (
@@ -93,7 +94,15 @@ def _tc37_eval(state: ScenarioState) -> ScenarioEvaluation:
     ]
 
     if used_weather and total_calls == 1:
-        return _pass("Used get_weather with Berlin only — perfect selection from 52 tools.")
+        # Verify the model surfaced actual weather data (temp 8 or condition).
+        has_temp = bool(re.search(r"(?<!\d)8(?!\d)", state.final_answer))
+        has_condition = "overcast" in state.final_answer.lower()
+        if has_temp or has_condition:
+            return _pass("Used get_weather with Berlin only — perfect selection from 52 tools.")
+        return _partial(
+            "Selected get_weather perfectly from 52 tools but did not surface "
+            "the weather data in the answer.",
+        )
     if used_weather and not domain_tools_used and total_calls <= 2:
         return _partial("Found get_weather but called an extra tool unnecessarily.")
     if used_weather and domain_tools_used:

@@ -369,7 +369,7 @@ class TestTC06Contract:
                     "turn": 1,
                 },
             ],
-            final_answer="Spanish: ..., Japanese: ...",
+            final_answer="Spanish: ¿Dónde está el hospital más cercano?\nJapanese: 最寄りの病院はどこですか？",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
