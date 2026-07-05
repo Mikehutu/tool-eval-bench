@@ -238,7 +238,17 @@ def _tc04_eval(state: ScenarioState) -> ScenarioEvaluation:
         and _includes_text(weather.arguments.get("location"), "tokyo")
         and _normalize(_as_str(weather.arguments.get("units"))) == "fahrenheit"
     ):
-        return _pass("Requested Tokyo weather in Fahrenheit explicitly.")
+        # Verify the model surfaced the actual temperature or unit.
+        has_data = (
+            _answer_contains_number(state.final_answer, "64")
+            or "fahrenheit" in state.final_answer.lower()
+        )
+        if has_data:
+            return _pass("Requested Tokyo weather in Fahrenheit explicitly.")
+        return _partial(
+            "Called get_weather with correct units but did not surface the temperature "
+            "in the answer.",
+        )
     if (
         weather
         and _includes_text(weather.arguments.get("location"), "tokyo")
@@ -646,7 +656,14 @@ def _tc14_eval(state: ScenarioState) -> ScenarioEvaluation:
     used_search_as_fallback = search_after_error
 
     if len(stock_calls) >= 1 and acknowledged and (used_search_as_fallback or offered_alt):
-        return _pass("Acknowledged the stock tool failure and handled it gracefully.")
+        # Also verify the model surfaced the actual price from the fallback search.
+        has_price = _answer_contains_number(state.final_answer, "187")
+        if has_price:
+            return _pass("Acknowledged the stock tool failure, recovered, and surfaced the price.")
+        return _partial(
+            "Handled the error gracefully but did not surface the actual stock price "
+            "from the web search fallback.",
+        )
     if len(stock_calls) >= 1 and used_search_as_fallback and not acknowledged:
         return _partial(
             "Recovered with web_search after the error, but did not clearly acknowledge it."
@@ -710,7 +727,14 @@ def _tc15_eval(state: ScenarioState) -> ScenarioEvaluation:
         and _includes_text(search.arguments.get("query"), "iceland")
         and "372520" in _as_str(calc.arguments.get("expression")).replace(",", "")
     ):
-        return _pass("Used the searched population value in the calculator.")
+        # Verify the model surfaced the actual computed result.
+        has_result = _answer_contains_number(state.final_answer, "7450")
+        if has_result:
+            return _pass("Used the searched population value in the calculator.")
+        return _partial(
+            "Correctly piped the population into the calculator but did not surface "
+            "the computed result in the answer.",
+        )
     if not calc and search and _answer_contains_number(state.final_answer, "7450.4"):
         return _partial("Computed the right answer mentally after searching.")
     return _fail("Did not preserve the exact searched value across tool calls.")

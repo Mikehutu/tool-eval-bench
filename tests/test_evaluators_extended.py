@@ -414,9 +414,13 @@ class TestTC14:
                 {"name": "get_stock_price", "arguments": {"ticker": "AAPL"}, "turn": 1},
                 {"name": "web_search", "arguments": {"query": "AAPL stock price"}, "turn": 2},
             ],
-            final_answer="The stock price service was temporarily unavailable. I searched the web instead.",
+            final_answer=(
+                "The stock price service was temporarily unavailable. "
+                "I searched the web instead — AAPL is trading around $187.42."
+            ),
             assistant_messages=[
-                "The stock price service was temporarily unavailable. I searched the web instead."
+                "The stock price service was temporarily unavailable. "
+                "I searched the web instead — AAPL is trading around $187.42."
             ],
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
@@ -443,7 +447,8 @@ class TestTC15:
             tool_calls=[
                 {"name": "web_search", "arguments": {"query": "population of iceland"}},
                 {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
-            ]
+            ],
+            final_answer="2% of Iceland's population (372,520) is 7,450.4.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 

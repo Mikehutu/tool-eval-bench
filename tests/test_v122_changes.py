@@ -33,8 +33,9 @@ def _sc(sid: str):
     return next(s for s in ALL_SCENARIOS if s.id == sid)
 
 
-def _state(tool_calls: list[dict] | None = None) -> ScenarioState:
+def _state(tool_calls: list[dict] | None = None, final_answer: str = "") -> ScenarioState:
     state = ScenarioState()
+    state.final_answer = final_answer
     if tool_calls:
         for tc in tool_calls:
             state.tool_calls.append(
@@ -63,7 +64,8 @@ class TestTC15FlexibleQuery:
             tool_calls=[
                 {"name": "web_search", "arguments": {"query": "population of iceland"}},
                 {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
-            ]
+            ],
+            final_answer="2% of Iceland's population is 7,450.4.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
@@ -73,7 +75,8 @@ class TestTC15FlexibleQuery:
             tool_calls=[
                 {"name": "web_search", "arguments": {"query": "Iceland population 2026"}},
                 {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
-            ]
+            ],
+            final_answer="2% of 372,520 is 7,450.4.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
@@ -83,7 +86,8 @@ class TestTC15FlexibleQuery:
             tool_calls=[
                 {"name": "web_search", "arguments": {"query": "Population Iceland current"}},
                 {"name": "calculator", "arguments": {"expression": "372520 * 0.02"}},
-            ]
+            ],
+            final_answer="The result is 7450.4 people.",
         )
         assert self.sc.evaluate(s).status == ScenarioStatus.PASS
 
