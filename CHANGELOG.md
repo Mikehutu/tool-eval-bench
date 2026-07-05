@@ -42,6 +42,22 @@ All notable changes to `tool-eval-bench` are documented here.
   closes unterminated strings and unbalanced braces/brackets before
   building `ProviderToolCall` objects, ensuring arguments are parseable
   regardless of the server's stream-interval setting.
+- **Answer-content validation gap in 16 evaluators
+  ([#22](https://github.com/SeraphimSerapis/tool-eval-bench/issues/22))**
+  — scenario evaluators returned `_pass` when the model called the correct
+  tools but produced a placeholder answer (e.g. *"I checked the weather
+  for you"*) without surfacing the actual data from the tool results.
+  All 16 affected evaluators now verify that `final_answer` contains
+  the key data values; correct tools + placeholder/missing answer is
+  demoted to `_partial` (1 pt) instead of `_pass` (2 pts).
+  Affected scenarios: TC-01, TC-02, TC-04, TC-06, TC-09, TC-14, TC-15,
+  TC-16, TC-22, TC-27, TC-37, TC-40, TC-45, TC-52, TC-61, TC-70.
+  Design choices: digit-boundary regex `(?<!\d)N(?!\d)` prevents false
+  positives when the target number is a substring (e.g. `12` in `412.78`);
+  TC-16 exempts the German error-handling path (tool returned HTTP error,
+  no data to surface); TC-22 now validates JSON values, not just key
+  presence.  28 new tests added (14 in `test_tc09_tc27_answer_check.py`,
+  14 in `test_answer_content_partial.py`).  Test count: **1,935**.
 
 ### Changed
 
