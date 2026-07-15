@@ -846,7 +846,7 @@ class TestDryRun:
             categories=None,
         )
         scenarios = _resolve_scenarios(args)
-        assert len(scenarios) == 69
+        assert len(scenarios) == 79
 
     def test_dry_run_short_subset(self):
         """Dry-run with --short should list only 15 scenarios."""

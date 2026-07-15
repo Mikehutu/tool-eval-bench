@@ -152,14 +152,20 @@ def _initial_messages(
     reference_day: str | None = None,
     context_pressure_messages: list[ChatMessage] | None = None,
     scenario_id: str | None = None,
+    system_prompt_override: str | None = None,
+    rag_context: str | None = None,
 ) -> list[ChatMessage]:
     ref_date = reference_date or BENCHMARK_REFERENCE_DATE
     ref_day = reference_day or BENCHMARK_REFERENCE_DAY
+    base_sys_prompt = system_prompt_override or SYSTEM_PROMPT
+    if rag_context:
+        base_sys_prompt += f"\n\n[RETRIEVED CONTEXT]\n{rag_context}\n[/RETRIEVED CONTEXT]"
+
     msgs: list[ChatMessage] = [
         {
             "role": "system",
             "content": (
-                f"{SYSTEM_PROMPT}\n\n"
+                f"{base_sys_prompt}\n\n"
                 f"Benchmark context: today is {ref_date} ({ref_day}). "
                 "Use this date for any relative time request."
             ),
@@ -311,6 +317,8 @@ async def run_scenario(
         reference_day=reference_day,
         context_pressure_messages=context_pressure_messages,
         scenario_id=scenario.id,
+        system_prompt_override=scenario.system_prompt_override,
+        rag_context=scenario.rag_context,
     )
     # None → use defaults; [] → explicitly no tools
     scenario_tools = UNIVERSAL_TOOLS if scenario.tools_override is None else scenario.tools_override

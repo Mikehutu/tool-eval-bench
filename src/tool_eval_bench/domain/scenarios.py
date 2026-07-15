@@ -167,6 +167,11 @@ class ScenarioDefinition:
     # to the adapter's response_format parameter. Used by structured output
     # scenarios to request JSON schema enforcement.
     response_format_override: dict[str, Any] | None = None
+    # Optional system_prompt override to entirely replace the default system prompt.
+    system_prompt_override: str | None = None
+    # Optional RAG context injection. If provided, this text is appended to
+    # the system prompt to simulate retrieved knowledge base information.
+    rag_context: str | None = None
     # Difficulty rating (1–5 scale).  None means "unrated" for backward
     # compatibility.  See docs/methodology.md for the tier definitions.
     #   1 = trivial   — single tool, obvious mapping

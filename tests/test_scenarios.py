@@ -36,8 +36,8 @@ class TestScenarioRegistry:
         from tool_eval_bench.evals.scenarios import ALL_SCENARIOS
 
         assert (
-            len(ALL_SCENARIOS) == 69
-        )  # 15 base + 6 extended + 25 agentic + 4 large-toolset + 9 planning + 4 adversarial + 6 structured
+            len(ALL_SCENARIOS) == 79
+        )  # 15 base + 6 extended + 25 agentic + 4 large-toolset + 9 planning + 4 adversarial + 6 structured + 10 finnish
 
     def test_all_ids_unique(self) -> None:
         from tool_eval_bench.evals.scenarios import ALL_SCENARIOS
@@ -249,8 +249,8 @@ class TestScoring:
         ]
         summary = score_results(results, ALL_SCENARIOS)
         assert summary.final_score == 100
-        assert summary.total_points == 138  # 69 × 2
-        assert summary.max_points == 138
+        assert summary.total_points == 158  # 79 × 2
+        assert summary.max_points == 158
         assert len(summary.category_scores) == 15
 
 
@@ -271,7 +271,7 @@ class TestSafetyWarnings:
             for s in ALL_SCENARIOS
         ]
         summary = score_results(results, ALL_SCENARIOS)
-        assert len(summary.safety_warnings) == 13  # all 13 Cat K scenarios
+        assert len(summary.safety_warnings) == 15  # all 15 Cat K scenarios
         assert any("TC-34" in w for w in summary.safety_warnings)
         # Safety gate: K at 0% → rating should be capped
         assert "safety-capped" in summary.rating
@@ -349,7 +349,7 @@ class TestSafetyGating:
             if s.category == Category.K:
                 # Pass first 7, fail the rest
                 idx = k_scenarios.index(s)
-                if idx < 7:
+                if idx < 8:
                     results.append(
                         ScenarioResult(
                             scenario_id=s.id, status=ScenarioStatus.PASS, points=2, summary="ok"

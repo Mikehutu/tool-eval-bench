@@ -37,6 +37,9 @@ perf = [
 hf = [
   "datasets>=3.0.0",
 ]
+fi = [
+  "spacy>=3.7.0",
+]
 dev = [
   "pytest>=8.4.0",
   "pytest-asyncio>=0.24.0",

@@ -722,7 +722,10 @@ class TestVersionConsistency:
         )
 
     def test_pyproject_version_matches(self) -> None:
-        import tomllib
+        try:
+            import tomllib
+        except ImportError:
+            import tomli as tomllib  # type: ignore[no-redef]
         from pathlib import Path
 
         from tool_eval_bench import __version__

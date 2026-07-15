@@ -977,6 +977,7 @@ from tool_eval_bench.evals.scenarios_extended import (  # noqa: E402
     EXTENDED_DISPLAY_DETAILS,
     EXTENDED_SCENARIOS,
 )
+from tool_eval_bench.evals.scenarios_fi import FINNISH_SCENARIOS  # noqa: E402
 from tool_eval_bench.evals.scenarios_hardmode import (  # noqa: E402
     HARDMODE_DISPLAY_DETAILS,
     HARDMODE_SCENARIOS,
@@ -1001,13 +1002,14 @@ ALL_SCENARIOS: list[ScenarioDefinition] = sorted(
     + LARGE_TOOLSET_SCENARIOS
     + PLANNING_SCENARIOS
     + ADVERSARIAL_SCENARIOS
-    + STRUCTURED_SCENARIOS,
-    key=lambda s: int(s.id.split("-")[1]),
+    + STRUCTURED_SCENARIOS
+    + FINNISH_SCENARIOS,
+    key=lambda s: int(re.search(r"\d+", s.id).group()) if re.search(r"\d+", s.id) else 99,
 )
 
 ALL_SCENARIOS_WITH_HARDMODE: list[ScenarioDefinition] = sorted(
     ALL_SCENARIOS + HARDMODE_SCENARIOS,
-    key=lambda s: int(s.id.split("-")[1]),
+    key=lambda s: int(re.search(r"\d+", s.id).group()) if re.search(r"\d+", s.id) else 99,
 )
 
 # Merge display details
