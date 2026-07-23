@@ -12,9 +12,9 @@ from tool_eval_bench.domain.scenarios import ScenarioDefinition
 
 
 def resolve_scenarios(args: argparse.Namespace) -> list[ScenarioDefinition]:
-    """Resolve scenarios from --short, --scenarios, --categories, and --hardmode flags.
+    """Resolve scenarios from --short, --scenarios, --categories, --hardmode, and --finnish-only flags.
 
-    Priority: --scenarios (individual IDs) > --categories > --short > all.
+    Priority: --scenarios (individual IDs) > --finnish-only > --categories > --short > all.
     --hardmode-only runs Category P scenarios exclusively.
     --hardmode adds Category P scenarios to whichever base set is selected.
     """
@@ -23,11 +23,14 @@ def resolve_scenarios(args: argparse.Namespace) -> list[ScenarioDefinition]:
         ALL_SCENARIOS_WITH_HARDMODE,
         SCENARIOS,
     )
+    from tool_eval_bench.evals.scenarios_fi import FINNISH_SCENARIOS
     from tool_eval_bench.evals.scenarios_hardmode import HARDMODE_SCENARIOS
 
     # Determine the base scenario pool
     if getattr(args, "hardmode_only", False):
         base = list(HARDMODE_SCENARIOS)
+    elif getattr(args, "finnish_only", False):
+        base = list(FINNISH_SCENARIOS)
     elif args.short:
         base = list(SCENARIOS)
         if getattr(args, "hardmode", False):

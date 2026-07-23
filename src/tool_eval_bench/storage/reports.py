@@ -243,6 +243,58 @@ class MarkdownReporter:
             md.append("```")
             md.append("")
 
+        if any(str(r.scenario_id).startswith("FI-") for r in summary.scenario_results):
+            from collections import Counter
+            finnish = [r for r in summary.scenario_results if str(r.scenario_id).startswith("FI-")]
+            finnish_score = sum(r.points for r in finnish)
+            finnish_max = 2 * len(finnish)
+            md.extend(
+                [
+                    "## Finnish Localization Subsuite",
+                    "",
+                    f"- **Finnish Score**: **{finnish_score}** / {finnish_max}",
+                    f"- **Finnish Pass**: {sum(1 for r in finnish if r.status == ScenarioStatus.PASS)} / {len(finnish)}",
+                    "",
+                    "| ID | Title | Diff | Status | Points | Failure | Summary |",
+                    "|---|---|:---:|---:|---:|---|---|",
+                ]
+            )
+            for r in finnish:
+                diff = _scenario_diff.get(r.scenario_id)
+                diff_str = _diff_labels.get(diff, "?") if diff else "?"
+                title = _scenario_title.get(r.scenario_id, r.scenario_id)
+                md.append(
+                    f"| {r.scenario_id} | {title} | {diff_str} | {status_emoji.get(r.status, '?')} {r.status.value} | {r.points}/2 | {r.failure_kind or '—'} | {r.summary}{(' (' + r.note + ')') if r.note else ''} |"
+                )
+            diff_pass_fi: Counter[int] = Counter()
+            diff_total_fi: Counter[int] = Counter()
+            for r in finnish:
+                d = _scenario_diff.get(r.scenario_id)
+                if d:
+                    diff_total_fi[d] += 1
+                    if r.status == ScenarioStatus.PASS:
+                        diff_pass_fi[d] += 1
+            if diff_total_fi:
+                _tier_names = {1: "Trivial", 2: "Easy", 3: "Moderate", 4: "Hard", 5: "Very Hard"}
+                md.extend(["", "## Finnish Performance by Difficulty", ""])
+                md.append("| Tier | Scenarios | Passed | Rate |")
+                md.append("|---|:---:|:---:|:---:|")
+                for d in sorted(diff_total_fi):
+                    total = diff_total_fi[d]
+                    passed = diff_pass_fi[d]
+                    pct = round(passed / total * 100) if total else 0
+                    md.append(f"| {_tier_names.get(d, '?')} ({d}) | {total} | {passed} | {pct}% |")
+            md.extend(
+                ["", "## Finnish Traces", ""]
+            )
+            for r in finnish:
+                md.append(f"### {r.scenario_id}")
+                md.append("")
+                md.append("```text")
+                md.append(r.raw_log)
+                md.append("```")
+                md.append("")
+
         path.write_text("\n".join(md), encoding="utf-8")
         return path
 

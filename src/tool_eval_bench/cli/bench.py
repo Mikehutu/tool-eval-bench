@@ -1636,6 +1636,11 @@ def _make_parser() -> argparse.ArgumentParser:
         help="Specific scenario IDs to run (e.g. TC-01 TC-07). Default: all.",
     )
     select.add_argument(
+        "--finnish-only",
+        action="store_true",
+        help="Run ONLY the Finnish localization scenarios (FI-01..FI-10).",
+    )
+    select.add_argument(
         "--categories",
         nargs="*",
         default=None,

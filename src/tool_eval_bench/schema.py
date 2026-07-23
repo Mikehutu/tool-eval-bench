@@ -150,6 +150,12 @@ ARGS_SCHEMA: list[dict[str, Any]] = [
         "default": False,
         "description": "Run ONLY Hard Mode scenarios (Category P)",
     },
+    {
+        "name": "finnish_only",
+        "type": "bool",
+        "default": False,
+        "description": "Run ONLY Finnish localization scenarios (FI-01..FI-10)",
+    },
     # -- Run control --
     {
         "name": "timeout",
